@@ -1,4 +1,4 @@
-import Header from "../components/HeaderTemplate/header";
+import Header from "/src/pages/components/HeaderTemplate/header";
 import "/src/pages/main/main-page.css";
 
 const MainPage = () => {

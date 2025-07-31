@@ -1,0 +1,35 @@
+.top-header {
+    position: fixed;
+    top: 0;
+    left: 250px;
+    right: 0;
+    z-index: 1000;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 24px;
+    width: calc(100% - 250px);
+    box-sizing: border-box;
+    background-color: #fff;
+    transition: all 0.3s ease;
+    border-bottom: 1px solid #eee;
+}
+
+.header-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #333;
+}
+
+.right-section {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.notification-icon {
+    font-size: 24px;
+    color: black;
+    cursor: pointer;
+}

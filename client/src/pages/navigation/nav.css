@@ -16,27 +16,13 @@
     align-items: center;
 }
 
-/* Align toggle button (arrow) correctly depending on collapsed state */
-.Navigation .menu {
-    height: 35px;
-    aspect-ratio: 1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 24px;
-    color: white;
+/* Toggle arrow at top-right corner */
+.menu-top-right {
+    position: absolute;
+    top: 10px;
+    right: 10px;
     cursor: pointer;
-    z-index: 1;
-    align-self: flex-end; /* default when expanded */
-    transition: all 0.3s ease;
-}
-
-.Navigation.collapsed .menu {
-    align-self: center; /* center when collapsed */
-}
-
-.top-spacing {
-    height: 20px;
+    z-index: 10;
 }
 
 .menu-icon {
@@ -44,61 +30,22 @@
     color: white;
 }
 
-.menu-icon.collapsed {
-    align-items: center;
-}
-
-.Navigation header {
-    margin: 10px 10px 0;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    justify-content: center;
-    align-items: center;
-    padding: 25px 0 15px;
-    background-color: #007A8F;
-    border-radius: 10px;
+/* Batrasco logo styling */
+.batrasco-logo,
+.batrasco-logo-collapsed {
+    width: 60px;
+    height: auto;
     margin-bottom: 10px;
 }
 
-.Navigation header::after {
-    position: absolute;
-    content: "";
-    height: 1px;
-    width: 50%;
-    background-color: darkgray;
-    bottom: 0;
+.nav-header-logo {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 16px 0;
 }
 
-.Navigation header .profile {
-    height: 60px;
-    aspect-ratio: 1;
-    border-radius: 50%;
-    background-color: lightgray;
-}
-
-.profile-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
-    transition: all 0.3s ease;
-}
-
-.Navigation.collapsed .profile-img {
-    width: 40px;
-    height: 40px;
-}
-
-.Navigation header span {
-    font-size: 15px;
-}
-
-.Navigation.collapsed header span {
-    display: none;
-}
-
+/* Nav Icon Styles */
 .NavIcon {
     display: flex;
     align-items: center;

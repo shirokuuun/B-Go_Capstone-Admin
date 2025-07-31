@@ -1,4 +1,4 @@
-import './home.css'
+import '/src/pages/home/home.css'
 import Nav from '/src/pages/navigation/nav.jsx'
 import MainPage from '/src/pages/main/main-page.jsx'
 
