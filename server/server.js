@@ -8,7 +8,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 app.get("/api", (req, res) => {
-  res.json({ fruits: ["Apple", "strawberry", "Cherry"] });
+  res.json({ fruits: ["Apple", "strawberry", "nigga"] });
 });
 
 app.listen(3000, () => {
