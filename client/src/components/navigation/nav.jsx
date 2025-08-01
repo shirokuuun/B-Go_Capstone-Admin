@@ -1,8 +1,7 @@
 import "./nav.css";
 import BatrascoLogo from '/src/assets/batrasco-logo.png';
-import NavIcon from '/src/pages/components/NavIconTemplate/NavIcon.jsx';
+import NavIcon from '/src/components/NavIconTemplate/NavIcon.jsx';
 
-import { useState } from "react";
 import { MdDashboard } from "react-icons/md";
 import { FaUsers } from "react-icons/fa";
 import { MdDomainVerification } from "react-icons/md";
@@ -13,9 +12,7 @@ import { MdPayment } from "react-icons/md";
 import { IoMdSettings } from "react-icons/io";
 import { FaAngleLeft, FaAngleRight } from "react-icons/fa";
 
-const Nav = () => {
-  const [collapsed, setCollapsed] = useState(false);
-
+const Nav = ({ collapsed, setCollapsed }) => {
   return (
     <div className={`Navigation ${collapsed ? 'collapsed' : ''}`}>
       {/* Toggle button at top-right */}
@@ -33,14 +30,14 @@ const Nav = () => {
       </div>
 
       {/* Sidebar Navigation Icons */}
-      <NavIcon title="Dashboard" Icon={MdDashboard} collapsed={collapsed} />
-      <NavIcon title="User Management" Icon={FaUsers} collapsed={collapsed} />
-      <NavIcon title="ID Verification" Icon={MdDomainVerification} collapsed={collapsed} />
-      <NavIcon title="Trip Schedules" Icon={GrSchedules} collapsed={collapsed} />
-      <NavIcon title="Pre-Bookings" Icon={MdBookmarkAdd} collapsed={collapsed} />
-      <NavIcon title="SOS Requests" Icon={MdSos} collapsed={collapsed} />
-      <NavIcon title="Payment Transactions" Icon={MdPayment} collapsed={collapsed} />
-      <NavIcon title="Settings" Icon={IoMdSettings} collapsed={collapsed} />
+      <NavIcon title="Dashboard" Icon={MdDashboard} to="/" collapsed={collapsed} />
+      <NavIcon title="User Management" Icon={FaUsers} to="/users" collapsed={collapsed} />
+      <NavIcon title="ID Verification" Icon={MdDomainVerification} to="/verification" collapsed={collapsed} />
+      <NavIcon title="Trip Schedules" Icon={GrSchedules} to="/schedules" collapsed={collapsed} />
+      <NavIcon title="Pre-Bookings" Icon={MdBookmarkAdd} to="/bookings" collapsed={collapsed} />
+      <NavIcon title="SOS Requests" Icon={MdSos} to="/sos" collapsed={collapsed} />
+      <NavIcon title="Payment Transactions" Icon={MdPayment} to="/payments" collapsed={collapsed} />
+      <NavIcon title="Settings" Icon={IoMdSettings} to="/settings" collapsed={collapsed} />
     </div>
   );
 };
