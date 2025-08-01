@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "/src/firebase/firebase.js";
 import { useNavigate } from "react-router-dom";
+import { loginAdmin } from "/src/pages/auth/authService.js";
 import "./login.css";
 
 function Login() {
@@ -12,13 +13,16 @@ function Login() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setError("");
+
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      navigate("/"); 
+      await loginAdmin(email, password);
+      navigate("/");
     } catch (err) {
-      setError("Invalid email or password.");
+      setError(err.message);
     }
   };
+
 
   return (
     <div className="login-page"> 
@@ -43,7 +47,7 @@ function Login() {
               required
             />
             <button type="submit">Login</button>
-            {error && <p className="error">{error}</p>}
+            <p className="error">{error || "\u00A0"}</p>
           </form>
           <div className="login-footer">
             <p>Don't have an Admin account? <a href="/signup">Register here</a></p>

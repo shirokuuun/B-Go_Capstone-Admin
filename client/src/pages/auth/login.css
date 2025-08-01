@@ -83,9 +83,12 @@
 
 .error {
   color: red;
-  margin-top: 10px;
   font-size: 14px;
+  min-height: 20px;
+  margin-top: 10px;
+  text-align: center;
 }
+
 
 .login-title {
   text-align: center;
@@ -100,7 +103,7 @@
 
 .login-footer {
   text-align: center;
-  margin-top: 100px;
+  margin-top: 70px;
 }
 
 .login-footer a {

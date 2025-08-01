@@ -13,7 +13,7 @@
 }
 
 .nav-icon:hover {
-    background-color: #4e686c32;
+    background-color: #34484b32;
 }
 
 h2 {
@@ -55,8 +55,8 @@ header {
 }
 
 .nav-icon.active {
-  background-color: #4e686c32; /* subtle highlight background */
-  border-left: 15px solid #007A8F; /* left accent */
+  background-color: #12262932; 
+  border-left: 15px solid #86d3e0; 
 }
 
 .nav-icon .icon,

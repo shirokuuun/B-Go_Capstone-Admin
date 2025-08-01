@@ -1,14 +1,13 @@
-import { useLocation } from 'react-router-dom';
+import { useLocation, Outlet } from 'react-router-dom';
 import { useState } from 'react';
 import Nav from '/src/components/navigation/nav.jsx';
 import Header from '/src/components/HeaderTemplate/Header.jsx';
-import { Outlet } from 'react-router-dom';
+import '/src/components/layout/layout.css';
 
 const Layout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
 
-  // Map each path to a title
   const getPageTitle = (path) => {
     switch (path) {
       case '/':
@@ -37,17 +36,11 @@ const Layout = () => {
   return (
     <div className="layout-container">
       <Nav collapsed={collapsed} setCollapsed={setCollapsed} />
-      <div
-        className="main-section"
-        style={{
-          marginLeft: collapsed ? '80px' : '250px',
-          transition: 'margin-left 0.3s ease',
-        }}
-      >
+      <div className="main-section">
         <Header collapsed={collapsed} pageTitle={pageTitle} />
-        <div className="page-content" style={{ marginTop: '60px', padding: '24px' }}>
+        <main className="page-content">
           <Outlet />
-        </div>
+        </main>
       </div>
     </div>
   );

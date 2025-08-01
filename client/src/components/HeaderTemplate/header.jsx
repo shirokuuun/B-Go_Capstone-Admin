@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { logoutUser } from '/src/pages/auth/authService.js'; 
 
 const Header = ({ collapsed, pageTitle }) => {
-  const leftOffset = collapsed ? '80px' : '250px';
+  const leftOffset = collapsed ? '100px' : '250px';
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -20,10 +20,6 @@ const Header = ({ collapsed, pageTitle }) => {
   return (
     <header
       className="top-header"
-      style={{
-        left: leftOffset,
-        width: `calc(100% - ${leftOffset})`,
-      }}
     >
       <div className={`header-title ${collapsed ? 'collapsed-spacing' : ''}`}>
         {pageTitle}
@@ -33,6 +29,7 @@ const Header = ({ collapsed, pageTitle }) => {
         <FiLogOut className="logout-icon" onClick={handleLogout} />
       </div>
     </header>
+
   );
 };
 

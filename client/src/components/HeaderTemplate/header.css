@@ -1,52 +1,49 @@
 .top-header {
-    position: fixed;
-    top: 0;
-    left: 250px;
-    right: 0;
-    z-index: 1000;
-
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 24px;
-    width: calc(100% - 250px);
-    box-sizing: border-box;
-    background-color: transparent;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    height: 80px;
+  position: relative;
+  top: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 32px;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  height: 80px;
+  border-bottom: 1px solid #e0e0e0;
 }
 
 .header-title {
-    font-size: 30px;
-    font-weight: 600;
-    color: #007A8F;
-    transition: margin-left 0.3s ease;
+  font-size: 26px;
+  font-weight: 600;
+  color: #007A8F;
+  font-family: 'Outfit', sans-serif;
+  letter-spacing: 0.5px;
+  transition: margin-left 0.3s ease;
 }
 
 .collapsed-spacing {
-  margin-left: 12px; 
+  margin-left: 12px;
 }
 
 .right-section {
-    display: flex;
-    align-items: center;
-    gap: 50px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
 }
 
-.notification-icon {
-    font-size: 30px;
-    color: #007A8F;
-    cursor: pointer;
-}
-
+.notification-icon,
 .logout-icon {
-  font-size: 28px;
+  font-size: 26px;
   color: #007A8F;
   cursor: pointer;
-  transition: color 0.2s ease;
+  transition: transform 0.2s ease, color 0.2s ease;
 }
 
+.notification-icon:hover,
 .logout-icon:hover {
-  color: #005f70; 
+  color: #005f70;
+  transform: scale(1.1); /* Slight zoom on hover */
 }

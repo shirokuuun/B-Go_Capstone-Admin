@@ -1,5 +1,9 @@
-import { createUserWithEmailAndPassword, signOut } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+} from "firebase/auth";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import { auth, db } from "/src/firebase/firebase.js";
 
 /**
@@ -23,6 +27,34 @@ export const signupAdmin = async ({ name, email, password }) => {
   });
 
   return user;
+};
+
+/**
+ * Logs in an admin user and checks their role from Firestore.
+ * @param {string} email
+ * @param {string} password
+ * @returns {Promise<Object>} The logged-in Firebase user if role is 'admin'.
+ * @throws {Error} If the user is not an admin or not found.
+ */
+export const loginAdmin = async (email, password) => {
+  const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  const user = userCredential.user;
+
+  const userDocRef = doc(db, "Admin", user.uid);
+  const userDocSnap = await getDoc(userDocRef);
+
+  if (userDocSnap.exists()) {
+    const userData = userDocSnap.data();
+    if (userData.role === "admin") {
+      return user;
+    } else {
+      await signOut(auth);
+      throw new Error("Access denied. This account is not an admin.");
+    }
+  } else {
+    await signOut(auth);
+    throw new Error("Admin account not found.");
+  }
 };
 
 /**

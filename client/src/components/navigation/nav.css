@@ -1,78 +1,88 @@
 .Navigation {
-    position: sticky;
-    top: 0;
-    display: flex;
-    flex-direction: column;
-    width: 250px;
-    min-height: 100vh;
-    color: white;
-    background-color: #0091AD;
-    padding: 16px;
-    transition: width 0.3s ease;
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  width: 250px;
+  min-height: 100vh;
+  background-color: #007c91; /* Richer tone */
+  padding: 16px 0;
+  transition: width 0.3s ease;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
 
 .Navigation.collapsed {
-    width: 100px;
-    align-items: center;
+  width: 99px;
+  align-items: center;
 }
 
-/* Toggle arrow at top-right corner */
 .menu-top-right {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    cursor: pointer;
-    z-index: 10;
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  cursor: pointer;
+  z-index: 10;
 }
 
 .menu-icon {
-    font-size: 24px;
-    color: white;
-}
-
-/* Batrasco logo styling */
-.batrasco-logo,
-.batrasco-logo-collapsed {
-    width: 60px;
-    height: auto;
-    margin-bottom: 10px;
+  font-size: 20px;
+  color: white;
 }
 
 .nav-header-logo {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 16px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  margin-bottom: 10px;
 }
 
-/* Nav Icon Styles */
+.batrasco-logo {
+  width: 60px;
+  height: auto;
+  transition: width 0.3s ease;
+}
+
+.Navigation.collapsed .batrasco-logo {
+  width: 50px;
+}
+
 .NavIcon {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px;
-    cursor: pointer;
-    color: white;
-    transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.NavIcon:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
 }
 
 .NavIcon span {
-    font-size: 14px;
-    white-space: nowrap;
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .Navigation.collapsed .NavIcon span {
-    display: none;
+  display: none;
 }
 
 .icon {
-    transition: font-size 0.3s ease;
+  font-size: 22px;
+  min-width: 24px;
+  text-align: center;
+  transition: font-size 0.3s ease;
 }
 
-.icon-large {
-    font-size: 28px;
-}
-
-.icon-small {
-    font-size: 20px;
+.NavIcon.active {
+  background-color: #0c1e22;
+  border-left: 4px solid #fff;
+  padding-left: 16px;
 }
