@@ -10,21 +10,21 @@ const Layout = () => {
 
   const getPageTitle = (path) => {
     switch (path) {
-      case '/':
+      case '/admin':
         return 'Dashboard';
-      case '/users':
+      case '/admin/users':
         return 'User Management';
-      case '/verification':
+      case '/admin/verification':
         return 'ID Verification';
-      case '/schedules':
+      case '/admin/schedules':
         return 'Trip Schedules';
-      case '/bookings':
+      case '/admin/bookings':
         return 'Pre-Bookings';
-      case '/sos':
+      case '/admin/sos':
         return 'SOS Requests';
-      case '/payments':
+      case '/admin/payments':
         return 'Payment Transactions';
-      case '/settings':
+      case '/admin/settings':
         return 'Settings';
       default:
         return '';

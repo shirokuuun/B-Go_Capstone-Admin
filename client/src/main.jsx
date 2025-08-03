@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 import Layout from '/src/components/layout/layout.jsx'; 
 import Dashboard from '/src/pages/dashboard/dashboard.jsx';
@@ -13,24 +13,25 @@ import PaymentTransactions from '/src/pages/payments/PaymentTransactions.jsx';
 import Settings from '/src/pages/settings/settings';
 import PageTransitionWrapper from '/src/components/PageTransition/PageTransition.jsx';
 import Login from '/src/pages/auth/login.jsx'; 
-import Signup from '/src/pages/auth/signup.jsx'; // Assuming you have a Signup component
+import Signup from '/src/pages/auth/signup.jsx'; 
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <Routes>
-        {/* 🔐 Login route outside of layout */}
-        
+        {/* 🔐 Default redirect to /login */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+
+        {/* 🔐 Login and Signup routes */}
         <Route path="/login" element={
           <PageTransitionWrapper><Login /></PageTransitionWrapper>
         } />
-
         <Route path="/signup" element={
           <PageTransitionWrapper><Signup /></PageTransitionWrapper>
         } />
 
-        {/* 👇 Protected routes wrapped in Layout */}
-        <Route path="/" element={<Layout />}>
+        {/* 🛡️ Protected Routes (inside Layout) */}
+        <Route path="/admin" element={<Layout />}>
           <Route index element={<PageTransitionWrapper><Dashboard /></PageTransitionWrapper>} />
           <Route path="users" element={<PageTransitionWrapper><UserManagement /></PageTransitionWrapper>} />
           <Route path="verification" element={<PageTransitionWrapper><IDVerification /></PageTransitionWrapper>} />

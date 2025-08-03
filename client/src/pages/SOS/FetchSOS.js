@@ -1,10 +1,11 @@
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
 import { db } from "/src/firebase/firebase";
 
 export const fetchSOSRequests = async () => {
-  const querySnapshot = await getDocs(collection(db, "sosRequests"));
-  const sosList = [];
+  const q = query(collection(db, "sosRequests"), orderBy("timestamp", "desc"));
+  const querySnapshot = await getDocs(q);
 
+  const sosList = [];
   querySnapshot.forEach((doc) => {
     sosList.push({
       id: doc.id,
@@ -13,4 +14,19 @@ export const fetchSOSRequests = async () => {
   });
 
   return sosList;
+};
+
+// Update SOS request status
+export const updateSOSStatus = async (sosId, newStatus) => {
+  try {
+    const sosRef = doc(db, 'sosRequests', sosId);
+    await updateDoc(sosRef, {
+      status: newStatus,
+      updatedAt: new Date()
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating SOS status:', error);
+    return { success: false, error: error.message };
+  }
 };

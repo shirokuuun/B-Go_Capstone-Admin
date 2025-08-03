@@ -30,14 +30,14 @@ const Nav = ({ collapsed, setCollapsed }) => {
       </div>
 
       {/* Sidebar Navigation Icons */}
-      <NavIcon title="Dashboard" Icon={MdDashboard} to="/" collapsed={collapsed} />
-      <NavIcon title="User Management" Icon={FaUsers} to="/users" collapsed={collapsed} />
-      <NavIcon title="ID Verification" Icon={MdDomainVerification} to="/verification" collapsed={collapsed} />
-      <NavIcon title="Trip Schedules" Icon={GrSchedules} to="/schedules" collapsed={collapsed} />
-      <NavIcon title="Pre-Bookings" Icon={MdBookmarkAdd} to="/bookings" collapsed={collapsed} />
-      <NavIcon title="SOS Requests" Icon={MdSos} to="/sos" collapsed={collapsed} />
-      <NavIcon title="Payment Transactions" Icon={MdPayment} to="/payments" collapsed={collapsed} />
-      <NavIcon title="Settings" Icon={IoMdSettings} to="/settings" collapsed={collapsed} />
+      <NavIcon title="Dashboard" Icon={MdDashboard} to="/admin" collapsed={collapsed} />
+      <NavIcon title="User Management" Icon={FaUsers} to="/admin/users" collapsed={collapsed} />
+      <NavIcon title="ID Verification" Icon={MdDomainVerification} to="/admin/verification" collapsed={collapsed} />
+      <NavIcon title="Trip Schedules" Icon={GrSchedules} to="/admin/schedules" collapsed={collapsed} />
+      <NavIcon title="Pre-Bookings" Icon={MdBookmarkAdd} to="/admin/bookings" collapsed={collapsed} />
+      <NavIcon title="SOS Requests" Icon={MdSos} to="/admin/sos" collapsed={collapsed} />
+      <NavIcon title="Payment Transactions" Icon={MdPayment} to="/admin/payments" collapsed={collapsed} />
+      <NavIcon title="Settings" Icon={IoMdSettings} to="/admin/settings" collapsed={collapsed} />
     </div>
   );
 };
