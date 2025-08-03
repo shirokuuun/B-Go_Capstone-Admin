@@ -14,6 +14,8 @@ const Layout = () => {
         return 'Dashboard';
       case '/admin/users':
         return 'User Management';
+      case '/admin/conductor':
+        return 'Conductor';
       case '/admin/verification':
         return 'ID Verification';
       case '/admin/schedules':

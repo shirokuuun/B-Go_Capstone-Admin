@@ -14,6 +14,7 @@ import Settings from '/src/pages/settings/settings';
 import PageTransitionWrapper from '/src/components/PageTransition/PageTransition.jsx';
 import Login from '/src/pages/auth/login.jsx'; 
 import Signup from '/src/pages/auth/signup.jsx'; 
+import Conductor from '/src/pages/conductor/conductor.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -34,6 +35,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/admin" element={<Layout />}>
           <Route index element={<PageTransitionWrapper><Dashboard /></PageTransitionWrapper>} />
           <Route path="users" element={<PageTransitionWrapper><UserManagement /></PageTransitionWrapper>} />
+          <Route path="conductor" element={<PageTransitionWrapper><Conductor /></PageTransitionWrapper>} />
           <Route path="verification" element={<PageTransitionWrapper><IDVerification /></PageTransitionWrapper>} />
           <Route path="schedules" element={<PageTransitionWrapper><TripSchedules /></PageTransitionWrapper>} />
           <Route path="bookings" element={<PageTransitionWrapper><Bookings /></PageTransitionWrapper>} />

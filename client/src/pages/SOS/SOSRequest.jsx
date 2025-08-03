@@ -1,6 +1,7 @@
 import '/src/pages/SOS/SOSRequest.css';
 import { useState, useEffect } from 'react';
 import { fetchSOSRequests, updateSOSStatus } from '/src/pages/SOS/FetchSOS.js';
+import { RiArrowDropDownLine } from "react-icons/ri";
 
 function SOSRequest() {
   const [collapsed, setCollapsed] = useState(false);
@@ -193,33 +194,39 @@ function SOSRequest() {
             
             <div className="filters-container">
               {/* Status Filter */}
-              <div className="filter-group">
+             <div className="custom-select">
                 <label className="filter-label">Status:</label>
-                <select 
-                  value={statusFilter} 
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="status-filter"
-                >
-                  <option value="all">All ({statusCounts.all})</option>
-                  <option value="pending">Pending ({statusCounts.pending})</option>
-                  <option value="received">Received ({statusCounts.received})</option>
-                  <option value="cancelled">Cancelled ({statusCounts.cancelled})</option>
-                </select>
+                <div className="relative w-full">
+                  <select 
+                    value={statusFilter} 
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <option value="all">All ({statusCounts.all})</option>
+                    <option value="pending">Pending ({statusCounts.pending})</option>
+                    <option value="received">Received ({statusCounts.received})</option>
+                    <option value="cancelled">Cancelled ({statusCounts.cancelled})</option>
+                  </select>
+                  <RiArrowDropDownLine className="select-icon" />
+                </div>
               </div>
 
+
               {/* Time Filter */}
-              <div className="filter-group">
+              <div className="custom-select">
                 <label className="filter-label">Time:</label>
-                <select 
-                  value={timeFilter} 
-                  onChange={(e) => setTimeFilter(e.target.value)}
-                  className="time-filter"
-                >
-                  <option value="all">All Time</option>
-                  <option value="3days">Last 3 Days</option>
-                  <option value="1week">Last 1 Week</option>
-                  <option value="1month">Last 1 Month</option>
-                </select>
+                <div className="relative w-full">
+                  <select 
+                    value={timeFilter} 
+                    onChange={(e) => setTimeFilter(e.target.value)}
+                    className="time-filter"
+                  >
+                    <option value="all">All Time</option>
+                    <option value="3days">Last 3 Days</option>
+                    <option value="1week">Last 1 Week</option>
+                    <option value="1month">Last 1 Month</option>
+                  </select>
+                  <RiArrowDropDownLine className="select-icon" />
+                </div>
               </div>
             </div>
           </div>

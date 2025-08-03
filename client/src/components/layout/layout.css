@@ -2,13 +2,12 @@ html, body {
   height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden; /* Prevent global scroll */
 }
 
 .layout-container {
   display: flex;
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
 }
 
 .main-section {
@@ -16,6 +15,7 @@ html, body {
   display: flex;
   flex-direction: column;
   transition: margin-left 0.3s ease;
+  overflow: hidden;
 }
 
 .main-section.collapsed {
@@ -25,5 +25,6 @@ html, body {
 .page-content {
   flex: 1;
   padding: 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
-

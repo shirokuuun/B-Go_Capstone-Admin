@@ -1,4 +1,3 @@
-// src/pages/auth/Signup.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { signupAdmin } from "/src/pages/auth/authService.js";
@@ -33,11 +32,19 @@ function Signup() {
       <div className="signup-wrapper">
         {/* Left side - image */}
         <div className="signup-box left">
-          <img src="/signup-image.jpg" alt="Signup" className="signup-image" />
+          <img
+            src="/signup-image.jpg"
+            alt="Signup Visual"
+            className="signup-image"
+          />
         </div>
 
         {/* Right side - form */}
         <div className="signup-box right">
+          <div className="signup-logo">
+            {/* You would put your logo image here */}
+            {/* Example: <img src="/path/to/your/logo.png" alt="Company Logo" /> */}
+          </div>
           <div className="signup-title">
             <h2>Create Admin Account</h2>
           </div>
@@ -72,11 +79,12 @@ function Signup() {
               required
             />
             <button type="submit">Sign Up</button>
-            {error && <p className="error">{error}</p>}
+            <p className="error">{error || "\u00A0"}</p>
           </form>
+
           <div className="signup-footer">
             <p>Already have an Admin account? <a href="/login">Login here</a></p>
-        </div>
+          </div>
         </div>
       </div>
     </div>

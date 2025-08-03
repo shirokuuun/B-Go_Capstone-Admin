@@ -23,11 +23,14 @@ function Login() {
     }
   };
 
-
   return (
-    <div className="login-page"> 
+    <div className="login-page">
       <div className="login-wrapper">
         <div className="login-box left">
+          <div className="login-logo">
+            {/* You would put your logo image here */}
+            {/* Example: <img src="/path/to/your/logo.png" alt="Company Logo" /> */}
+          </div>
           <div className="login-title">
             <h2>Welcome Back</h2>
           </div>
@@ -51,7 +54,7 @@ function Login() {
           </form>
           <div className="login-footer">
             <p>Don't have an Admin account? <a href="/signup">Register here</a></p>
-        </div>
+          </div>
         </div>
         <div className="login-box right">
           <img
