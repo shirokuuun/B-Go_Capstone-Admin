@@ -376,6 +376,7 @@
 
 .conductor-actions {
   display: flex;
+  justify-content: space-between;
   gap: 10px;
 }
 
@@ -396,6 +397,16 @@
 
 .action-btn.view-trips:hover {
   background: #5a6fd8;
+  transform: translateY(-1px);
+}
+
+.action-btn.delete-conductor{
+  background: red;
+  color: white;
+}
+
+.action-btn.delete-conductor:hover{
+  background: rgb(232, 72, 72);
   transform: translateY(-1px);
 }
 

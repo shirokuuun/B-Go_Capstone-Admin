@@ -9,9 +9,12 @@ import {
   query,
   orderBy,
   onSnapshot,
-  where
+  where,
+  deleteDoc
 } from 'firebase/firestore';
-import { db, auth} from '/src/firebase/firebase';
+
+import { db, auth } from '/src/firebase/firebase';
+
 
 class ConductorService {
   constructor() {
@@ -568,6 +571,17 @@ async getConductorTrips(conductorId, limit = null) {
       errors: errors
     };
   }
+
+  async deleteConductor(conductorId) {
+    try {
+      await deleteDoc(doc(db, 'conductors', conductorId));
+      console.log('Deleted conductor:', conductorId);
+    } catch (error) {
+      console.error('Error deleting conductor:', error);
+      throw error;
+    }
+  }
+
 }
 
 

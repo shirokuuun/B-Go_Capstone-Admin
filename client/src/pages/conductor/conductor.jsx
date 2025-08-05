@@ -61,6 +61,17 @@ const Conductor = () => {
     }
   };
 
+  const handleDeleteConductor = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this conductor?")) return;
+    try {
+      await conductorService.deleteConductor(id);
+      fetchConductors(); // Refresh
+    } catch (error) {
+      console.error("Error deleting conductor:", error);
+    }
+  };
+
+
  const handleViewTrips = async (conductor) => {
   try {
     setDetailsLoading(true);
@@ -248,6 +259,15 @@ const Conductor = () => {
                     }}
                   >
                     View Trips
+                  </button>
+                  <button
+                    className="action-btn delete-conductor"
+                    onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteConductor(conductor.id);
+                  }}
+                  >
+                    Delete
                   </button>
                 </div>
               </div>
