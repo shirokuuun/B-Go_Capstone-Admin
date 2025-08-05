@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+client/src/it-capstone-6fe19-firebase-adminsdk-fbsvc-5f34d322d7.json
+
