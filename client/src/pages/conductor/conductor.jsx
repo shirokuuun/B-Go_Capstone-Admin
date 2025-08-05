@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import conductorService from '/src/pages/conductor/conductor.js';
 import './conductor.css';
+import { IoMdAdd } from "react-icons/io";
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '/src/firebase/firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '/src/firebase/firebase';
 
 const Conductor = () => {
   const [conductors, setConductors] = useState([]);
@@ -15,7 +20,7 @@ const Conductor = () => {
   const [selectedDate, setSelectedDate] = useState('all');
   const [trips, setTrips] = useState([]);
   const [availableDates, setAvailableDates] = useState([]);
-
+  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     fetchConductors();
@@ -77,7 +82,6 @@ const Conductor = () => {
   }
 };
 
-
   const filteredAndSortedConductors = () => {
     let filtered = conductors.filter(conductor => {
       const matchesSearch = 
@@ -134,8 +138,16 @@ const Conductor = () => {
   return (
     <div className="conductor-container">
       <div className="conductor-header">
-        <h1>Conductor Management</h1>
-        
+        <div className='header-add'>
+          <h1>Conductor Management</h1>
+
+          <div className="conductor-add">
+            <button className="add-btn" onClick={() => setShowAddModal(true)}>
+              <IoMdAdd className="add-icon" />
+              Add Conductor
+            </button>
+          </div>
+        </div>
         <div className="conductor-stats">
           <div className="stat-card">
             <div className="stat-number">{conductors.length}</div>
@@ -266,6 +278,17 @@ const Conductor = () => {
         </div>
       </div>
 
+      {/* Add Conductor Modal */}
+      {showAddModal && (
+        <AddConductorModal
+          onClose={() => setShowAddModal(false)}
+          onSuccess={() => {
+            setShowAddModal(false);
+            fetchConductors(); // Refresh the list
+          }}
+        />
+      )}
+
       {/* Trips Modal */}
       {showTripsModal && selectedConductorTrips && (
         <TripsModal
@@ -280,6 +303,186 @@ const Conductor = () => {
         setSelectedDate={setSelectedDate}
       />
       )}
+    </div>
+  );
+};
+
+const AddConductorModal = ({ onClose, onSuccess }) => {
+  const [formData, setFormData] = useState({
+    busNumber: '',
+    email: '',
+    name: '',
+    route: '',
+    password: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const extractDocumentId = (email) => {
+    // Extract everything before @ and replace dots with underscores
+    return email.split('@')[0].replace(/\./g, '_');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      // Validate required fields
+      if (!formData.busNumber || !formData.email || !formData.name || !formData.route || !formData.password) {
+        throw new Error('All fields are required');
+      }
+
+      // Create user in Firebase Authentication
+      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+      const user = userCredential.user;
+
+      // Extract document ID from email
+      const documentId = extractDocumentId(formData.email);
+
+      // Create conductor document in Firestore
+      const conductorData = {
+        busNumber: parseInt(formData.busNumber),
+        email: formData.email,
+        name: formData.name,
+        route: formData.route,
+        isOnline: false,
+        createdAt: new Date(),
+        lastSeen: null,
+        currentLocation: null,
+        uid: user.uid // Store the Firebase Auth UID for reference
+      };
+
+      await setDoc(doc(db, 'conductors', documentId), conductorData);
+
+      console.log('Conductor created successfully:', documentId);
+      onSuccess();
+    } catch (error) {
+      console.error('Error creating conductor:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Add New Conductor</h2>
+          <button className="close-btn" onClick={onClose}>×</button>
+        </div>
+        
+        <div className="modal-body">
+          <form onSubmit={handleSubmit} className="add-conductor-form">
+            {error && (
+              <div className="error-message">
+                {error}
+              </div>
+            )}
+            
+            <div className="form-group">
+              <label htmlFor="name">Full Name</label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="Enter conductor's full name"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="email">Email Address</label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="Enter email address"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="busNumber">Bus Number</label>
+              <input
+                type="number"
+                id="busNumber"
+                name="busNumber"
+                value={formData.busNumber}
+                onChange={handleChange}
+                placeholder="Enter bus number"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="route">Route</label>
+              <input
+                type="text"
+                id="route"
+                name="route"
+                value={formData.route}
+                onChange={handleChange}
+                placeholder="Enter route (e.g., Batangas - Manila)"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="password">Password</label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Enter password"
+                required
+                minLength="6"
+              />
+            </div>
+
+            <div className="form-actions">
+              <button
+                type="button"
+                className="cancel-btn"
+                onClick={onClose}
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="submit-btn"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <div className="loading-spinner-small"></div>
+                    Creating...
+                  </>
+                ) : (
+                  'Add Conductor'
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   );
 };
@@ -494,4 +697,4 @@ const TripsModal = ({ conductor, onClose, trips, availableDates = [], selectedDa
   );
 };
 
-export default Conductor;
+export default Conductor; 
