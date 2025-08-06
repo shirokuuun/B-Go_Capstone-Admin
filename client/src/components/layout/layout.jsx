@@ -12,8 +12,8 @@ const Layout = () => {
     switch (path) {
       case '/admin':
         return 'Dashboard';
-      case '/admin/users':
-        return 'User Management';
+      case '/admin/reservation':
+        return 'Bus Reservation';
       case '/admin/conductor':
         return 'Conductor';
       case '/admin/verification':

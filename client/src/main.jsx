@@ -4,7 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 import Layout from '/src/components/layout/layout.jsx'; 
 import Dashboard from '/src/pages/dashboard/dashboard.jsx';
-import UserManagement from '/src/pages/user/UserManagement.jsx';
+import BusReservation from '/src/pages/BusReservation/BusReservation.jsx';
 import IDVerification from '/src/pages/verification/IDverification.jsx';
 import TripSchedules from './pages/schedules/TripSchedules';
 import Bookings from '/src/pages/bookings/pre-booking.jsx';
@@ -34,7 +34,7 @@ createRoot(document.getElementById('root')).render(
         {/* 🛡️ Protected Routes (inside Layout) */}
         <Route path="/admin" element={<Layout />}>
           <Route index element={<PageTransitionWrapper><Dashboard /></PageTransitionWrapper>} />
-          <Route path="users" element={<PageTransitionWrapper><UserManagement /></PageTransitionWrapper>} />
+          <Route path="reservation" element={<PageTransitionWrapper><BusReservation /></PageTransitionWrapper>} />
           <Route path="conductor" element={<PageTransitionWrapper><Conductor /></PageTransitionWrapper>} />
           <Route path="verification" element={<PageTransitionWrapper><IDVerification /></PageTransitionWrapper>} />
           <Route path="schedules" element={<PageTransitionWrapper><TripSchedules /></PageTransitionWrapper>} />

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import conductorService from '/src/pages/conductor/conductor.js';
 import './conductor.css';
 import { IoMdAdd } from "react-icons/io";
+import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt } from 'react-icons/fa';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '/src/firebase/firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -149,35 +150,76 @@ const Conductor = () => {
   return (
     <div className="conductor-container">
       <div className="conductor-header">
-        <div className='header-add'>
-          <h1>Conductor Management</h1>
-
-          <div className="conductor-add">
-            <button className="add-btn" onClick={() => setShowAddModal(true)}>
-              <IoMdAdd className="add-icon" />
-              Add Conductor
-            </button>
-          </div>
-        </div>
-        <div className="conductor-stats">
-          <div className="stat-card">
-            <div className="stat-number">{conductors.length}</div>
-            <div className="stat-label">Total Conductors</div>
-          </div>
-          <div className="stat-card online">
-            <div className="stat-number">{onlineConductors}</div>
-            <div className="stat-label">Online</div>
-          </div>
-          <div className="stat-card offline">
-            <div className="stat-number">{offlineConductors}</div>
-            <div className="stat-label">Offline</div>
-          </div>
-          <div className="stat-card trips">
-            <div className="stat-number">{totalTrips}</div>
-            <div className="stat-label">Total Trips</div>
-          </div>
+  {/* Background Pattern */}
+  <div className="conductor-header-pattern"></div>
+  
+  <div className="conductor-header-content">
+    <div className="conductor-header-top">
+      {/* Title Section */}
+      <div className="conductor-title-section">
+        <div className="conductor-title-text">
+          <h1 className="conductor-main-title">Conductor Management</h1>
         </div>
       </div>
+
+      {/* Add Conductor Button */}
+      <button 
+        onClick={() => setShowAddModal(true)}
+        className="conductor-add-btn"
+      >
+        <IoMdAdd className="conductor-add-icon" />
+        Add Conductor
+      </button>
+    </div>
+
+    {/* Compact Stats Cards - Inside Header */}
+    <div className="conductor-stats-container">
+      {/* Total Conductors */}
+      <div className="conductor-stat-card conductor-total">
+        <div className="conductor-stat-icon-wrapper">
+          <FaUsers className="conductor-stat-icon" />
+        </div>
+        <div className="conductor-stat-content">
+          <div className="conductor-stat-number">{conductors.length}</div>
+          <div className="conductor-stat-label">Total</div>
+        </div>
+      </div>
+
+      {/* Online Conductors */}
+      <div className="conductor-stat-card conductor-online">
+        <div className="conductor-stat-icon-wrapper">
+          <FaCheckCircle className="conductor-stat-icon" />
+        </div>
+        <div className="conductor-stat-content">
+          <div className="conductor-stat-number">{onlineConductors}</div>
+          <div className="conductor-stat-label">Online</div>
+        </div>
+      </div>
+
+      {/* Offline Conductors */}
+      <div className="conductor-stat-card conductor-offline">
+        <div className="conductor-stat-icon-wrapper">
+          <FaTimesCircle className="conductor-stat-icon" />
+        </div>
+        <div className="conductor-stat-content">
+          <div className="conductor-stat-number">{offlineConductors}</div>
+          <div className="conductor-stat-label">Offline</div>
+        </div>
+      </div>
+
+      {/* Total Trips */}
+      <div className="conductor-stat-card conductor-trips">
+        <div className="conductor-stat-icon-wrapper">
+          <FaMapMarkerAlt className="conductor-stat-icon" />
+        </div>
+        <div className="conductor-stat-content">
+          <div className="conductor-stat-number">{totalTrips}</div>
+          <div className="conductor-stat-label">Total Trips</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
       <div className="conductor-content">
         <div className="conductor-sidebar">
