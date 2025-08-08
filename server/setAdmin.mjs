@@ -1,6 +1,10 @@
 // setAdmin.js
 import admin from 'firebase-admin';
-import 'dotenv/config'; // Load .env variables
+import dotenv from 'dotenv';
+import path from 'path';
+
+dotenv.config();
+
 
 // Construct service account credentials from environment variables
 const serviceAccount = {
