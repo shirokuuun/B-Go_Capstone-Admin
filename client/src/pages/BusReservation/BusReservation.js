@@ -1,45 +1,29 @@
 import { db } from '../../firebase/firebase.js';
-import { collection, getDocs, addDoc, query, where, setDoc, doc } from 'firebase/firestore';
+import {
+  collection,
+  onSnapshot,
+  getDocs,
+  addDoc,
+  query,
+  where,
+  setDoc,
+  doc
+} from 'firebase/firestore';
 
-// Fetch all buses from Firestore
-export const fetchBuses = async () => {
-  try {
-    const busesCollection = collection(db, 'AvailableBuses');
-    const snapshot = await getDocs(busesCollection);
+// Real-time bus listener
+export const subscribeToBuses = (callback) => {
+  const busesCollection = collection(db, 'AvailableBuses');
+  const unsubscribe = onSnapshot(busesCollection, (snapshot) => {
     const buses = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
-    return buses;
-  } catch (error) {
-    console.error("Error fetching buses:", error);
-    throw error;
-  }
+    callback(buses);
+  });
+
+  return unsubscribe; // Return unsubscribe function to stop listening
 };
 
-// Fetch bus counts for statistics
-export const fetchBusCounts = async () => {
-  try {
-    const buses = await fetchBuses();
-    
-    const available = buses.filter(bus => bus.status === 'active').length;
-    const reserved = buses.filter(bus => bus.status === 'reserved').length;
-    const inTransit = buses.filter(bus => bus.status === 'inTransit').length;
-    
-    return {
-      available,
-      reserved,
-      inTransit
-    };
-  } catch (error) {
-    console.error("Error fetching bus counts:", error);
-    return {
-      available: 0,
-      reserved: 0,
-      inTransit: 0
-    };
-  }
-};
 
 // Add a new bus to Firestore
 export const addNewBus = async (busData) => {

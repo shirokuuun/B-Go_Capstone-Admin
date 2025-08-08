@@ -1,10 +1,7 @@
 import '/src/pages/verification/IDVerification.css';
 import Header from '/src/components/HeaderTemplate/header.jsx';
 import React, { useEffect, useState } from 'react';
-import { fetchUsers, fetchUserIDData, updateIDVerificationStatus } from '/src/pages/verification/IDVerification.js';
-import { deleteIDVerificationData } from '/src/pages/verification/IDVerification.js';
-
-import { MdDelete } from "react-icons/md";
+import { fetchUsers, fetchUserIDData, updateIDVerificationStatus, subscribeToUsers, subscribeToUserIDData } from '/src/pages/verification/IDVerification.js';
 
 
 function IDVerification() {
@@ -16,32 +13,46 @@ function IDVerification() {
   const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'verified', 'rejected'
 
   useEffect(() => {
-    const getUsers = async () => {
-      try {
-        const usersData = await fetchUsers();
-        setUsers(usersData);
-      } catch (error) {
-        console.error("Failed to fetch users:", error);
+    // Set up real-time subscription to users
+    const unsubscribeUsers = subscribeToUsers((usersData) => {
+      setUsers(usersData);
+    });
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (unsubscribeUsers) {
+        unsubscribeUsers();
       }
     };
-
-    getUsers();
   }, []);
 
-  const handleUserClick = async (user) => {
-    setLoading(true);
-    setSelectedUser(user);
-    console.log("Selected user data:", user); // Debug log
-    try {
-      const idData = await fetchUserIDData(user.id);
-      console.log("Fetched ID data:", idData); // Debug log
-      setSelectedUserID(idData);
-    } catch (error) {
-      console.error("Failed to fetch user ID data:", error);
+  // Real-time subscription for selected user's ID data
+  useEffect(() => {
+    let unsubscribeUserID = null;
+
+    if (selectedUser) {
+      setLoading(true);
+      unsubscribeUserID = subscribeToUserIDData(selectedUser.id, (idData) => {
+        setSelectedUserID(idData);
+        setLoading(false);
+      });
+    } else {
       setSelectedUserID(null);
-    } finally {
       setLoading(false);
     }
+
+    // Cleanup previous subscription
+    return () => {
+      if (unsubscribeUserID) {
+        unsubscribeUserID();
+      }
+    };
+  }, [selectedUser]);
+
+  const handleUserClick = (user) => {
+    setSelectedUser(user);
+    console.log("Selected user data:", user); // Debug log
+    // Note: ID data will be loaded automatically via useEffect subscription
   };
 
   const handleVerificationAction = async (action) => {
@@ -51,23 +62,14 @@ function IDVerification() {
     try {
       await updateIDVerificationStatus(selectedUser.id, action);
       
-      // Update local state
-      setUsers(prevUsers => 
-        prevUsers.map(user => 
-          user.id === selectedUser.id 
-            ? { ...user, idVerificationStatus: action }
-            : user
-        )
-      );
-      
-      // Update selected user ID status
-      setSelectedUserID(prev => ({ ...prev, status: action }));
+      // Note: State updates will happen automatically via real-time subscriptions
+      // No need to manually update local state anymore
       
       // AUTO-SWITCH TO THE APPROPRIATE TAB
       if (action === 'verified') {
         setActiveTab('verified');
       } else if (action === 'rejected') {
-        setActiveTab('rejected');
+        setActiveTab('pending'); // Switch to pending tab since user goes back to pending
       }
       
       alert(`ID ${action} successfully!`);
@@ -90,35 +92,6 @@ function IDVerification() {
   const pendingCount = users.filter(user => (user.idVerificationStatus || 'pending') === 'pending').length;
   const verifiedCount = users.filter(user => user.idVerificationStatus === 'verified').length;
   const rejectedCount = users.filter(user => user.idVerificationStatus === 'rejected').length;
-
-  const handleDeleteID = async () => {
-    if (!selectedUser) return;
-    const confirmDelete = window.confirm(`Are you sure you want to delete ID data for ${selectedUser.name || 'this user'}?`);
-    if (!confirmDelete) return;
-
-    setLoading(true);
-    try {
-      await deleteIDVerificationData(selectedUser.id);
-
-      // Optional: reset state/UI
-      setSelectedUserID(null);
-      setUsers(prevUsers =>
-        prevUsers.map(user =>
-          user.id === selectedUser.id
-            ? { ...user, idVerificationStatus: 'pending' }
-            : user
-        )
-      );
-
-      alert("ID document deleted successfully.");
-    } catch (error) {
-      alert("Failed to delete ID data.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
- 
 
   return (
     <div className="id-verification-container">
@@ -201,10 +174,6 @@ function IDVerification() {
               <div className="id-verification-header">
                 <div className="id-verification-header-row">
                   <h2>ID Details</h2>
-                  <MdDelete
-                    className="id-verification-delete-icon"
-                    onClick={handleDeleteID}
-                  />
                 </div>
                 <div className="id-verification-user-details">
                   <h3>{selectedUser.name || selectedUser.displayName || 'Unnamed User'}</h3>
@@ -287,18 +256,6 @@ function IDVerification() {
                           disabled={loading}
                         >
                           {loading ? 'Processing...' : 'Revoke Verification'}
-                        </button>
-                      </div>
-                    )}
-                    
-                    {selectedUserID.status === 'rejected' && (
-                      <div className="id-verification-buttons">
-                        <button 
-                          className="id-verification-btn verify"
-                          onClick={() => handleVerificationAction('verified')}
-                          disabled={loading}
-                        >
-                          {loading ? 'Processing...' : 'Verify ID'}
                         </button>
                       </div>
                     )}

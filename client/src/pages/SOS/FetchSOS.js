@@ -1,19 +1,18 @@
-import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { db } from "/src/firebase/firebase";
 
-export const fetchSOSRequests = async () => {
+export const listenToSOSRequests = (callback) => {
   const q = query(collection(db, "sosRequests"), orderBy("timestamp", "desc"));
-  const querySnapshot = await getDocs(q);
-
-  const sosList = [];
-  querySnapshot.forEach((doc) => {
-    sosList.push({
-      id: doc.id,
-      ...doc.data(),
+  return onSnapshot(q, (querySnapshot) => {
+    const sosList = [];
+    querySnapshot.forEach((doc) => {
+      sosList.push({
+        id: doc.id,
+        ...doc.data(),
+      });
     });
+    callback(sosList);
   });
-
-  return sosList;
 };
 
 // Update SOS request status

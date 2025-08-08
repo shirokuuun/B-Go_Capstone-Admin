@@ -7,7 +7,7 @@ import { FaCheckCircle } from "react-icons/fa";
 import { IoAlertCircleSharp } from "react-icons/io5";
 import { FaListAlt } from 'react-icons/fa';
 
-import { fetchBuses, fetchBusCounts } from "./BusReservation.js";
+import { subscribeToBuses } from "./BusReservation.js";
 import AddBusModal from '/src/pages/BusReservation/BusReservationModal.jsx';
 
 function BusReservation() {
@@ -20,31 +20,21 @@ function BusReservation() {
     inTransit: 0
   });
 
+  // ✅ Real-time listener with count updates
   useEffect(() => {
-    loadBuses();
+    const unsubscribe = subscribeToBuses((liveBuses) => {
+      setBuses(liveBuses);
+
+      // 🔁 Live stats update
+      const available = liveBuses.filter(bus => bus.status === 'active').length;
+      const reserved = liveBuses.filter(bus => bus.status === 'reserved').length;
+      const inTransit = liveBuses.filter(bus => bus.status === 'inTransit').length;
+
+      setStats({ available, reserved, inTransit });
+    });
+
+    return () => unsubscribe();
   }, []);
-
-  useEffect(() => {
-    getCounts();
-  }, [buses]); // Recalculate stats when buses change
-
-  const loadBuses = async () => {
-    try {
-      const data = await fetchBuses();
-      setBuses(data);
-    } catch (err) {
-      console.error("Error fetching buses:", err);
-    }
-  };
-
-  const getCounts = async () => {
-    const result = await fetchBusCounts();
-    setStats(result);
-  };
-
-  const handleBusAdded = (newBus) => {
-    setBuses(prev => [...prev, newBus]);
-  };
 
   const renderDetailsContent = () => {
     switch (activeAction) {
@@ -52,26 +42,27 @@ function BusReservation() {
         return (
           <div className="bus-reservation-bus-list">
             {buses.map((bus) => {
-            const isAvailable = bus.status === "active";
+              const isAvailable = bus.status === "active";
 
-            return (
-              <div key={bus.id} className="bus-reservation-bus-card">
-                <div className="bus-reservation-bus-header">
-                  <h4 className="bus-reservation-bus-name">{bus.name}</h4>
-                  <span className={`bus-reservation-status-tag ${isAvailable ? "available" : "not-available"}`}>
-                    {isAvailable ? "Available" : "Not Available"}
-                  </span>
+              return (
+                <div key={bus.id} className="bus-reservation-bus-card">
+                  <div className="bus-reservation-bus-header">
+                    <h4 className="bus-reservation-bus-name">{bus.name}</h4>
+                    <span className={`bus-reservation-status-tag ${isAvailable ? "available" : "not-available"}`}>
+                      {isAvailable ? "Available" : "Not Available"}
+                    </span>
+                  </div>
+                  <div className="bus-reservation-bus-info">
+                    <p><strong>Plate:</strong> {bus.plateNumber}</p>
+                    <p><strong>Price:</strong> ₱{bus.Price}</p>
+                    <p><strong>Coding Days:</strong> {bus.codingDays?.join(', ') || 'None'}</p>
+                  </div>
                 </div>
-                <div className="bus-reservation-bus-info">
-                  <p><strong>Plate:</strong> {bus.plateNumber}</p>
-                  <p><strong>Price:</strong> ₱{bus.Price}</p>
-                  <p><strong>Coding Days:</strong> {bus.codingDays?.join(', ') || 'None'}</p>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
           </div>
         );
+
       case 'Reservation':
         const reservedBuses = buses.filter((bus) => bus.status !== "active");
 
@@ -83,11 +74,9 @@ function BusReservation() {
           );
         }
 
-      return (
-        <div className="bus-reservation-bus-list">
-          {buses
-            .filter((bus) => bus.status !== "active")
-            .map((bus) => (
+        return (
+          <div className="bus-reservation-bus-list">
+            {reservedBuses.map((bus) => (
               <div key={bus.id} className="bus-reservation-bus-card">
                 <div className="bus-reservation-bus-header">
                   <h4 className="bus-reservation-bus-name">{bus.name}</h4>
@@ -102,30 +91,32 @@ function BusReservation() {
                 </div>
               </div>
             ))}
-        </div>
-      );
+          </div>
+        );
+
       case 'available':
         return (
           <div className="bus-reservation-bus-list">
-          {buses
-            .filter((bus) => bus.status == "active")
-            .map((bus) => (
-              <div key={bus.id} className="bus-reservation-bus-card">
-                <div className="bus-reservation-bus-header">
-                  <h4 className="bus-reservation-bus-name">{bus.name}</h4>
-                  <span className="bus-reservation-status-tag available">
-                    Available
-                  </span>
+            {buses
+              .filter((bus) => bus.status === "active")
+              .map((bus) => (
+                <div key={bus.id} className="bus-reservation-bus-card">
+                  <div className="bus-reservation-bus-header">
+                    <h4 className="bus-reservation-bus-name">{bus.name}</h4>
+                    <span className="bus-reservation-status-tag available">
+                      Available
+                    </span>
+                  </div>
+                  <div className="bus-reservation-bus-info">
+                    <p><strong>Plate:</strong> {bus.plateNumber}</p>
+                    <p><strong>Price:</strong> ₱{bus.Price}</p>
+                    <p><strong>Coding Days:</strong> {bus.codingDays?.join(', ') || 'None'}</p>
+                  </div>
                 </div>
-                <div className="bus-reservation-bus-info">
-                  <p><strong>Plate:</strong> {bus.plateNumber}</p>
-                  <p><strong>Price:</strong> ₱{bus.Price}</p>
-                  <p><strong>Coding Days:</strong> {bus.codingDays?.join(', ') || 'None'}</p>
-                </div>
-              </div>
-            ))}
-        </div>
-        )
+              ))}
+          </div>
+        );
+
       default:
         return <p>Click the Actions for Details</p>;
     }
@@ -223,11 +214,10 @@ function BusReservation() {
           <h3 className="bus-reservation-details-title">{renderDetailsContent()}</h3>
         </div>
 
-        {/* Updated Modal Component */}
+        {/* Modal Component */}
         <AddBusModal 
           isOpen={showAddModal}
           onClose={() => setShowAddModal(false)}
-          onBusAdded={handleBusAdded}
         />
       </div>
     </div>

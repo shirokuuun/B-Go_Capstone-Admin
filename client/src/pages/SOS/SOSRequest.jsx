@@ -1,6 +1,6 @@
 import '/src/pages/SOS/SOSRequest.css';
 import { useState, useEffect } from 'react';
-import { fetchSOSRequests, updateSOSStatus, deleteSOSRequest } from '/src/pages/SOS/FetchSOS.js';
+import { listenToSOSRequests, updateSOSStatus, deleteSOSRequest } from '/src/pages/SOS/FetchSOS.js';
 import { RiArrowDropDownLine } from "react-icons/ri";
 import { MdDelete } from "react-icons/md";
 
@@ -14,12 +14,12 @@ function SOSRequest() {
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
-    const getData = async () => {
-      const data = await fetchSOSRequests();
+    const unsubscribe = listenToSOSRequests((data) => {
       setSosData(data);
       setFilteredData(data);
-    };
-    getData();
+    });
+
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -163,16 +163,14 @@ function SOSRequest() {
                     >
                       {updating ? 'Updating...' : 'Mark as Received'}
                     </button>
-                    <button
-                      className="delete-btn"
+                    <MdDelete
+                      className="sos-delete-icon-r"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteSOS(sos.id);
                       }}
-                      disabled={updating}
-                    >
-                      Delete
-                    </button>
+                      title="Delete SOS request"
+                    />
                   </div>
                 )}
               </div>

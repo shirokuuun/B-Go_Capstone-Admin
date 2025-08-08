@@ -385,6 +385,21 @@
 }
 
 /* Modal */
+.bus-reservation-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
 .bus-reservation-add-modal-content {
   background: white;
   border-radius: 12px;
@@ -394,7 +409,7 @@
   overflow-y: auto;
   box-shadow: 0 10px 50px rgba(0, 0, 0, 0.3);
   position: relative;
-  margin: 20px auto;
+  margin: 0;
 }
 
 .bus-reservation-modal-header {
@@ -405,6 +420,10 @@
   border-bottom: 2px solid #e0e6ed;
   background: #007c91;
   border-radius: 12px 12px 0 0;
+}
+
+.bus-reservation-modal-overlay * {
+  z-index: inherit;
 }
 
 .bus-reservation-modal-title {

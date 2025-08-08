@@ -379,9 +379,12 @@ select option {
 
 /* Pending Actions */
 .pending-actions {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 8px 0;
 }
 
 .receive-btn {
@@ -414,6 +417,21 @@ select option {
 
 .receive-btn:active:not(:disabled) {
   transform: translateY(0);
+}
+
+.sos-delete-icon-r{
+    font-size: 20px;
+  color: #dc3545;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.sos-delete-icon-r:hover{
+  background-color: #f8d7da;
+  color: #721c24;
 }
 
 /* Empty State for Left Panel */
