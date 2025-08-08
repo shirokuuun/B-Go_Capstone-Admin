@@ -162,4 +162,17 @@ export const fetchRejectedVerifications = async () => {
     console.error("Error fetching rejected verifications:", error);
     throw error;
   }
+
+};
+
+// Delete ID verification data for a user
+export const deleteIDVerificationData = async (userId) => {
+  try {
+    const idDocRef = doc(db, 'users', userId, 'VerifyID', 'id');
+    await deleteDoc(idDocRef); 
+    console.log(`ID document deleted for user ${userId}`);
+  } catch (error) {
+    console.error("Error deleting ID verification data:", error);
+    throw error;
+  }
 };

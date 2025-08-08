@@ -2,6 +2,9 @@ import '/src/pages/verification/IDVerification.css';
 import Header from '/src/components/HeaderTemplate/header.jsx';
 import React, { useEffect, useState } from 'react';
 import { fetchUsers, fetchUserIDData, updateIDVerificationStatus } from '/src/pages/verification/IDVerification.js';
+import { deleteIDVerificationData } from '/src/pages/verification/IDVerification.js';
+
+import { MdDelete } from "react-icons/md";
 
 
 function IDVerification() {
@@ -88,6 +91,35 @@ function IDVerification() {
   const verifiedCount = users.filter(user => user.idVerificationStatus === 'verified').length;
   const rejectedCount = users.filter(user => user.idVerificationStatus === 'rejected').length;
 
+  const handleDeleteID = async () => {
+    if (!selectedUser) return;
+    const confirmDelete = window.confirm(`Are you sure you want to delete ID data for ${selectedUser.name || 'this user'}?`);
+    if (!confirmDelete) return;
+
+    setLoading(true);
+    try {
+      await deleteIDVerificationData(selectedUser.id);
+
+      // Optional: reset state/UI
+      setSelectedUserID(null);
+      setUsers(prevUsers =>
+        prevUsers.map(user =>
+          user.id === selectedUser.id
+            ? { ...user, idVerificationStatus: 'pending' }
+            : user
+        )
+      );
+
+      alert("ID document deleted successfully.");
+    } catch (error) {
+      alert("Failed to delete ID data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+ 
+
   return (
     <div className="id-verification-container">
       <div className="id-verification-left-panel">
@@ -167,15 +199,18 @@ function IDVerification() {
           {selectedUser ? (
             <div className="id-verification-details">
               <div className="id-verification-header">
-                <div className="id-verification-header-left">
+                <div className="id-verification-header-row">
                   <h2>ID Details</h2>
-                  <div className="id-verification-user-details">
-                    <h3>{selectedUser.name || selectedUser.displayName || 'Unnamed User'}</h3>
-                    <p>{selectedUser.email}</p>
-                  </div>
+                  <MdDelete
+                    className="id-verification-delete-icon"
+                    onClick={handleDeleteID}
+                  />
+                </div>
+                <div className="id-verification-user-details">
+                  <h3>{selectedUser.name || selectedUser.displayName || 'Unnamed User'}</h3>
+                  <p>{selectedUser.email}</p>
                 </div>
               </div>
-
               {loading ? (
                 <div className="id-verification-loading">
                   <p>Loading ID data...</p>

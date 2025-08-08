@@ -673,3 +673,21 @@ select option {
   color: #555;
 }
 
+.sos-delete-icon {
+  cursor: pointer;
+  font-size: 20px;
+  color: #e74c3c;
+  margin-left: 10px;
+}
+
+.sos-delete-icon:hover {
+  color: #c0392b;
+}
+
+.sos-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+

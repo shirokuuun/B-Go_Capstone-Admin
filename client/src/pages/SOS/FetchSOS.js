@@ -1,4 +1,4 @@
-import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { db } from "/src/firebase/firebase";
 
 export const fetchSOSRequests = async () => {
@@ -27,6 +27,18 @@ export const updateSOSStatus = async (sosId, newStatus) => {
     return { success: true };
   } catch (error) {
     console.error('Error updating SOS status:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Delete SOS request
+export const deleteSOSRequest = async (sosId) => {
+  try {
+    const sosRef = doc(db, 'sosRequests', sosId);
+    await deleteDoc(sosRef);
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting SOS request:', error);
     return { success: false, error: error.message };
   }
 };

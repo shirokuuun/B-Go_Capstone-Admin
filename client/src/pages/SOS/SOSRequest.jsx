@@ -1,7 +1,8 @@
 import '/src/pages/SOS/SOSRequest.css';
 import { useState, useEffect } from 'react';
-import { fetchSOSRequests, updateSOSStatus } from '/src/pages/SOS/FetchSOS.js';
+import { fetchSOSRequests, updateSOSStatus, deleteSOSRequest } from '/src/pages/SOS/FetchSOS.js';
 import { RiArrowDropDownLine } from "react-icons/ri";
+import { MdDelete } from "react-icons/md";
 
 function SOSRequest() {
   const [collapsed, setCollapsed] = useState(false);
@@ -48,64 +49,39 @@ function SOSRequest() {
     setFilteredData(filtered);
   }, [timeFilter, statusFilter, sosData]);
 
-  // Function to get status-based CSS class
   const getStatusClass = (status) => {
     if (!status) return '';
-    
-    const statusLower = status.toLowerCase();
-    switch (statusLower) {
-      case 'pending':
-        return 'status-pending';
-      case 'received':
-        return 'status-received';
-      case 'cancelled':
-        return 'status-cancelled';
-      // Legacy support
-      case 'active':
-        return 'status-active';
-      case 'resolved':
-        return 'status-resolved';
-      default:
-        return '';
+    switch (status.toLowerCase()) {
+      case 'pending': return 'status-pending';
+      case 'received': return 'status-received';
+      case 'cancelled': return 'status-cancelled';
+      case 'active': return 'status-active';
+      case 'resolved': return 'status-resolved';
+      default: return '';
     }
   };
 
-  // Get status counts
-  const getStatusCounts = () => {
-    const counts = {
-      all: sosData.length,
-      pending: sosData.filter(sos => sos.status?.toLowerCase() === 'pending').length,
-      received: sosData.filter(sos => sos.status?.toLowerCase() === 'received').length,
-      cancelled: sosData.filter(sos => sos.status?.toLowerCase() === 'cancelled').length,
-    };
-    return counts;
-  };
+  const getStatusCounts = () => ({
+    all: sosData.length,
+    pending: sosData.filter(sos => sos.status?.toLowerCase() === 'pending').length,
+    received: sosData.filter(sos => sos.status?.toLowerCase() === 'received').length,
+    cancelled: sosData.filter(sos => sos.status?.toLowerCase() === 'cancelled').length,
+  });
 
-  // Get pending SOS requests for left panel
-  const getPendingRequests = () => {
-    return sosData.filter(sos => sos.status?.toLowerCase() === 'pending');
-  };
+  const getPendingRequests = () => sosData.filter(sos => sos.status?.toLowerCase() === 'pending');
 
-  // Update SOS status to "received" 
   const handleUpdateSOSStatus = async (sosId) => {
     if (!sosId || updating) return;
-    
+
     setUpdating(true);
     try {
       const result = await updateSOSStatus(sosId, 'Received');
-      
       if (result.success) {
-        // Update local state
-        const updatedSosData = sosData.map(sos => 
-          sos.id === sosId 
-            ? { ...sos, status: 'Received', updatedAt: new Date() }
-            : sos
+        const updatedSosData = sosData.map(sos =>
+          sos.id === sosId ? { ...sos, status: 'Received', updatedAt: new Date() } : sos
         );
         setSosData(updatedSosData);
-        
-        // Clear selection
         setSelectedPendingId(null);
-        
         console.log('SOS status updated successfully');
       } else {
         alert(`Failed to update SOS status: ${result.error}`);
@@ -113,6 +89,30 @@ function SOSRequest() {
     } catch (error) {
       console.error('Error updating SOS status:', error);
       alert('Failed to update SOS status. Please try again.');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleDeleteSOS = async (sosId) => {
+    if (!sosId || updating) return;
+    const confirmDelete = window.confirm("Are you sure you want to delete this SOS request?");
+    if (!confirmDelete) return;
+
+    setUpdating(true);
+    try {
+      const result = await deleteSOSRequest(sosId);
+      if (result.success) {
+        const updatedSosData = sosData.filter(sos => sos.id !== sosId);
+        setSosData(updatedSosData);
+        setSelectedPendingId(null);
+        console.log("SOS request deleted successfully");
+      } else {
+        alert(`Failed to delete SOS request: ${result.error}`);
+      }
+    } catch (error) {
+      console.error("Error deleting SOS request:", error);
+      alert("Failed to delete SOS request. Please try again.");
     } finally {
       setUpdating(false);
     }
@@ -127,9 +127,7 @@ function SOSRequest() {
         <div className="left-panel-header">
           <h2>Pending Requests</h2>
           <div className="pending-count">
-            <span className="count-badge">
-              {pendingRequests.length} pending
-            </span>
+            <span className="count-badge">{pendingRequests.length} pending</span>
           </div>
         </div>
 
@@ -140,8 +138,8 @@ function SOSRequest() {
             </div>
           ) : (
             pendingRequests.map((sos) => (
-              <div 
-                key={sos.id} 
+              <div
+                key={sos.id}
                 className={`pending-card ${selectedPendingId === sos.id ? 'selected' : ''}`}
                 onClick={() => setSelectedPendingId(sos.id)}
               >
@@ -149,19 +147,13 @@ function SOSRequest() {
                   <h4>{sos.emergencyType}</h4>
                   <span className="pending-status">PENDING</span>
                 </div>
-                <p className="pending-description">
-                  <strong>Route:</strong> {sos.route}
-                </p>
-                <p className="pending-description">
-                  <strong>Location:</strong> {sos.location?.lat}, {sos.location?.lng}
-                </p>
-                <p className="pending-time">
-                  {new Date(sos.timestamp?.seconds * 1000).toLocaleString()}
-                </p>
-                
+                <p className="pending-description"><strong>Route:</strong> {sos.route}</p>
+                <p className="pending-description"><strong>Location:</strong> {sos.location?.lat}, {sos.location?.lng}</p>
+                <p className="pending-time">{new Date(sos.timestamp?.seconds * 1000).toLocaleString()}</p>
+
                 {selectedPendingId === sos.id && (
                   <div className="pending-actions">
-                    <button 
+                    <button
                       className="receive-btn"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -170,6 +162,16 @@ function SOSRequest() {
                       disabled={updating}
                     >
                       {updating ? 'Updating...' : 'Mark as Received'}
+                    </button>
+                    <button
+                      className="delete-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteSOS(sos.id);
+                      }}
+                      disabled={updating}
+                    >
+                      Delete
                     </button>
                   </div>
                 )}
@@ -181,26 +183,19 @@ function SOSRequest() {
 
       <div className="right-panel">
         <div className="right-panel-scroll">
-          {/* Scrollable content */}
           <div className="header">
             <div className="header-left">
               <h2>SOS Requests</h2>
               <div className="items-count">
-                <span className="count-badge">
-                  {filteredData.length} of {sosData.length} items
-                </span>
+                <span className="count-badge">{filteredData.length} of {sosData.length} items</span>
               </div>
             </div>
-            
+
             <div className="filters-container">
-              {/* Status Filter */}
-             <div className="custom-select">
+              <div className="custom-select">
                 <label className="filter-label">Status:</label>
                 <div className="relative w-full">
-                  <select 
-                    value={statusFilter} 
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                  >
+                  <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                     <option value="all">All ({statusCounts.all})</option>
                     <option value="pending">Pending ({statusCounts.pending})</option>
                     <option value="received">Received ({statusCounts.received})</option>
@@ -210,16 +205,10 @@ function SOSRequest() {
                 </div>
               </div>
 
-
-              {/* Time Filter */}
               <div className="custom-select">
                 <label className="filter-label">Time:</label>
                 <div className="relative w-full">
-                  <select 
-                    value={timeFilter} 
-                    onChange={(e) => setTimeFilter(e.target.value)}
-                    className="time-filter"
-                  >
+                  <select value={timeFilter} onChange={(e) => setTimeFilter(e.target.value)}>
                     <option value="all">All Time</option>
                     <option value="3days">Last 3 Days</option>
                     <option value="1week">Last 1 Week</option>
@@ -242,7 +231,14 @@ function SOSRequest() {
             ) : (
               filteredData.map((sos) => (
                 <div key={sos.id} className={`sos-card ${getStatusClass(sos.status)}`}>
-                  <h3>{sos.emergencyType}</h3>
+                  <div className="sos-card-header">
+                    <h3>{sos.emergencyType}</h3>
+                    <MdDelete
+                      className="sos-delete-icon"
+                      onClick={() => handleDeleteSOS(sos.id)}
+                      title="Delete SOS request"
+                    />
+                  </div>
                   <p><strong>Description:</strong> {sos.description}</p>
                   <p><strong>Status:</strong> {sos.status}</p>
                   <p><strong>Route:</strong> {sos.route}</p>

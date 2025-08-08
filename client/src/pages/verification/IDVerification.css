@@ -309,6 +309,23 @@
   border: 1px solid #e1e5e9;
 }
 
+.id-verification-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.id-verification-delete-icon {
+  color: #e74c3c;
+  font-size: 24px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.id-verification-delete-icon:hover {
+  color: #c0392b;
+}
+
 .id-verification-current-status {
   margin-bottom: 16px;
   text-align: center;
