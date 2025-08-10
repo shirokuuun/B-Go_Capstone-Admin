@@ -16,6 +16,7 @@ html, body {
   flex-direction: column;
   transition: margin-left 0.3s ease;
   overflow: hidden;
+  padding-top: 80px; 
 }
 
 .main-section.collapsed {

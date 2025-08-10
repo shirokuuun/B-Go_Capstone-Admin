@@ -1,6 +1,8 @@
 .top-header {
-  position: relative;
+  position: fixed; 
   top: 0;
+  left: 250px;
+  right: 0;
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -13,7 +15,11 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   height: 80px;
   border-bottom: 1px solid #e0e0e0;
-  margin-bottom: 0px;
+}
+
+/* When collapsed nav */
+.top-header.collapsed {
+  left: 100px; /* match collapsed nav width */
 }
 
 .header-title {

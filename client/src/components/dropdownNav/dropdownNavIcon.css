@@ -1,0 +1,171 @@
+.dni-container {
+  position: relative; /* required so tooltip/menu can absolutely position relative to the icon */
+}
+
+/* keep arrow styling */
+.dni-arrow { /* not used in the JSX but fine to keep */
+  color: white;
+  transition: transform 0.3s ease;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+/* expanded submenu (desktop/full sidebar) - support both class names */
+.dni-menu,
+.nav-dropdown-menu {
+  background-color: rgba(12, 30, 34, 0.95);
+  margin: 6px 6px 8px 6px;
+  padding: 6px 0;
+  border-left: 3px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  animation: dni-slide-in 0.16s ease-out;
+  min-height: 40px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+}
+
+/* slide-in */
+@keyframes dni-slide-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dni-item {
+  padding: 12px 16px;
+  margin: 4px 8px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  color: rgba(255,255,255,0.95);
+  text-decoration: none;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+
+.dni-item-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin-left: 12px;
+  color: rgba(255,255,255,0.95);
+}
+
+.dni-item .dni-item-icon,
+.dni-item .dni-item-title { pointer-events: none; }
+
+.dni-title-row { display:flex; align-items:center; gap:8px; }
+.dni-title { color: white; font-size: 15px; font-weight: 600; }
+
+/* Hover + active states */
+.dni-item:hover,
+.dni-item:hover .dni-item-title,
+.dni-item:hover .dni-item-icon {
+  background-color: rgba(255,255,255,0.07);
+  color: white;
+}
+
+.dni-active {
+  background-color: rgba(255,255,255,0.12);
+  border-left: 4px solid #fff;
+  padding-left: 12px;
+}
+
+/* Collapsed tooltip */
+.dni-tooltip {
+  position: fixed; /* Will be positioned dynamically via JavaScript */
+  background-color: #006b7d;
+  border-radius: 8px;
+  min-width: 200px;
+  z-index: 9999;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+  padding: 8px 0;
+  opacity: 1;
+  visibility: visible;
+  /* Add max height and scroll if needed */
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  /* Remove default positioning - will be set by JS */
+}
+
+/* Position tooltip based on viewport */
+.dni-tooltip.tooltip-top {
+  top: 20px;
+  transform: translateY(0);
+}
+
+.dni-tooltip.tooltip-bottom {
+  bottom: 20px;
+  top: auto;
+  transform: translateY(0);
+}
+
+/* small arrow */
+.dni-tooltip::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 6px solid transparent;
+  border-right-color: #006b7d;
+}
+
+/* tooltip title */
+.dni-tooltip-title {
+  display: block;
+  padding: 8px 14px;
+  font-weight: 600;
+  color: white;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  margin-bottom: 4px;
+}
+
+/* tooltip items */
+.dni-tooltip-dropdown { 
+  display: flex; 
+  flex-direction: column; 
+}
+
+.dni-tooltip-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  color: rgba(255,255,255,0.95);
+  text-decoration: none;
+  gap: 10px;
+  white-space: nowrap;
+  border-radius: 6px;
+  margin: 2px 8px;
+  transition: background-color 0.15s ease;
+}
+
+.dni-tooltip-item:hover { 
+  background-color: rgba(255,255,255,0.1); 
+  color: white; 
+}
+
+.dni-tooltip-item.dni-active {
+  background-color: rgba(255,255,255,0.15);
+  border-left: 3px solid #fff;
+  padding-left: 11px;
+}
+
+.dni-tooltip-icon { 
+  font-size: 16px; 
+  min-width: 18px;
+}
+
+/* small compatibility helpers: if you want the NavIcon inner content to look identical */
+.NavIcon-inner { 
+  display: flex; 
+  align-items: center; 
+  gap: 14px; 
+  padding: 14px 20px; 
+  width: 100%; 
+  cursor: pointer; 
+}
+
+.NavIcon-inner .icon { 
+  font-size: 22px; 
+  min-width: 24px; 
+  text-align: center; 
+}

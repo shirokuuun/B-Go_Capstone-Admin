@@ -19,7 +19,7 @@ const Header = ({ collapsed, pageTitle }) => {
 
   return (
     <header
-      className="top-header"
+      className={`top-header ${collapsed ? 'collapsed' : ''}`}
     >
       <div className={`header-title ${collapsed ? 'collapsed-spacing' : ''}`}>
         {pageTitle}
@@ -29,6 +29,7 @@ const Header = ({ collapsed, pageTitle }) => {
         <FiLogOut className="logout-icon" onClick={handleLogout} />
       </div>
     </header>
+
 
   );
 };

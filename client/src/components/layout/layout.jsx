@@ -20,8 +20,12 @@ const Layout = () => {
         return 'ID Verification';
       case '/admin/schedules':
         return 'Trip Schedules';
-      case '/admin/bookings':
-        return 'Pre-Bookings';
+      case '/admin/ticketing':
+        return 'Ticketing';
+      case '/admin/ticketing/pre-booking':
+        return 'Pre-booking';
+      case '/admin/ticketing/pre-ticketing':
+        return 'Pre-ticketing';
       case '/admin/sos':
         return 'SOS Requests';
       case '/admin/payments':

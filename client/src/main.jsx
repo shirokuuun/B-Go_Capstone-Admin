@@ -7,7 +7,8 @@ import Dashboard from '/src/pages/dashboard/dashboard.jsx';
 import BusReservation from '/src/pages/BusReservation/BusReservation.jsx';
 import IDVerification from '/src/pages/verification/IDverification.jsx';
 import TripSchedules from './pages/schedules/TripSchedules';
-import Bookings from '/src/pages/bookings/pre-booking.jsx';
+import Bookings from '/src/pages/ticketing/pre-booking.jsx';
+import PreTicketing from '/src/pages/ticketing/pre-ticketing.jsx'; // New component
 import SOSRequest from '/src/pages/SOS/SOSRequest.jsx';
 import PaymentTransactions from '/src/pages/payments/PaymentTransactions.jsx';
 import Settings from '/src/pages/settings/settings';
@@ -38,7 +39,15 @@ createRoot(document.getElementById('root')).render(
           <Route path="conductor" element={<PageTransitionWrapper><Conductor /></PageTransitionWrapper>} />
           <Route path="verification" element={<PageTransitionWrapper><IDVerification /></PageTransitionWrapper>} />
           <Route path="schedules" element={<PageTransitionWrapper><TripSchedules /></PageTransitionWrapper>} />
-          <Route path="bookings" element={<PageTransitionWrapper><Bookings /></PageTransitionWrapper>} />
+          
+          {/* Updated Ticketing routes */}
+          <Route path="ticketing" element={<Navigate to="/admin/ticketing/pre-booking" replace />} />
+          <Route path="ticketing/pre-booking" element={<PageTransitionWrapper><Bookings /></PageTransitionWrapper>} />
+          <Route path="ticketing/pre-ticketing" element={<PageTransitionWrapper><PreTicketing /></PageTransitionWrapper>} />
+          
+          {/* Handle legacy bookings route */}
+          <Route path="bookings" element={<Navigate to="/admin/ticketing/pre-booking" replace />} />
+          
           <Route path="sos" element={<PageTransitionWrapper><SOSRequest /></PageTransitionWrapper>} />
           <Route path="payments" element={<PageTransitionWrapper><PaymentTransactions /></PageTransitionWrapper>} />
           <Route path="settings" element={<PageTransitionWrapper><Settings /></PageTransitionWrapper>} />
