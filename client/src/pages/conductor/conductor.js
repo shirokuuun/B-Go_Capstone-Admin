@@ -15,7 +15,6 @@ import {
 
 import { db, auth } from '/src/firebase/firebase';
 
-
 class ConductorService {
   constructor() {
     this.listeners = new Map();
@@ -46,77 +45,76 @@ class ConductorService {
 
   // Get detailed conductor information
   async getConductorDetails(conductorId) {
-  try {
-    const conductorRef = doc(db, 'conductors', conductorId);
-    const conductorDoc = await getDoc(conductorRef);
+    try {
+      const conductorRef = doc(db, 'conductors', conductorId);
+      const conductorDoc = await getDoc(conductorRef);
 
-    if (!conductorDoc.exists()) {
-      throw new Error('Conductor not found');
+      if (!conductorDoc.exists()) {
+        throw new Error('Conductor not found');
+      }
+
+      const conductorData = conductorDoc.data();
+      const { allTrips } = await this.getConductorTrips(conductorId);
+      const tripsArray = Array.isArray(allTrips) ? allTrips : Object.values(allTrips || {});
+
+      return {
+        id: conductorDoc.id,
+        ...conductorData,
+        trips: tripsArray,
+        totalTrips: tripsArray.length,
+        todayTrips: tripsArray.filter(trip => this.isToday(trip.date)).length
+      };
+    } catch (error) {
+      console.error('Error fetching conductor details:', error);
+      throw error;
     }
-
-    const conductorData = conductorDoc.data();
-    const { allTrips } = await this.getConductorTrips(conductorId);
-    const tripsArray = Array.isArray(allTrips) ? allTrips : Object.values(allTrips || {});
-
-    return {
-      id: conductorDoc.id,
-      ...conductorData,
-      trips: tripsArray,
-      totalTrips: tripsArray.length,
-      todayTrips: tripsArray.filter(trip => this.isToday(trip.date)).length
-    };
-  } catch (error) {
-    console.error('Error fetching conductor details:', error);
-    throw error;
   }
-}
 
-    // Get conductor trips
-async getConductorTrips(conductorId, limit = null) {
-  try {
-    const tripsRef = collection(db, 'conductors', conductorId, 'trips');
-    const datesSnapshot = await getDocs(tripsRef);
-    const allTrips = [];
-    const availableDates = [];
+  // Get conductor trips
+  async getConductorTrips(conductorId, limit = null) {
+    try {
+      const tripsRef = collection(db, 'conductors', conductorId, 'trips');
+      const datesSnapshot = await getDocs(tripsRef);
+      const allTrips = [];
+      const availableDates = [];
 
-    for (const dateDoc of datesSnapshot.docs) {
-      const date = dateDoc.id;
-      availableDates.push(date);
+      for (const dateDoc of datesSnapshot.docs) {
+        const date = dateDoc.id;
+        availableDates.push(date);
 
-      const ticketsRef = collection(db, 'conductors', conductorId, 'trips', date, 'tickets');
-      const ticketsSnapshot = await getDocs(ticketsRef);
+        const ticketsRef = collection(db, 'conductors', conductorId, 'trips', date, 'tickets');
+        const ticketsSnapshot = await getDocs(ticketsRef);
 
-      ticketsSnapshot.docs.forEach(ticketDoc => {
-        const ticketData = ticketDoc.data();
-        allTrips.push({
-          id: ticketDoc.id,
-          date: date,
-          ticketNumber: ticketDoc.id,
-          ...ticketData,
-          timestamp: ticketData.timestamp || null
+        ticketsSnapshot.docs.forEach(ticketDoc => {
+          const ticketData = ticketDoc.data();
+          allTrips.push({
+            id: ticketDoc.id,
+            date: date,
+            ticketNumber: ticketDoc.id,
+            ...ticketData,
+            timestamp: ticketData.timestamp || null
+          });
         });
+      }
+
+      // Sort by timestamp (most recent first)
+      allTrips.sort((a, b) => {
+        if (!a.timestamp || !b.timestamp) return 0;
+        return b.timestamp.toDate() - a.timestamp.toDate();
       });
+
+      return {
+        allTrips: limit ? allTrips.slice(0, limit) : allTrips,
+        availableDates,
+      };
+    } catch (error) {
+      console.error('Error fetching conductor trips:', error);
+      return {
+        allTrips: [],
+        availableDates: [],
+      };
     }
-
-    // Sort by timestamp (most recent first)
-    allTrips.sort((a, b) => {
-      if (!a.timestamp || !b.timestamp) return 0;
-      return b.timestamp.toDate() - a.timestamp.toDate();
-    });
-
-    return {
-      allTrips: limit ? allTrips.slice(0, limit) : allTrips,
-      availableDates,
-    };
-  } catch (error) {
-    console.error('Error fetching conductor trips:', error);
-    return {
-      allTrips: [],
-      availableDates: [],
-    };
   }
-}
-
 
   // Get trips count for a conductor
   async getConductorTripsCount(conductorId) {
@@ -131,49 +129,70 @@ async getConductorTrips(conductorId, limit = null) {
 
   // Get trips for a specific date
   async getConductorTripsByDate(conductorId, date) {
-  try {
-    const ticketsRef = collection(db, 'conductors', conductorId, 'trips', date, 'tickets');
-    const snapshot = await getDocs(ticketsRef);
-    
-    const trips = [];
-    snapshot.docs.forEach(doc => {
-      trips.push({
-        id: doc.id,
-        ticketNumber: doc.id,
-        date: date,
-        ...doc.data()
+    try {
+      const ticketsRef = collection(db, 'conductors', conductorId, 'trips', date, 'tickets');
+      const snapshot = await getDocs(ticketsRef);
+      
+      const trips = [];
+      snapshot.docs.forEach(doc => {
+        trips.push({
+          id: doc.id,
+          ticketNumber: doc.id,
+          date: date,
+          ...doc.data()
+        });
       });
-    });
-    
-    return trips;
-  } catch (error) {
-    console.error('Error fetching trips by date:', error);
-    return [];
+      
+      return trips;
+    } catch (error) {
+      console.error('Error fetching trips by date:', error);
+      return [];
+    }
   }
-}
 
-
-  // Real-time listener for conductors
+  // FIXED: Real-time listener for conductors list
   setupConductorsListener(callback) {
     const conductorsRef = collection(db, 'conductors');
     
     const unsubscribe = onSnapshot(conductorsRef, async (snapshot) => {
-      const conductors = [];
-      
-      for (const doc of snapshot.docs) {
-        const conductorData = doc.data();
-        const tripsCount = await this.getConductorTripsCount(doc.id);
+      try {
+        const conductors = [];
         
-        conductors.push({
-          id: doc.id,
-          ...conductorData,
-          tripsCount
+        // Process conductors in parallel for better performance
+        const conductorPromises = snapshot.docs.map(async (doc) => {
+          try {
+            const conductorData = doc.data();
+            // Only get basic data for list view - don't fetch all trips for performance
+            return {
+              id: doc.id,
+              ...conductorData,
+              tripsCount: conductorData.totalTrips || 0 // Use cached count if available
+            };
+          } catch (error) {
+            console.error(`Error processing conductor ${doc.id}:`, error);
+            return {
+              id: doc.id,
+              ...doc.data(),
+              tripsCount: 0
+            };
+          }
         });
+        
+        const results = await Promise.allSettled(conductorPromises);
+        
+        results.forEach((result) => {
+          if (result.status === 'fulfilled') {
+            conductors.push(result.value);
+          }
+        });
+        
+        callback(conductors);
+      } catch (error) {
+        console.error('Error in conductors listener:', error);
+        callback([]);
       }
-      
-      callback(conductors);
     }, (error) => {
-      console.error('Error in conductors listener:', error);
+      console.error('Error setting up conductors listener:', error);
       callback([]);
     });
     
@@ -181,30 +200,90 @@ async getConductorTrips(conductorId, limit = null) {
     return unsubscribe;
   }
 
-  // Real-time listener for specific conductor
-  setupConductorListener(conductorId, callback) {
+  // FIXED: Real-time listener for specific conductor with trips
+  setupConductorDetailsListener(conductorId, callback) {
     const conductorRef = doc(db, 'conductors', conductorId);
     
     const unsubscribe = onSnapshot(conductorRef, async (doc) => {
-      if (doc.exists()) {
-        const conductorData = doc.data();
-        const { allTrips } = await this.getConductorTrips(conductorId, 10); // Latest 10 trips
-        
-        callback({
-          id: doc.id,
-          ...conductorData,
-          trips,
-          totalTrips: trips.length
-        });
-      } else {
-        callback(null);
+      try {
+        if (doc.exists()) {
+          const conductorData = doc.data();
+          
+          // Get trips data when conductor data changes
+          const { allTrips } = await this.getConductorTrips(conductorId, 10); // Latest 10 trips
+          
+          callback({
+            id: doc.id,
+            ...conductorData,
+            trips: allTrips, // ✅ FIXED: Use allTrips instead of undefined 'trips'
+            totalTrips: allTrips.length,
+            todayTrips: allTrips.filter(trip => this.isToday(trip.date)).length
+          });
+        } else {
+          callback(null);
+        }
+      } catch (error) {
+        console.error('Error in conductor details listener:', error);
+        // Still call callback with basic data if trips fetch fails
+        if (doc.exists()) {
+          const conductorData = doc.data();
+          callback({
+            id: doc.id,
+            ...conductorData,
+            trips: [],
+            totalTrips: 0,
+            todayTrips: 0
+          });
+        } else {
+          callback(null);
+        }
       }
     }, (error) => {
-      console.error('Error in conductor listener:', error);
+      console.error('Error in conductor details listener:', error);
       callback(null);
     });
     
-    this.listeners.set(`conductor_${conductorId}`, unsubscribe);
+    this.listeners.set(`conductor_details_${conductorId}`, unsubscribe);
+    return unsubscribe;
+  }
+
+  // NEW: Lightweight listener for conductor status only (for location page)
+  setupConductorStatusListener(conductorId, callback) {
+    const conductorRef = doc(db, 'conductors', conductorId);
+    
+    const unsubscribe = onSnapshot(conductorRef, (doc) => {
+      try {
+        if (doc.exists()) {
+          const data = doc.data();
+          
+          // Return essential data for status monitoring
+          callback({
+            id: doc.id,
+            name: data.name,
+            email: data.email,
+            route: data.route,
+            busNumber: data.busNumber,
+            isOnline: data.isOnline,
+            status: data.status,
+            lastSeen: data.lastSeen,
+            currentLocation: data.currentLocation,
+            createdAt: data.createdAt,
+            updatedAt: data.updatedAt
+          });
+        } else {
+          console.warn(`Conductor ${conductorId} not found`);
+          callback(null);
+        }
+      } catch (error) {
+        console.error('Error in conductor status listener:', error);
+        callback(null);
+      }
+    }, (error) => {
+      console.error('Error setting up conductor status listener:', error);
+      callback(null);
+    });
+    
+    this.listeners.set(`conductor_status_${conductorId}`, unsubscribe);
     return unsubscribe;
   }
 
@@ -244,6 +323,41 @@ async getConductorTrips(conductorId, limit = null) {
     } catch (error) {
       console.error('Error searching conductors:', error);
       return [];
+    }
+  }
+
+  // NEW: Method to update conductor location (call this from conductor app)
+  async updateConductorLocation(conductorId, locationData) {
+    try {
+      const conductorRef = doc(db, 'conductors', conductorId);
+      
+      const updateData = {
+        currentLocation: {
+          latitude: locationData.latitude,
+          longitude: locationData.longitude,
+          timestamp: serverTimestamp(),
+          accuracy: locationData.accuracy || null,
+          speed: locationData.speed || null,
+          heading: locationData.heading || null
+        },
+        isOnline: true, // Set online when location is updated
+        lastSeen: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      await updateDoc(conductorRef, updateData);
+      
+      return {
+        success: true,
+        message: 'Location updated successfully'
+      };
+      
+    } catch (error) {
+      console.error('Error updating conductor location:', error);
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 
@@ -315,6 +429,15 @@ async getConductorTrips(conductorId, limit = null) {
       unsubscribe();
     });
     this.listeners.clear();
+  }
+
+  // Specific cleanup methods
+  removeConductorDetailsListener(conductorId) {
+    this.removeListener(`conductor_details_${conductorId}`);
+  }
+
+  removeConductorStatusListener(conductorId) {
+    this.removeListener(`conductor_status_${conductorId}`);
   }
   
   // Extract document ID from email (matches your current logic)
@@ -581,9 +704,7 @@ async getConductorTrips(conductorId, limit = null) {
       throw error;
     }
   }
-
 }
-
 
 // Export singleton instance
 export const conductorService = new ConductorService();

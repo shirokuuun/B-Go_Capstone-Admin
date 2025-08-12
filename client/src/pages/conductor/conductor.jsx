@@ -14,8 +14,8 @@ const Conductor = () => {
   const [loading, setLoading] = useState(true);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all'); // all, online, offline
-  const [sortBy, setSortBy] = useState('name'); // name, route, lastSeen, trips
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [sortBy, setSortBy] = useState('name');
   const [showTripsModal, setShowTripsModal] = useState(false);
   const [selectedConductorTrips, setSelectedConductorTrips] = useState(null);
   const [selectedDate, setSelectedDate] = useState('all');
@@ -24,9 +24,7 @@ const Conductor = () => {
   const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
-    fetchConductors();
-    
-    // Setup real-time listener
+    // Setup real-time listener for conductors list
     const unsubscribe = conductorService.setupConductorsListener((updatedConductors) => {
       setConductors(updatedConductors);
       setLoading(false);
@@ -38,61 +36,73 @@ const Conductor = () => {
     };
   }, []);
 
-  const fetchConductors = async () => {
-    try {
-      setLoading(true);
-      const conductorsData = await conductorService.getAllConductors();
-      setConductors(conductorsData);
-    } catch (error) {
-      console.error('Error fetching conductors:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // NEW: Real-time listener for selected conductor details
+  useEffect(() => {
+    if (!selectedConductor?.id) return;
+
+    setDetailsLoading(true);
+    
+    // Setup real-time listener for conductor details
+    const unsubscribe = conductorService.setupConductorDetailsListener(
+      selectedConductor.id,
+      (updatedConductor) => {
+        if (updatedConductor) {
+          setSelectedConductor(updatedConductor);
+        } else {
+          setSelectedConductor(null);
+        }
+        setDetailsLoading(false);
+      }
+    );
+
+    return () => {
+      conductorService.removeConductorDetailsListener(selectedConductor.id);
+    };
+  }, [selectedConductor?.id]);
 
   const handleConductorSelect = async (conductorId) => {
-    try {
-      setDetailsLoading(true);
-      const conductorDetails = await conductorService.getConductorDetails(conductorId);
-      setSelectedConductor(conductorDetails);
-    } catch (error) {
-      console.error('Error fetching conductor details:', error);
-    } finally {
-      setDetailsLoading(false);
-    }
+    // Don't fetch manually anymore - let the real-time listener handle it
+    setDetailsLoading(true);
+    
+    // Just set the selected conductor ID to trigger the useEffect
+    setSelectedConductor({ id: conductorId });
   };
 
   const handleDeleteConductor = async (id) => {
     if (!window.confirm("Are you sure you want to delete this conductor?")) return;
     try {
       await conductorService.deleteConductor(id);
-      fetchConductors(); // Refresh
+      // No need to fetch manually - real-time listener will update
+      
+      // Clear selected conductor if it was deleted
+      if (selectedConductor?.id === id) {
+        setSelectedConductor(null);
+      }
     } catch (error) {
       console.error("Error deleting conductor:", error);
     }
   };
 
+  const handleViewTrips = async (conductor) => {
+    try {
+      setDetailsLoading(true);
+      const { allTrips, availableDates } = await conductorService.getConductorTrips(conductor.id);
+      setTrips(allTrips);
+      setAvailableDates(availableDates);
+      setSelectedDate('all');
 
- const handleViewTrips = async (conductor) => {
-  try {
-    setDetailsLoading(true);
-    const { allTrips, availableDates } = await conductorService.getConductorTrips(conductor.id);
-    setTrips(allTrips);
-    setAvailableDates(availableDates);
-    setSelectedDate('all');
+      setSelectedConductorTrips({
+        ...conductor,
+        trips: allTrips,
+      });
 
-    setSelectedConductorTrips({
-      ...conductor,
-      trips: allTrips,
-    });
-
-    setShowTripsModal(true);
-  } catch (error) {
-    console.error('Error fetching trips:', error);
-  } finally {
-    setDetailsLoading(false);
-  }
-};
+      setShowTripsModal(true);
+    } catch (error) {
+      console.error('Error fetching trips:', error);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
 
   const filteredAndSortedConductors = () => {
     let filtered = conductors.filter(conductor => {
@@ -150,76 +160,76 @@ const Conductor = () => {
   return (
     <div className="conductor-container">
       <div className="conductor-header">
-  {/* Background Pattern */}
-  <div className="conductor-header-pattern"></div>
-  
-  <div className="conductor-header-content">
-    <div className="conductor-header-top">
-      {/* Title Section */}
-      <div className="conductor-title-section">
-        <div className="conductor-title-text">
-          <h1 className="conductor-main-title">Conductor Management</h1>
+        {/* Background Pattern */}
+        <div className="conductor-header-pattern"></div>
+        
+        <div className="conductor-header-content">
+          <div className="conductor-header-top">
+            {/* Title Section */}
+            <div className="conductor-title-section">
+              <div className="conductor-title-text">
+                <h1 className="conductor-main-title">Conductor Management</h1>
+              </div>
+            </div>
+
+            {/* Add Conductor Button */}
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="conductor-add-btn"
+            >
+              <IoMdAdd className="conductor-add-icon" />
+              Add Conductor
+            </button>
+          </div>
+
+          {/* Real-time Stats Cards */}
+          <div className="conductor-stats-container">
+            {/* Total Conductors */}
+            <div className="conductor-stat-card conductor-total">
+              <div className="conductor-stat-icon-wrapper">
+                <FaUsers className="conductor-stat-icon" />
+              </div>
+              <div className="conductor-stat-content">
+                <div className="conductor-stat-number">{conductors.length}</div>
+                <div className="conductor-stat-label">Total</div>
+              </div>
+            </div>
+
+            {/* Online Conductors - Updates in real-time */}
+            <div className="conductor-stat-card conductor-online">
+              <div className="conductor-stat-icon-wrapper">
+                <FaCheckCircle className="conductor-stat-icon" />
+              </div>
+              <div className="conductor-stat-content">
+                <div className="conductor-stat-number">{onlineConductors}</div>
+                <div className="conductor-stat-label">Online</div>
+              </div>
+            </div>
+
+            {/* Offline Conductors - Updates in real-time */}
+            <div className="conductor-stat-card conductor-offline">
+              <div className="conductor-stat-icon-wrapper">
+                <FaTimesCircle className="conductor-stat-icon" />
+              </div>
+              <div className="conductor-stat-content">
+                <div className="conductor-stat-number">{offlineConductors}</div>
+                <div className="conductor-stat-label">Offline</div>
+              </div>
+            </div>
+
+            {/* Total Trips */}
+            <div className="conductor-stat-card conductor-trips">
+              <div className="conductor-stat-icon-wrapper">
+                <FaMapMarkerAlt className="conductor-stat-icon" />
+              </div>
+              <div className="conductor-stat-content">
+                <div className="conductor-stat-number">{totalTrips}</div>
+                <div className="conductor-stat-label">Total Trips</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-
-      {/* Add Conductor Button */}
-      <button 
-        onClick={() => setShowAddModal(true)}
-        className="conductor-add-btn"
-      >
-        <IoMdAdd className="conductor-add-icon" />
-        Add Conductor
-      </button>
-    </div>
-
-    {/* Compact Stats Cards - Inside Header */}
-    <div className="conductor-stats-container">
-      {/* Total Conductors */}
-      <div className="conductor-stat-card conductor-total">
-        <div className="conductor-stat-icon-wrapper">
-          <FaUsers className="conductor-stat-icon" />
-        </div>
-        <div className="conductor-stat-content">
-          <div className="conductor-stat-number">{conductors.length}</div>
-          <div className="conductor-stat-label">Total</div>
-        </div>
-      </div>
-
-      {/* Online Conductors */}
-      <div className="conductor-stat-card conductor-online">
-        <div className="conductor-stat-icon-wrapper">
-          <FaCheckCircle className="conductor-stat-icon" />
-        </div>
-        <div className="conductor-stat-content">
-          <div className="conductor-stat-number">{onlineConductors}</div>
-          <div className="conductor-stat-label">Online</div>
-        </div>
-      </div>
-
-      {/* Offline Conductors */}
-      <div className="conductor-stat-card conductor-offline">
-        <div className="conductor-stat-icon-wrapper">
-          <FaTimesCircle className="conductor-stat-icon" />
-        </div>
-        <div className="conductor-stat-content">
-          <div className="conductor-stat-number">{offlineConductors}</div>
-          <div className="conductor-stat-label">Offline</div>
-        </div>
-      </div>
-
-      {/* Total Trips */}
-      <div className="conductor-stat-card conductor-trips">
-        <div className="conductor-stat-icon-wrapper">
-          <FaMapMarkerAlt className="conductor-stat-icon" />
-        </div>
-        <div className="conductor-stat-content">
-          <div className="conductor-stat-number">{totalTrips}</div>
-          <div className="conductor-stat-label">Total Trips</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
 
       <div className="conductor-content">
         <div className="conductor-sidebar">
@@ -274,6 +284,10 @@ const Conductor = () => {
                     }}
                   >
                     {conductorService.getStatusText(conductor.isOnline, conductor.lastSeen)}
+                    {/* Real-time status indicator */}
+                    {conductor.isOnline && (
+                      <span className="live-indicator">●</span>
+                    )}
                   </div>
                 </div>
                 
@@ -305,9 +319,9 @@ const Conductor = () => {
                   <button
                     className="action-btn delete-conductor"
                     onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteConductor(conductor.id);
-                  }}
+                      e.stopPropagation();
+                      handleDeleteConductor(conductor.id);
+                    }}
                   >
                     Delete
                   </button>
@@ -334,7 +348,7 @@ const Conductor = () => {
           ) : (
             <div className="no-selection">
               <h3>Select a conductor to view details</h3>
-              <p>Choose a conductor from the list to see their information and recent trips.</p>
+              <p>Choose a conductor from the list to see their real-time information and recent trips.</p>
             </div>
           )}
         </div>
@@ -346,7 +360,7 @@ const Conductor = () => {
           onClose={() => setShowAddModal(false)}
           onSuccess={() => {
             setShowAddModal(false);
-            fetchConductors(); // Refresh the list
+            // No need to fetch manually - real-time listener will update
           }}
         />
       )}
@@ -354,16 +368,16 @@ const Conductor = () => {
       {/* Trips Modal */}
       {showTripsModal && selectedConductorTrips && (
         <TripsModal
-        conductor={selectedConductorTrips}
-        onClose={() => {
-          setShowTripsModal(false);
-          setSelectedConductorTrips(null);
-        }}
-        trips={trips}
-        availableDates={availableDates}
-        selectedDate={selectedDate}
-        setSelectedDate={setSelectedDate}
-      />
+          conductor={selectedConductorTrips}
+          onClose={() => {
+            setShowTripsModal(false);
+            setSelectedConductorTrips(null);
+          }}
+          trips={trips}
+          availableDates={availableDates}
+          selectedDate={selectedDate}
+          setSelectedDate={setSelectedDate}
+        />
       )}
     </div>
   );
@@ -389,7 +403,6 @@ const AddConductorModal = ({ onClose, onSuccess }) => {
   };
 
   const extractDocumentId = (email) => {
-    // Extract everything before @ and replace dots with underscores
     return email.split('@')[0].replace(/\./g, '_');
   };
 
@@ -421,7 +434,10 @@ const AddConductorModal = ({ onClose, onSuccess }) => {
         createdAt: new Date(),
         lastSeen: null,
         currentLocation: null,
-        uid: user.uid // Store the Firebase Auth UID for reference
+        uid: user.uid,
+        totalTrips: 0,
+        todayTrips: 0,
+        status: 'offline'
       };
 
       await setDoc(doc(db, 'conductors', documentId), conductorData);
@@ -549,6 +565,7 @@ const AddConductorModal = ({ onClose, onSuccess }) => {
   );
 };
 
+// ENHANCED: Real-time Conductor Details Component
 const ConductorDetails = ({ conductor }) => {
   return (
     <div className="conductor-details-content">
@@ -561,6 +578,10 @@ const ConductorDetails = ({ conductor }) => {
           }}
         >
           {conductorService.getStatusText(conductor.isOnline, conductor.lastSeen)}
+          {/* Real-time live indicator */}
+          {conductor.isOnline && (
+            <span className="live-pulse">●</span>
+          )}
         </div>
       </div>
 
@@ -634,6 +655,24 @@ const ConductorDetails = ({ conductor }) => {
             <span className="value">{conductor.todayTrips || 0}</span>
           </div>
         </div>
+
+        {/* Real-time Recent Trips Section */}
+        {conductor.trips && conductor.trips.length > 0 && (
+          <div className="detail-section">
+            <h3>Recent Trips</h3>
+            <div className="recent-trips">
+              {conductor.trips.slice(0, 3).map((trip, index) => (
+                <div key={`${trip.date}-${trip.ticketNumber}`} className="recent-trip-item">
+                  <div className="trip-info">
+                    <span className="trip-route">{trip.from} → {trip.to}</span>
+                    <span className="trip-date">{trip.date}</span>
+                  </div>
+                  <div className="trip-fare">₱{trip.totalFare}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -662,101 +701,99 @@ const TripsModal = ({ conductor, onClose, trips, availableDates = [], selectedDa
         </div>
         
         <div className="modal-body">
-
-        {availableDates.length > 0 && (
-          <div className="date-filter">
-            <label htmlFor="date-select">Filter by Date: </label>
-            <select
-              id="date-select"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-            >
-              <option value="all">All Dates</option>
-              {availableDates.map((date) => (
-                <option key={date} value={date}>{date}</option>
-              ))}
-            </select>
-          </div>
-        )}
-        <div style={{ textAlign: 'right', marginBottom: '1rem' }}>
-        <button
-          className="sort-toggle"
-          onClick={() => setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'))}
-        >
-          Sort: {sortOrder === 'asc' ? 'Oldest First' : 'Newest First'}
-        </button>
-      </div>
-
-
-        {filteredTrips && filteredTrips.length > 0 ? (
-          <div className="trips-grid">
-            {filteredTrips.map((trip, index) => (
-            <div key={`${trip.date}-${trip.ticketNumber}`} className="trip-card">
-              <div className="trip-header">
-                <span className="trip-number">#{index + 1}</span>
-                <span className="trip-ticket">{trip.ticketNumber}</span>
-                <span className="trip-date">{trip.date}</span>
-              </div>
-              <div className="trip-details">
-                {[
-                  'from',
-                  'startKm',
-                  'to',
-                  'endKm',
-                  'farePerPassenger',
-                  'discountBreakdown',
-                  'quantity',
-                  'totalFare',
-                  'timestamp',
-                  'isActive'
-                ].map((key) => {
-                  const value = trip[key];
-                  if (value === undefined) return null;
-
-                  const formatLabel = (label) => {
-                    return label
-                      .replace(/([A-Z])/g, ' $1') // Insert space before capital letters
-                      .replace(/^./, (s) => s.toUpperCase()); // Capitalize first letter
-                  };
-
-                  return (
-                    <div key={key} className="trip-detail">
-                      <span className="trip-label">{formatLabel(key)}:</span>
-                      <span className="trip-value">
-                        {key === 'timestamp'
-                          ? conductorService.formatTimestamp(value)
-                          : key === 'discountBreakdown' && typeof value === 'object'
-                          ? (
-                            <ul style={{ margin: 0, paddingLeft: '1rem' }}>
-                              {Object.entries(value).map(([passenger, discount], idx) => {
-                                const amount = Number(discount);
-                                return (
-                                  <li key={idx}>
-                                    {isNaN(amount)
-                                      ? discount
-                                      : `Passenger ${idx + 1}: ₱${amount.toFixed(2)} discount`}
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          )
-                          : String(value)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+          {availableDates.length > 0 && (
+            <div className="date-filter">
+              <label htmlFor="date-select">Filter by Date: </label>
+              <select
+                id="date-select"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              >
+                <option value="all">All Dates</option>
+                {availableDates.map((date) => (
+                  <option key={date} value={date}>{date}</option>
+                ))}
+              </select>
             </div>
-          ))}
+          )}
+          
+          <div style={{ textAlign: 'right', marginBottom: '1rem' }}>
+            <button
+              className="sort-toggle"
+              onClick={() => setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'))}
+            >
+              Sort: {sortOrder === 'asc' ? 'Oldest First' : 'Newest First'}
+            </button>
           </div>
-        ) : (
-          <p>No trips found for this date.</p>
-        )}
-      </div>
 
+          {filteredTrips && filteredTrips.length > 0 ? (
+            <div className="trips-grid">
+              {filteredTrips.map((trip, index) => (
+                <div key={`${trip.date}-${trip.ticketNumber}`} className="trip-card">
+                  <div className="trip-header">
+                    <span className="trip-number">#{index + 1}</span>
+                    <span className="trip-ticket">{trip.ticketNumber}</span>
+                    <span className="trip-date">{trip.date}</span>
+                  </div>
+                  <div className="trip-details">
+                    {[
+                      'from',
+                      'startKm',
+                      'to',
+                      'endKm',
+                      'farePerPassenger',
+                      'discountBreakdown',
+                      'quantity',
+                      'totalFare',
+                      'timestamp',
+                      'isActive'
+                    ].map((key) => {
+                      const value = trip[key];
+                      if (value === undefined) return null;
+
+                      const formatLabel = (label) => {
+                        return label
+                          .replace(/([A-Z])/g, ' $1')
+                          .replace(/^./, (s) => s.toUpperCase());
+                      };
+
+                      return (
+                        <div key={key} className="trip-detail">
+                          <span className="trip-label">{formatLabel(key)}:</span>
+                          <span className="trip-value">
+                            {key === 'timestamp'
+                              ? conductorService.formatTimestamp(value)
+                              : key === 'discountBreakdown' && typeof value === 'object'
+                              ? (
+                                <ul style={{ margin: 0, paddingLeft: '1rem' }}>
+                                  {Object.entries(value).map(([passenger, discount], idx) => {
+                                    const amount = Number(discount);
+                                    return (
+                                      <li key={idx}>
+                                        {isNaN(amount)
+                                          ? discount
+                                          : `Passenger ${idx + 1}: ₱${amount.toFixed(2)} discount`}
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              )
+                              : String(value)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p>No trips found for this date.</p>
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
-export default Conductor; 
+export default Conductor;

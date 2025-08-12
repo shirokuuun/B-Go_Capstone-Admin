@@ -20,8 +20,8 @@ import Conductor from '/src/pages/conductor/conductor.jsx';
 
 // Reports components
 import DailyRevenue from './pages/reports/DailyRevenue/DailyRevenue.jsx';
-import BusUtilization from './pages/reports/BusUtilization';
-import ConductorPerformance from './pages/reports/ConductorPerformance';
+import BusUtilization from './pages/reports/BusUtilization/BusUtilization.jsx';
+import ConductorPerformance from './pages/reports/ConductorPerformance/ConductorPerformance.jsx';
 import SummaryDashboard from './pages/reports/SummaryDashboard';
 
 createRoot(document.getElementById('root')).render(

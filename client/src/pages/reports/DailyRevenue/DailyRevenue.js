@@ -10,25 +10,55 @@ export const fetchConductorTrips = async (date) => {
     let allTrips = [];
 
     for (const conductorDoc of conductorsSnapshot.docs) {
-      const tripsRef = collection(db, `conductors/${conductorDoc.id}/trips/${date}/tickets`);
-      const tripsSnapshot = await getDocs(tripsRef);
-      
-      tripsSnapshot.docs.forEach(doc => {
-        const data = doc.data();
-        if (data.active && data.totalFare) {
-          allTrips.push({
-            id: doc.id,
-            conductorId: conductorDoc.id,
-            totalFare: parseFloat(data.totalFare),
-            quantity: data.quantity || 1,
-            from: data.from,
-            to: data.to,
-            timestamp: data.timestamp,
-            discountAmount: parseFloat(data.discountAmount || 0),
-            source: 'Conductor Trips'
+      // If no date is provided, get all trips by fetching from all date collections
+      if (!date) {
+        // Get all trip dates for this conductor
+        const conductorTripsRef = collection(db, `conductors/${conductorDoc.id}/trips`);
+        const tripDatesSnapshot = await getDocs(conductorTripsRef);
+        
+        for (const dateDoc of tripDatesSnapshot.docs) {
+          const tripsRef = collection(db, `conductors/${conductorDoc.id}/trips/${dateDoc.id}/tickets`);
+          const tripsSnapshot = await getDocs(tripsRef);
+          
+          tripsSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            if (data.active && data.totalFare) {
+              allTrips.push({
+                id: doc.id,
+                conductorId: conductorDoc.id,
+                totalFare: parseFloat(data.totalFare),
+                quantity: data.quantity || 1,
+                from: data.from,
+                to: data.to,
+                timestamp: data.timestamp,
+                discountAmount: parseFloat(data.discountAmount || 0),
+                source: 'Conductor Trips'
+              });
+            }
           });
         }
-      });
+      } else {
+        // Original code for specific date
+        const tripsRef = collection(db, `conductors/${conductorDoc.id}/trips/${date}/tickets`);
+        const tripsSnapshot = await getDocs(tripsRef);
+        
+        tripsSnapshot.docs.forEach(doc => {
+          const data = doc.data();
+          if (data.active && data.totalFare) {
+            allTrips.push({
+              id: doc.id,
+              conductorId: conductorDoc.id,
+              totalFare: parseFloat(data.totalFare),
+              quantity: data.quantity || 1,
+              from: data.from,
+              to: data.to,
+              timestamp: data.timestamp,
+              discountAmount: parseFloat(data.discountAmount || 0),
+              source: 'Conductor Trips'
+            });
+          }
+        });
+      }
     }
     return allTrips;
   } catch (error) {
@@ -47,8 +77,8 @@ export const fetchPreTicketing = async (date) => {
     tripsSnapshot.docs.forEach(doc => {
       const data = doc.data();
       if (data.active && data.totalFare && data.timestamp) {
-        const tripDate = data.timestamp.toDate().toISOString().split('T')[0];
-        if (tripDate === date) {
+        // If no date is provided, include all records
+        if (!date) {
           allPreTickets.push({
             id: doc.id,
             totalFare: data.totalFare,
@@ -60,6 +90,22 @@ export const fetchPreTicketing = async (date) => {
             fareTypes: data.fareTypes || [],
             source: 'Pre-ticketing'
           });
+        } else {
+          // Original code for specific date
+          const tripDate = data.timestamp.toDate().toISOString().split('T')[0];
+          if (tripDate === date) {
+            allPreTickets.push({
+              id: doc.id,
+              totalFare: data.totalFare,
+              quantity: data.quantity || 1,
+              from: data.from,
+              to: data.to,
+              timestamp: data.timestamp,
+              discountAmount: parseFloat(data.discountAmount || 0),
+              fareTypes: data.fareTypes || [],
+              source: 'Pre-ticketing'
+            });
+          }
         }
       }
     });
@@ -112,9 +158,12 @@ export const prepareRouteRevenueData = (conductorTrips, preTicketing) => {
 // Load all revenue data
 export const loadRevenueData = async (selectedDate) => {
   try {
+    // Pass null or empty string when date is cleared to fetch all data
+    const dateParam = selectedDate && selectedDate.trim() !== '' ? selectedDate : null;
+    
     const [conductorTrips, preTicketing] = await Promise.all([
-      fetchConductorTrips(selectedDate),
-      fetchPreTicketing(selectedDate)
+      fetchConductorTrips(dateParam),
+      fetchPreTicketing(dateParam)
     ]);
 
     const metrics = calculateRevenueMetrics(conductorTrips, preTicketing);

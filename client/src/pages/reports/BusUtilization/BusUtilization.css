@@ -1,0 +1,799 @@
+/* BusUtilization.css - Unique Classes */
+
+.bus-util-container {
+  padding: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+/* Header Styles */
+.bus-util-header {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.bus-util-title {
+  color: #2c3e50;
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.bus-util-date-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.bus-util-date-label {
+  font-weight: 600;
+  color: #495057;
+}
+
+.bus-util-date-input {
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.15s ease-in-out;
+}
+
+.bus-util-date-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.bus-util-refresh-btn, .bus-util-print-btn {
+  padding: 8px 16px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.bus-util-print-btn {
+  background-color: #28a745;
+}
+
+.bus-util-refresh-btn:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+
+.bus-util-print-btn:hover:not(:disabled) {
+  background-color: #1e7e34;
+}
+
+.bus-util-refresh-btn:disabled, .bus-util-print-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Summary Cards */
+.bus-util-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.bus-util-summary-card {
+  background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
+  transition: transform 0.2s ease-in-out;
+}
+
+.bus-util-summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.bus-util-card-title {
+  margin: 0 0 12px 0;
+  color: #6c757d;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.bus-util-card-value {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.bus-util-card-value.bus-util-total-buses {
+  color: #6f42c1;
+}
+
+.bus-util-card-value.bus-util-reserved-buses {
+  color: #dc3545;
+}
+
+.bus-util-card-value.bus-util-utilization-rate {
+  color: #007bff;
+}
+
+.bus-util-card-value.bus-util-available-buses {
+  color: #28a745;
+}
+
+/* Charts Section */
+.bus-util-charts-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+@media (max-width: 1024px) {
+  .bus-util-charts-section {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bus-util-chart-container {
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
+}
+
+.bus-util-chart-title {
+  margin-bottom: 20px;
+  color: #2c3e50;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* Print-specific sections (hidden on screen) */
+.bus-util-print-header,
+.bus-util-print-summary,
+.bus-util-print-footer {
+  display: none;
+}
+
+/* Detailed Breakdown */
+.bus-util-breakdown-section {
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
+}
+
+.bus-util-breakdown-title {
+  margin-bottom: 20px;
+  color: #2c3e50;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.bus-util-section-container {
+  margin-bottom: 30px;
+}
+
+.bus-util-section-title {
+  margin-bottom: 15px;
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bus-util-section-title.bus-util-available {
+  color: #28a745;
+}
+
+.bus-util-section-title.bus-util-reserved {
+  color: #dc3545;
+}
+
+/* Table Styles */
+.bus-util-table-container {
+  overflow-x: auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.bus-util-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 700px;
+  background: white;
+}
+
+.bus-util-table thead tr {
+  background-color: #f8f9fa;
+}
+
+.bus-util-table th {
+  padding: 16px 12px;
+  text-align: left;
+  border-bottom: 2px solid #dee2e6;
+  font-weight: 600;
+  color: #495057;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.bus-util-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid #e9ecef;
+  color: #495057;
+  font-size: 14px;
+}
+
+.bus-util-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.bus-util-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Specific cell styles */
+.bus-util-bus-id, .bus-util-reservation-id {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.bus-util-destination {
+  font-weight: 500;
+  color: #495057;
+}
+
+.bus-util-amount {
+  font-weight: 600;
+  color: #28a745;
+}
+
+/* Status indicators */
+.bus-util-status-available {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.bus-util-status-pending {
+  color: #ffc107;
+  font-weight: 600;
+}
+
+.bus-util-status-confirmed {
+  color: #007bff;
+  font-weight: 600;
+}
+
+.bus-util-status-completed {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.bus-util-status-cancelled {
+  color: #dc3545;
+  font-weight: 600;
+}
+
+/* Loading State */
+.bus-util-loading-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+  color: #6c757d;
+  font-size: 16px;
+}
+
+/* Empty State */
+.bus-util-empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #6c757d;
+}
+
+.bus-util-empty-state h3 {
+  margin-bottom: 8px;
+  color: #495057;
+}
+
+.bus-util-empty-state p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* =========================
+   PRINT STYLES
+   ========================= */
+
+@media print {
+  /* Reset page styles for printing */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    box-sizing: border-box;
+  }
+
+  @page {
+    size: A4;
+    margin: 0.5in;
+    orphans: 2;
+    widows: 2;
+  }
+
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+    font-family: Arial, sans-serif;
+    font-size: 10pt;
+    line-height: 1.2;
+    color: #000;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  /* Hide all navigation and layout elements */
+  nav, 
+  aside,
+  .Navigation,
+  .sidebar, 
+  .navigation, 
+  .nav, 
+  .header, 
+  .app-header,
+  .layout-sidebar,
+  .main-sidebar,
+  .navbar,
+  .menu,
+  .breadcrumb,
+  .back-button,
+  .toolbar,
+  .side-nav,
+  .sidenav,
+  .left-panel,
+  .main-nav,
+  .app-nav,
+  .dashboard-nav,
+  .vertical-nav,
+  .menu-container,
+  .nav-container,
+  .side-menu,
+  .main-menu,
+  .app-sidebar,
+  .layout-nav,
+  .page-nav,
+  .nav-header-logo,
+  .nav-scroll,
+  .menu-top-right,
+  [class*="sidebar"],
+  [class*="nav"],
+  [class*="header"],
+  [class*="menu"],
+  [class*="aside"],
+  [class*="Navigation"],
+  [id*="sidebar"],
+  [id*="nav"],
+  [id*="menu"] {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Ensure main content takes full width */
+  .bus-util-container {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+    box-shadow: none !important;
+    min-height: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    z-index: 9999 !important;
+  }
+
+  /* Hide screen-only elements */
+  .bus-util-header,
+  .bus-util-charts-section,
+  .bus-util-summary-card:hover,
+  .bus-util-table-container {
+    box-shadow: none !important;
+  }
+
+  .bus-util-date-controls,
+  .bus-util-refresh-btn,
+  .bus-util-print-btn {
+    display: none !important;
+  }
+
+  /* Show print-only elements */
+  .bus-util-print-header,
+  .bus-util-print-summary,
+  .bus-util-print-footer {
+    display: block !important;
+  }
+
+  /* Print Header */
+  .bus-util-print-header {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin: 0 0 10px 0 !important;
+    padding: 0 0 8px 0 !important;
+    border-bottom: 2px solid #000;
+    page-break-inside: avoid;
+  }
+
+  .bus-util-company-info h1 {
+    margin: 0;
+    font-size: 16pt;
+    font-weight: bold;
+    color: #000;
+  }
+
+  .bus-util-company-info p {
+    margin: 2px 0 0 0;
+    font-size: 10pt;
+    color: #000;
+  }
+
+  .bus-util-report-info {
+    text-align: right;
+  }
+
+  .bus-util-report-info p {
+    margin: 1px 0;
+    font-size: 8pt;
+    color: #000;
+  }
+
+  /* Print Summary Sections */
+  .bus-util-print-summary {
+    margin: 0 0 10px 0 !important;
+    page-break-inside: avoid;
+    width: 100% !important;
+  }
+
+  .bus-util-print-summary h3 {
+    font-size: 11pt;
+    font-weight: bold;
+    margin: 0 0 5px 0 !important;
+    color: #000;
+    border-bottom: 1px solid #000;
+    padding-bottom: 2px;
+  }
+
+  .bus-util-breakdown-summary {
+    background: #f8f9fa;
+    padding: 6px !important;
+    border: 1px solid #000;
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  .bus-util-breakdown-item {
+    display: flex;
+    justify-content: space-between;
+    margin: 0 0 3px 0 !important;
+    font-size: 8pt;
+  }
+
+  .bus-util-breakdown-item.bus-util-total {
+    border-top: 1px solid #000;
+    padding-top: 3px !important;
+    margin-top: 3px !important;
+    font-weight: bold;
+    font-size: 9pt;
+  }
+
+  .bus-util-breakdown-label {
+    color: #000;
+  }
+
+  .bus-util-breakdown-value {
+    font-weight: bold;
+    color: #000;
+  }
+
+  /* Status Summary */
+  .bus-util-status-summary {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 5px;
+    border: 1px solid #000;
+    padding: 5px;
+  }
+
+  .bus-util-status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 5px;
+    font-size: 8pt;
+    border: 1px solid #ddd;
+  }
+
+  .bus-util-status-label {
+    font-weight: bold;
+    color: #000;
+  }
+
+  .bus-util-status-count {
+    color: #000;
+  }
+
+  /* Summary Cards for Print */
+  .bus-util-summary-cards {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px !important;
+    margin: 10px 0 !important;
+    page-break-inside: avoid;
+    width: 100% !important;
+  }
+
+  .bus-util-summary-card {
+    background: white !important;
+    border: 1px solid #000 !important;
+    border-radius: 0 !important;
+    padding: 6px !important;
+    text-align: center;
+    margin: 0 !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+
+  .bus-util-card-title {
+    font-size: 8pt !important;
+    color: #000 !important;
+    margin: 0 0 3px 0 !important;
+    text-transform: uppercase;
+    font-weight: bold;
+  }
+
+  .bus-util-card-value {
+    font-size: 11pt !important;
+    color: #000 !important;
+    font-weight: bold !important;
+    margin: 0 !important;
+  }
+
+  /* Charts - Hide in print */
+  .bus-util-charts-section {
+    display: none !important;
+  }
+
+  /* Table Styles for Print */
+  .bus-util-breakdown-section {
+    background: white !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 0 8px 0 !important;
+    width: 100% !important;
+  }
+
+  .bus-util-breakdown-title {
+    font-size: 12pt;
+    color: #000;
+    margin: 0 0 8px 0 !important;
+    border-bottom: 1px solid #000;
+    padding-bottom: 2px;
+    font-weight: bold;
+  }
+
+  .bus-util-section-container {
+    margin: 0 0 8px 0 !important;
+    page-break-inside: auto;
+    width: 100% !important;
+  }
+
+  .bus-util-section-title {
+    font-size: 10pt !important;
+    color: #000 !important;
+    margin: 5px 0 3px 0 !important;
+    font-weight: bold;
+  }
+
+  .bus-util-table-container {
+    overflow: visible !important;
+    width: 100% !important;
+    margin: 0 0 5px 0 !important;
+  }
+
+  .bus-util-table {
+    border: 1px solid #000 !important;
+    margin: 0 0 5px 0 !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 7pt !important;
+    page-break-inside: auto;
+  }
+
+  .bus-util-table th {
+    background: #f0f0f0 !important;
+    border: 1px solid #000 !important;
+    padding: 2px !important;
+    font-size: 7pt !important;
+    color: #000 !important;
+    font-weight: bold;
+    text-align: left;
+  }
+
+  .bus-util-table td {
+    border: 1px solid #000 !important;
+    padding: 2px !important;
+    font-size: 7pt !important;
+    color: #000 !important;
+    vertical-align: top;
+  }
+
+  .bus-util-bus-id,
+  .bus-util-reservation-id,
+  .bus-util-destination,
+  .bus-util-amount {
+    color: #000 !important;
+  }
+
+  .bus-util-status-available,
+  .bus-util-status-pending,
+  .bus-util-status-confirmed,
+  .bus-util-status-completed,
+  .bus-util-status-cancelled {
+    color: #000 !important;
+    font-weight: bold;
+  }
+
+  /* Print Footer */
+  .bus-util-print-footer {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    margin: 8px 0 0 0 !important;
+    padding: 5px 0 0 0 !important;
+    border-top: 1px solid #000;
+    font-size: 7pt;
+    color: #000;
+    page-break-inside: avoid;
+  }
+
+  .bus-util-footer-left,
+  .bus-util-footer-right {
+    color: #000;
+  }
+
+  /* Better page break control */
+  .bus-util-section-container {
+    page-break-inside: avoid;
+  }
+
+  .bus-util-table {
+    page-break-inside: auto;
+  }
+
+  .bus-util-table tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  .bus-util-table thead {
+    display: table-header-group;
+  }
+
+  .bus-util-table tbody tr {
+    page-break-before: auto;
+    page-break-after: auto;
+  }
+
+  /* Force table to break at reasonable points */
+  .bus-util-table tbody tr:nth-child(15n) {
+    page-break-after: always;
+  }
+
+  /* Empty states for print */
+  .bus-util-empty-state {
+    background: #f8f8f8;
+    border: 1px solid #000;
+    padding: 5px !important;
+    text-align: center;
+    margin: 0 0 5px 0 !important;
+  }
+
+  .bus-util-empty-state h3,
+  .bus-util-empty-state p {
+    color: #000;
+    font-size: 8pt;
+    margin: 2px 0 !important;
+  }
+
+  /* Force full width and proper positioning */
+  body {
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: relative !important;
+  }
+
+  /* Override any parent container constraints */
+  .bus-util-container * {
+    max-width: 100% !important;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .bus-util-container {
+    padding: 15px;
+  }
+  
+  .bus-util-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .bus-util-date-controls {
+    justify-content: center;
+  }
+  
+  .bus-util-title {
+    font-size: 24px;
+    text-align: center;
+  }
+  
+  .bus-util-summary-cards {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+  }
+  
+  .bus-util-summary-card {
+    padding: 20px;
+  }
+  
+  .bus-util-card-value {
+    font-size: 24px;
+  }
+  
+  .bus-util-chart-container {
+    padding: 20px;
+  }
+  
+  .bus-util-breakdown-section {
+    padding: 20px;
+  }
+
+  .bus-util-print-btn {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+
+  .bus-util-table {
+    min-width: 600px;
+  }
+}
