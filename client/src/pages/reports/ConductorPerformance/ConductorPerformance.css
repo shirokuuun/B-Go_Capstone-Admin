@@ -132,6 +132,10 @@
   color: #ffc107;
 }
 
+.cp-card-value.cp-capacity {
+  color: #17a2b8;
+}
+
 /* Charts Section */
 .cp-charts-section {
   display: grid;
@@ -288,7 +292,7 @@
 }
 
 /* Total Passengers Styling */
-.cp-total-passengers {
+.cp-current-passengers {
   font-weight: 600;
   color: #6f42c1;
 }

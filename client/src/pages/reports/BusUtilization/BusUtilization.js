@@ -287,11 +287,11 @@ export const formatReservationData = (reservation) => {
   return {
     id: reservation.id || reservation.reservationId || reservation.docId || 'N/A',
     busId: busIds,
-    customerName: reservation.customerName || reservation.clientName || reservation.customer || reservation.name || 'N/A',
+    customerName: reservation.fullName || 'N/A',
     reservationDate: reservation.reservationDate || reservation.date || reservation.timestamp || null,
-    destination: reservation.destination || reservation.route || reservation.location || reservation.to || 'N/A',
+    destination: reservation.to || reservation.route || reservation.location || reservation.to || 'N/A',
     status: reservation.status || 'Pending',
-    amount: reservation.amount || reservation.totalAmount || reservation.fare || reservation.cost || 0
+    amount: '2000'
   };
 };
 

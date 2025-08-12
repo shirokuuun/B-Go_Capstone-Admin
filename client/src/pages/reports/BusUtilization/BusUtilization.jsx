@@ -1,11 +1,12 @@
-// BusUtilization.jsx
+// BusUtilization.jsx - Fixed to use formatted reservation data
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, BarChart, Bar, ResponsiveContainer } from 'recharts';
 import { 
   loadUtilizationData, 
   preparePieChartData, 
   prepareHourlyUtilizationData,
-  prepareReservationStatusData 
+  prepareReservationStatusData,
+  formatReservationData // Add this import
 } from '/src/pages/reports/BusUtilization/BusUtilization.js';
 import './BusUtilization.css';
 
@@ -72,6 +73,12 @@ const BusUtilization = () => {
   };
 
   const formatPercentage = (value) => `${value.toFixed(1)}%`;
+
+  // Format amount safely
+  const formatAmount = (amount) => {
+    const numAmount = parseFloat(amount) || 2000; // Default to 2000 if no amount
+    return `₱${numAmount.toFixed(2)}`;
+  };
 
   if (loading) {
     return (
@@ -257,7 +264,6 @@ const BusUtilization = () => {
                     <th>Bus Type</th>
                     <th>Capacity</th>
                     <th>Status</th>
-                    <th>Last Updated</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -265,9 +271,8 @@ const BusUtilization = () => {
                     <tr key={index}>
                       <td className="bus-util-bus-id">{bus.id || bus.busNumber || `Bus-${index + 1}`}</td>
                       <td>{bus.type || bus.busType || 'Standard'}</td>
-                      <td>{bus.capacity || bus.seatCapacity || 'N/A'}</td>
+                      <td>{bus.capacity || bus.seatCapacity || '27'}</td>
                       <td className="bus-util-status-available">Available</td>
-                      <td>{formatTime(bus.lastUpdated || bus.timestamp)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -301,19 +306,24 @@ const BusUtilization = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {utilizationData.reservations.map((reservation, index) => (
-                    <tr key={index}>
-                      <td className="bus-util-reservation-id">{reservation.id || `RES-${index + 1}`}</td>
-                      <td className="bus-util-bus-id">{reservation.busId || reservation.assignedBus || 'TBD'}</td>
-                      <td>{reservation.customerName || reservation.client || 'N/A'}</td>
-                      <td>{formatTime(reservation.reservationDate || reservation.timestamp)}</td>
-                      <td className="bus-util-destination">{reservation.destination || reservation.route || 'N/A'}</td>
-                      <td className={`bus-util-status-${(reservation.status || 'pending').toLowerCase()}`}>
-                        {reservation.status || 'Pending'}
-                      </td>
-                      <td className="bus-util-amount">₱{(reservation.amount || reservation.totalAmount || 0).toFixed(2)}</td>
-                    </tr>
-                  ))}
+                  {utilizationData.reservations.map((reservation, index) => {
+                    // Format each reservation using the helper function
+                    const formattedReservation = formatReservationData(reservation);
+                    
+                    return (
+                      <tr key={index}>
+                        <td className="bus-util-reservation-id">{formattedReservation.id}</td>
+                        <td className="bus-util-bus-id">{formattedReservation.busId}</td>
+                        <td>{formattedReservation.customerName}</td>
+                        <td>{formatTime(formattedReservation.reservationDate)}</td>
+                        <td className="bus-util-destination">{formattedReservation.destination}</td>
+                        <td className={`bus-util-status-${formattedReservation.status.toLowerCase()}`}>
+                          {formattedReservation.status}
+                        </td>
+                        <td className="bus-util-amount">{formatAmount(formattedReservation.amount)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
