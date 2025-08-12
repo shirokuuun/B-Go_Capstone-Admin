@@ -19,7 +19,7 @@ import Signup from '/src/pages/auth/signup.jsx';
 import Conductor from '/src/pages/conductor/conductor.jsx';
 
 // Reports components
-import DailyRevenue from './pages/reports/DailyRevenue';
+import DailyRevenue from './pages/reports/DailyRevenue/DailyRevenue.jsx';
 import BusUtilization from './pages/reports/BusUtilization';
 import ConductorPerformance from './pages/reports/ConductorPerformance';
 import SummaryDashboard from './pages/reports/SummaryDashboard';
