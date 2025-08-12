@@ -1,3 +1,4 @@
+// nav.jsx
 import "./nav.css";
 import BatrascoLogo from '/src/assets/batrasco-logo.png';
 import NavIcon from '/src/components/NavIconTemplate/NavIcon.jsx';
@@ -14,6 +15,8 @@ import { FaAngleLeft, FaAngleRight } from "react-icons/fa";
 import { IoTicket } from "react-icons/io5";
 import { FaBusSimple } from "react-icons/fa6";
 import { MdConfirmationNumber, MdEventSeat } from "react-icons/md";
+import { TbReportSearch } from "react-icons/tb";
+import { FaChartLine, FaBus, FaUserTie, FaCalendarAlt } from "react-icons/fa";
 
 const Nav = ({ collapsed, setCollapsed }) => {
   // Ticketing dropdown items
@@ -27,6 +30,30 @@ const Nav = ({ collapsed, setCollapsed }) => {
       title: "Pre-booking",
       Icon: MdEventSeat,
       to: "/admin/ticketing/pre-booking"
+    }
+  ];
+
+  // Reports dropdown items
+  const reportsDropdownItems = [
+    {
+      title: "Daily Revenue",
+      Icon: FaChartLine,
+      to: "/admin/reports/daily-revenue"
+    },
+    {
+      title: "Bus Utilization",
+      Icon: FaBus,
+      to: "/admin/reports/bus-utilization"
+    },
+    {
+      title: "Conductor Performance",
+      Icon: FaUserTie,
+      to: "/admin/reports/conductor-performance"
+    },
+    {
+      title: "Summary Dashboard",
+      Icon: FaCalendarAlt,
+      to: "/admin/reports/summary-dashboard"
     }
   ];
 
@@ -63,6 +90,15 @@ const Nav = ({ collapsed, setCollapsed }) => {
         />
 
         <NavIcon title="SOS Requests" Icon={MdSos} to="/admin/sos" collapsed={collapsed} />
+        
+        {/* Reports Dropdown */}
+        <DropdownNavIcon
+          title="Reports"
+          Icon={TbReportSearch}
+          dropdownItems={reportsDropdownItems}
+          collapsed={collapsed}
+        />
+
         <NavIcon title="Payment Transactions" Icon={MdPayment} to="/admin/payments" collapsed={collapsed} />
         <NavIcon title="Settings" Icon={IoMdSettings} to="/admin/settings" collapsed={collapsed} />
       </div>

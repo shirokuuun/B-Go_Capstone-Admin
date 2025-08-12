@@ -1,9 +1,8 @@
 .dni-container {
-  position: relative; /* required so tooltip/menu can absolutely position relative to the icon */
+  position: relative;
 }
 
-/* keep arrow styling */
-.dni-arrow { /* not used in the JSX but fine to keep */
+.dni-arrow { 
   color: white;
   transition: transform 0.3s ease;
   margin-left: auto;
@@ -11,10 +10,9 @@
   align-items: center;
 }
 
-/* expanded submenu (desktop/full sidebar) - support both class names */
 .dni-menu,
 .nav-dropdown-menu {
-  background-color: rgba(12, 30, 34, 0.95);
+  background-color: rgba(16, 38, 44, 0.95);
   margin: 6px 6px 8px 6px;
   padding: 6px 0;
   border-left: 3px solid rgba(255, 255, 255, 0.08);

@@ -1,3 +1,4 @@
+// layout.jsx
 import { useLocation, Outlet } from 'react-router-dom';
 import { useState } from 'react';
 import Nav from '/src/components/navigation/nav.jsx';
@@ -28,6 +29,16 @@ const Layout = () => {
         return 'Pre-ticketing';
       case '/admin/sos':
         return 'SOS Requests';
+      case '/admin/reports':
+        return 'Reports';
+      case '/admin/reports/daily-revenue':
+        return 'Daily Revenue Report';
+      case '/admin/reports/bus-utilization':
+        return 'Bus Utilization Report';
+      case '/admin/reports/conductor-performance':
+        return 'Conductor Performance Report';
+      case '/admin/reports/summary-dashboard':
+        return 'Summary Dashboard';
       case '/admin/payments':
         return 'Payment Transactions';
       case '/admin/settings':
