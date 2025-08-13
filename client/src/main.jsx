@@ -19,7 +19,7 @@ import Conductor from '/src/pages/conductor/conductor.jsx';
 
 // Reports components
 import DailyRevenue from './pages/reports/DailyRevenue/DailyRevenue.jsx';
-import BusUtilization from './pages/reports/BusUtilization/BusUtilization.jsx';
+import RoutePerformance from './pages/reports/RoutePerformance/RoutePerformance.jsx';
 import ConductorPerformance from './pages/reports/ConductorPerformance/ConductorPerformance.jsx';
 import SummaryDashboard from './pages/reports/SummaryDashboard';
 
@@ -75,7 +75,7 @@ createRoot(document.getElementById('root')).render(
           {/* Reports routes */}
           <Route path="reports" element={<Navigate to="/admin/reports/daily-revenue" replace />} />
           <Route path="reports/daily-revenue" element={<PageTransitionWrapper><DailyRevenue /></PageTransitionWrapper>} />
-          <Route path="reports/bus-utilization" element={<PageTransitionWrapper><BusUtilization /></PageTransitionWrapper>} />
+          <Route path="reports/route-performance" element={<PageTransitionWrapper><RoutePerformance /></PageTransitionWrapper>} />
           <Route path="reports/conductor-performance" element={<PageTransitionWrapper><ConductorPerformance /></PageTransitionWrapper>} />
           <Route path="reports/summary-dashboard" element={<PageTransitionWrapper><SummaryDashboard /></PageTransitionWrapper>} />
 

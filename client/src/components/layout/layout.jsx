@@ -33,8 +33,8 @@ const Layout = () => {
         return 'Reports';
       case '/admin/reports/daily-revenue':
         return 'Daily Revenue Report';
-      case '/admin/reports/bus-utilization':
-        return 'Bus Utilization Report';
+      case '/admin/reports/route-performance':
+        return 'Route Performance Report';
       case '/admin/reports/conductor-performance':
         return 'Conductor Performance Report';
       case '/admin/reports/summary-dashboard':

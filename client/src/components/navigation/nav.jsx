@@ -18,6 +18,7 @@ import { MdConfirmationNumber, MdEventSeat } from "react-icons/md";
 import { TbReportSearch } from "react-icons/tb";
 import { FaChartLine, FaBus, FaUserTie, FaCalendarAlt } from "react-icons/fa";
 import { PiTestTube } from "react-icons/pi";
+import { FaRoute } from "react-icons/fa";
 
 const Nav = ({ collapsed, setCollapsed }) => {
   // Ticketing dropdown items
@@ -42,9 +43,9 @@ const Nav = ({ collapsed, setCollapsed }) => {
       to: "/admin/reports/daily-revenue"
     },
     {
-      title: "Bus Utilization",
-      Icon: FaBus,
-      to: "/admin/reports/bus-utilization"
+      title: "Route Performance",
+      Icon: FaRoute,
+      to: "/admin/reports/route-performance"
     },
     {
       title: "Conductor Performance",
