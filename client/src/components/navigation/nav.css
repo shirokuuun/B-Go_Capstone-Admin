@@ -1,0 +1,162 @@
+.Navigation {
+  position: fixed;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  width: 250px;
+  height: 100vh;
+  background-color: #007c91;
+  padding: 16px 0;
+  transition: width 0.3s ease;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+
+  /* Allow vertical scroll but don't clip dropdown horizontally */
+  overflow-y: auto;
+  overflow-x: visible;
+  position: relative;
+
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.nav-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: visible; /* important so absolute children can show */
+  padding-bottom: 16px;
+}
+
+
+.Navigation::-webkit-scrollbar {
+  width: 6px;
+}
+.Navigation::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+.Navigation::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.Navigation.collapsed {
+  width: 99px;
+  align-items: center;
+}
+
+.menu-top-right {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.menu-icon {
+  font-size: 20px;
+  color: white;
+}
+
+.nav-header-logo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  margin-bottom: 10px;
+}
+
+.batrasco-logo {
+  width: 60px;
+  height: auto;
+  transition: width 0.3s ease;
+}
+
+.Navigation.collapsed .batrasco-logo {
+  width: 50px;
+}
+
+.NavIcon {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.NavIcon:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.NavIcon span {
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.Navigation.collapsed .NavIcon span {
+  display: none;
+}
+
+.icon {
+  font-size: 22px;
+  min-width: 24px;
+  text-align: center;
+  transition: font-size 0.3s ease;
+}
+
+.NavIcon.active {
+  background-color: #0c1e22;
+  border-left: 4px solid #fff;
+  padding-left: 16px;
+}
+
+/* Dropdown styles */
+.dropdown-wrapper {
+  position: relative;
+}
+
+.dropdown-toggle {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.dropdown-toggle:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  background-color: #006b7d;
+  border-radius: 8px;
+  min-width: 180px;
+  overflow: hidden;
+  z-index: 200;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  color: white;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dropdown-item:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
