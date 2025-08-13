@@ -1,4 +1,3 @@
-// main.jsx
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -24,6 +23,11 @@ import BusUtilization from './pages/reports/BusUtilization/BusUtilization.jsx';
 import ConductorPerformance from './pages/reports/ConductorPerformance/ConductorPerformance.jsx';
 import SummaryDashboard from './pages/reports/SummaryDashboard';
 
+// 💳 PayMongo components
+import PaymentPage from '/src/paymongo/PaymentPage/PaymentPage.jsx';
+import PaymentSuccess from '/src/paymongo/PaymentSuccess/PaymentSuccess.jsx';
+import PaymentTest from '/src/paymongo/PaymentTest/PaymentTest.jsx';
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
@@ -37,6 +41,17 @@ createRoot(document.getElementById('root')).render(
         } />
         <Route path="/signup" element={
           <PageTransitionWrapper><Signup /></PageTransitionWrapper>
+        } />
+
+        {/* 💳 PayMongo routes (outside Layout - standalone payment pages) */}
+        <Route path="/payment/:sessionId" element={
+          <PageTransitionWrapper><PaymentPage /></PageTransitionWrapper>
+        } />
+        <Route path="/payment-success/:sessionId" element={
+          <PageTransitionWrapper><PaymentSuccess /></PageTransitionWrapper>
+        } />
+        <Route path="/test-payment" element={
+          <PageTransitionWrapper><PaymentTest /></PageTransitionWrapper>
         } />
 
         {/* 🛡️ Protected Routes (inside Layout) */}
@@ -66,6 +81,9 @@ createRoot(document.getElementById('root')).render(
 
           <Route path="payments" element={<PageTransitionWrapper><PaymentTransactions /></PageTransitionWrapper>} />
           <Route path="settings" element={<PageTransitionWrapper><Settings /></PageTransitionWrapper>} />
+          
+          {/* 💳 PayMongo test route inside admin (optional - for admin testing) */}
+          <Route path="test-paymongo" element={<PageTransitionWrapper><PaymentTest /></PageTransitionWrapper>} />
         </Route>
       </Routes>
     </BrowserRouter>
