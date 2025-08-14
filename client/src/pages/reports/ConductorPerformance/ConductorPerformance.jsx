@@ -174,30 +174,33 @@ const ConductorPerformance = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="cp-summary-cards">
-        <div className="cp-summary-card">
-          <h3 className="cp-card-title">Fleet Efficiency</h3>
-          <p className="cp-card-value cp-utilization">
-            {safeToFixed(performanceData.overallMetrics.overallUtilization)}%
-          </p>
-        </div>
-        <div className="cp-summary-card">
-          <h3 className="cp-card-title">Online Conductors</h3>
-          <p className="cp-card-value cp-conductors">
-            {performanceData.overallMetrics.activeConductors || 0} / {performanceData.overallMetrics.totalConductors || 0}
-          </p>
-        </div>
-        <div className="cp-summary-card">
-          <h3 className="cp-card-title">Current Passengers</h3>
-          <p className="cp-card-value cp-passengers">
-            {performanceData.overallMetrics.totalCurrentPassengers || 0}
-          </p>
-        </div>
-        <div className="cp-summary-card">
-          <h3 className="cp-card-title">Total Capacity</h3>
-          <p className="cp-card-value cp-capacity">
-            {performanceData.overallMetrics.totalCapacity || 0}
-          </p>
+      <div className="cp-summary-cards-container">
+        <div className="cp-summary-header-pattern"></div>
+        <div className="cp-summary-cards">
+          <div className="cp-summary-card">
+            <h3 className="cp-card-title">Fleet Efficiency</h3>
+            <p className="cp-card-value cp-utilization">
+              {safeToFixed(performanceData.overallMetrics.overallUtilization)}%
+            </p>
+          </div>
+          <div className="cp-summary-card">
+            <h3 className="cp-card-title">Online Conductors</h3>
+            <p className="cp-card-value cp-conductors">
+              {performanceData.overallMetrics.activeConductors || 0} / {performanceData.overallMetrics.totalConductors || 0}
+            </p>
+          </div>
+          <div className="cp-summary-card">
+            <h3 className="cp-card-title">Current Passengers</h3>
+            <p className="cp-card-value cp-passengers">
+              {performanceData.overallMetrics.totalCurrentPassengers || 0}
+            </p>
+          </div>
+          <div className="cp-summary-card">
+            <h3 className="cp-card-title">Total Capacity</h3>
+            <p className="cp-card-value cp-capacity">
+              {performanceData.overallMetrics.totalCapacity || 0}
+            </p>
+          </div>
         </div>
       </div>
 

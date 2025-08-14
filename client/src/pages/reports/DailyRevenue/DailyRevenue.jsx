@@ -116,30 +116,33 @@ const DailyRevenue = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="summary-cards">
-        <div className="summary-card">
-          <h3 className="card-title">Total Revenue</h3>
-          <p className="card-value revenue">
-            {formatCurrency(revenueData.totalRevenue)}
-          </p>
-        </div>
-        <div className="summary-card">
-          <h3 className="card-title">Total Passengers</h3>
-          <p className="card-value passengers">
-            {revenueData.totalPassengers}
-          </p>
-        </div>
-        <div className="summary-card">
-          <h3 className="card-title">Average Fare</h3>
-          <p className="card-value average">
-            {formatCurrency(revenueData.averageFare)}
-          </p>
-        </div>
-        <div className="summary-card">
-          <h3 className="card-title">Total Trips</h3>
-          <p className="card-value trips">
-            {revenueData.conductorTrips.length + revenueData.preTicketing.length}
-          </p>
+      <div className="daily-revenue-summary-card-container">
+        <div className="daily-revenue-header-pattern"></div>
+        <div className="summary-cards">
+          <div className="summary-card">
+            <h3 className="card-title">Total Revenue</h3>
+            <p className="card-value revenue">
+              {formatCurrency(revenueData.totalRevenue)}
+            </p>
+          </div>
+          <div className="summary-card">
+            <h3 className="card-title">Total Passengers</h3>
+            <p className="card-value passengers">
+              {revenueData.totalPassengers}
+            </p>
+          </div>
+          <div className="summary-card">
+            <h3 className="card-title">Average Fare</h3>
+            <p className="card-value average">
+              {formatCurrency(revenueData.averageFare)}
+            </p>
+          </div>
+          <div className="summary-card">
+            <h3 className="card-title">Total Trips</h3>
+            <p className="card-value trips">
+              {revenueData.conductorTrips.length + revenueData.preTicketing.length}
+            </p>
+          </div>
         </div>
       </div>
 

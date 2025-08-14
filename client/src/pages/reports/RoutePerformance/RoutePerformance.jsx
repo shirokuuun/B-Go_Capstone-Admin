@@ -189,10 +189,6 @@ const RoutePerformance = () => {
         // Show only in-progress status
         sosToShow = sosToShow.filter(sos => sos.status && sos.status.toLowerCase() === 'in-progress');
         break;
-      case 'resolved':
-        // Show only resolved status
-        sosToShow = sosToShow.filter(sos => sos.status && sos.status.toLowerCase() === 'resolved');
-        break;
       case 'cancelled':
         // Show only cancelled status
         sosToShow = sosToShow.filter(sos => sos.status && sos.status.toLowerCase() === 'cancelled');
@@ -281,30 +277,33 @@ const RoutePerformance = () => {
       </div>
 
       {/* Summary Cards - Enhanced with type breakdown */}
-      <div className="route-perf-summary-cards">
-        <div className="route-perf-summary-card">
-          <h3 className="route-perf-card-title">Total Revenue</h3>
-          <p className="route-perf-card-value route-perf-revenue">
-            {formatCurrency(routeData.totalRevenue)}
-          </p>
-        </div>
-        <div className="route-perf-summary-card">
-          <h3 className="route-perf-card-title">Total Passengers</h3>
-          <p className="route-perf-card-value route-perf-passengers">
-            {routeData.totalPassengers}
-          </p>
-        </div>
-        <div className="route-perf-summary-card">
-          <h3 className="route-perf-card-title">Total Trips</h3>
-          <p className="route-perf-card-value route-perf-trips">
-            {routeData.totalTrips}
-          </p>
-        </div>
-        <div className="route-perf-summary-card">
-          <h3 className="route-perf-card-title">SOS Incidents</h3>
-          <p className="route-perf-card-value route-perf-incidents">
-            {routeData.totalIncidents}
-          </p>
+      <div className="route-perf-summary-card-comtainer">
+        <div className="route-perf-header-pattern"></div>
+        <div className="route-perf-summary-cards">
+          <div className="route-perf-summary-card">
+            <h3 className="route-perf-card-title">Total Revenue</h3>
+            <p className="route-perf-card-value route-perf-revenue">
+              {formatCurrency(routeData.totalRevenue)}
+            </p>
+          </div>
+          <div className="route-perf-summary-card">
+            <h3 className="route-perf-card-title">Total Passengers</h3>
+            <p className="route-perf-card-value route-perf-passengers">
+              {routeData.totalPassengers}
+            </p>
+          </div>
+          <div className="route-perf-summary-card">
+            <h3 className="route-perf-card-title">Total Trips</h3>
+            <p className="route-perf-card-value route-perf-trips">
+              {routeData.totalTrips}
+            </p>
+          </div>
+          <div className="route-perf-summary-card">
+            <h3 className="route-perf-card-title">SOS Incidents</h3>
+            <p className="route-perf-card-value route-perf-incidents">
+              {routeData.totalIncidents}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -478,7 +477,7 @@ const RoutePerformance = () => {
                         <td className="route-perf-ticket-id">{formattedTicket.id}</td>
                         <td className="route-perf-route">{formattedTicket.route}</td>
                         <td className={`route-perf-ticket-type route-perf-${formattedTicket.type}`}>
-                          {formattedTicket.type === 'pre-ticket' ? 'Pre' : 
+                          {formattedTicket.type === 'pre-ticket' ? 'Pre-Ticket' : 
                            formattedTicket.type === 'conductor-ticket' ? 'Manual' : 'Unknown'}
                         </td>
                         <td>{formattedTicket.passengers}</td>
