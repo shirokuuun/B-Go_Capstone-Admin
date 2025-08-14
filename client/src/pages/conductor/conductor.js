@@ -150,6 +150,82 @@ class ConductorService {
     }
   }
 
+  // NEW: Delete a specific trip
+  async deleteTrip(conductorId, date, ticketNumber) {
+    try {
+      // Validate parameters
+      if (!conductorId || !date || !ticketNumber) {
+        throw new Error('Missing required parameters: conductorId, date, or ticketNumber');
+      }
+
+      // Reference to the specific trip document
+      const tripDocRef = doc(db, 'conductors', conductorId, 'trips', date, 'tickets', ticketNumber);
+      
+      // Check if trip exists before deleting
+      const tripDoc = await getDoc(tripDocRef);
+      if (!tripDoc.exists()) {
+        throw new Error('Trip not found');
+      }
+
+      // Delete the trip document
+      await deleteDoc(tripDocRef);
+
+      // Check if this was the last trip for this date
+      const ticketsRef = collection(db, 'conductors', conductorId, 'trips', date, 'tickets');
+      const remainingTickets = await getDocs(ticketsRef);
+
+      // If no more tickets for this date, delete the date document too
+      if (remainingTickets.empty) {
+        const dateDocRef = doc(db, 'conductors', conductorId, 'trips', date);
+        await deleteDoc(dateDocRef);
+      }
+
+      // Update conductor's total trips count
+      await this.updateConductorTripsCount(conductorId);
+
+      console.log(`Trip deleted successfully: ${conductorId}/${date}/${ticketNumber}`);
+      
+      return {
+        success: true,
+        message: 'Trip deleted successfully'
+      };
+
+    } catch (error) {
+      console.error('Error deleting trip:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // NEW: Update conductor's total trips count after deletion
+  async updateConductorTripsCount(conductorId) {
+    try {
+      const { allTrips } = await this.getConductorTrips(conductorId);
+      const conductorRef = doc(db, 'conductors', conductorId);
+      
+      const updateData = {
+        totalTrips: allTrips.length,
+        todayTrips: allTrips.filter(trip => this.isToday(trip.date)).length,
+        updatedAt: serverTimestamp()
+      };
+
+      await updateDoc(conductorRef, updateData);
+      
+      return {
+        success: true,
+        totalTrips: allTrips.length
+      };
+    } catch (error) {
+      console.error('Error updating trips count:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
   // FIXED: Real-time listener for conductors list
   setupConductorsListener(callback) {
     const conductorsRef = collection(db, 'conductors');

@@ -1,4 +1,4 @@
-import '/src/pages/ticketing/pre-booking.css';
+import '/src/pages/ticketing/PreBooking/pre-booking.css';
 import Header from '/src/components/HeaderTemplate/header.jsx';
 import { useState } from 'react';
 

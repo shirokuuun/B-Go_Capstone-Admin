@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import conductorService from '/src/pages/conductor/conductor.js';
 import './conductor.css';
 import { IoMdAdd } from "react-icons/io";
-import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaTrash } from 'react-icons/fa';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '/src/firebase/firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -99,6 +99,42 @@ const Conductor = () => {
       setShowTripsModal(true);
     } catch (error) {
       console.error('Error fetching trips:', error);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  // NEW: Handle delete trip function
+  const handleDeleteTrip = async (conductorId, date, ticketNumber) => {
+    if (!window.confirm("Are you sure you want to delete this trip? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      setDetailsLoading(true);
+      
+      // Call the delete trip service
+      const result = await conductorService.deleteTrip(conductorId, date, ticketNumber);
+      
+      if (result.success) {
+        // Refresh the trips data
+        const { allTrips, availableDates } = await conductorService.getConductorTrips(conductorId);
+        setTrips(allTrips);
+        setAvailableDates(availableDates);
+        
+        // Update the selected conductor trips
+        setSelectedConductorTrips(prev => ({
+          ...prev,
+          trips: allTrips,
+        }));
+
+        alert('Trip deleted successfully');
+      } else {
+        alert(`Error deleting trip: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error deleting trip:', error);
+      alert('Failed to delete trip. Please try again.');
     } finally {
       setDetailsLoading(false);
     }
@@ -377,6 +413,8 @@ const Conductor = () => {
           availableDates={availableDates}
           selectedDate={selectedDate}
           setSelectedDate={setSelectedDate}
+          onDeleteTrip={handleDeleteTrip} // Pass the delete function
+          isDeleting={detailsLoading} // Pass loading state
         />
       )}
     </div>
@@ -655,31 +693,23 @@ const ConductorDetails = ({ conductor }) => {
             <span className="value">{conductor.todayTrips || 0}</span>
           </div>
         </div>
-
-        {/* Real-time Recent Trips Section */}
-        {conductor.trips && conductor.trips.length > 0 && (
-          <div className="detail-section">
-            <h3>Recent Trips</h3>
-            <div className="recent-trips">
-              {conductor.trips.slice(0, 3).map((trip, index) => (
-                <div key={`${trip.date}-${trip.ticketNumber}`} className="recent-trip-item">
-                  <div className="trip-info">
-                    <span className="trip-route">{trip.from} → {trip.to}</span>
-                    <span className="trip-date">{trip.date}</span>
-                  </div>
-                  <div className="trip-fare">₱{trip.totalFare}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
 };
 
-const TripsModal = ({ conductor, onClose, trips, availableDates = [], selectedDate, setSelectedDate }) => {
-  const [sortOrder, setSortOrder] = useState('desc'); 
+// UPDATED: TripsModal with delete functionality
+const TripsModal = ({ 
+  conductor, 
+  onClose, 
+  trips, 
+  availableDates = [], 
+  selectedDate, 
+  setSelectedDate, 
+  onDeleteTrip, 
+  isDeleting 
+}) => {
+  const [sortOrder, setSortOrder] = useState('desc');
 
   const filteredTrips = (
     selectedDate === 'all' 
@@ -691,6 +721,10 @@ const TripsModal = ({ conductor, onClose, trips, availableDates = [], selectedDa
 
     return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
   });
+
+  const handleDeleteTrip = (trip) => {
+    onDeleteTrip(conductor.id, trip.date, trip.ticketNumber);
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -726,6 +760,13 @@ const TripsModal = ({ conductor, onClose, trips, availableDates = [], selectedDa
             </button>
           </div>
 
+          {isDeleting && (
+            <div className="details-loading">
+              <div className="loading-spinner"></div>
+              <p>Processing...</p>
+            </div>
+          )}
+
           {filteredTrips && filteredTrips.length > 0 ? (
             <div className="trips-grid">
               {filteredTrips.map((trip, index) => (
@@ -734,6 +775,15 @@ const TripsModal = ({ conductor, onClose, trips, availableDates = [], selectedDa
                     <span className="trip-number">#{index + 1}</span>
                     <span className="trip-ticket">{trip.ticketNumber}</span>
                     <span className="trip-date">{trip.date}</span>
+                    {/* DELETE BUTTON */}
+                    <button
+                      className="delete-trip-btn"
+                      onClick={() => handleDeleteTrip(trip)}
+                      disabled={isDeleting}
+                      title="Delete this trip"
+                    >
+                      <FaTrash />
+                    </button>
                   </div>
                   <div className="trip-details">
                     {[

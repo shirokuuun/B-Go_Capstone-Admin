@@ -617,6 +617,13 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 15px;
+  position: relative;
+}
+
+.trip-number {
+  font-weight: 600;
+  color: #4a5568;
+  font-size: 0.9rem;
 }
 
 .trip-ticket {
@@ -632,6 +639,39 @@
   font-size: 0.85rem;
   color: #4a5568;
   font-weight: 500;
+}
+
+/* NEW: Delete Trip Button Styles */
+.delete-trip-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-size: 0.75rem;
+  margin-left: 8px;
+  min-width: 28px;
+  height: 28px;
+}
+
+.delete-trip-btn:hover {
+  background: #dc2626;
+  transform: scale(1.05);
+}
+
+.delete-trip-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.delete-trip-btn:active {
+  transform: scale(0.95);
 }
 
 .trip-details {
@@ -919,5 +959,14 @@ body.modal-open {
   .modal-body {
     padding: 15px;
   }
+  
+  .trip-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .delete-trip-btn {
+    order: 1;
+    margin-left: auto;
+  }
 }
-
