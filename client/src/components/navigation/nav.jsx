@@ -19,6 +19,7 @@ import { TbReportSearch } from "react-icons/tb";
 import { FaChartLine, FaBus, FaUserTie, FaCalendarAlt } from "react-icons/fa";
 import { PiTestTube } from "react-icons/pi";
 import { FaRoute } from "react-icons/fa";
+import { FaRegUser } from "react-icons/fa";
 
 const Nav = ({ collapsed, setCollapsed }) => {
   // Ticketing dropdown items
@@ -82,6 +83,7 @@ const Nav = ({ collapsed, setCollapsed }) => {
         <NavIcon title="Conductor" Icon={IoTicket} to="/admin/conductor" collapsed={collapsed} />
         <NavIcon title="ID Verification" Icon={MdDomainVerification} to="/admin/verification" collapsed={collapsed} />
         <NavIcon title="Trip Schedules" Icon={GrSchedules} to="/admin/schedules" collapsed={collapsed} />
+        <NavIcon title="User Management" Icon={FaRegUser} to="/admin/user" collapsed={collapsed} />
 
         {/* Ticketing Dropdown */}
         <DropdownNavIcon

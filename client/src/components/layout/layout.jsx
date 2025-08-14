@@ -2,7 +2,7 @@
 import { useLocation, Outlet } from 'react-router-dom';
 import { useState } from 'react';
 import Nav from '/src/components/navigation/nav.jsx';
-import Header from '/src/components/HeaderTemplate/Header.jsx';
+import Header from '/src/components/HeaderTemplate/header.jsx';
 import '/src/components/layout/layout.css';
 
 const Layout = () => {
@@ -21,6 +21,8 @@ const Layout = () => {
         return 'ID Verification';
       case '/admin/schedules':
         return 'Trip Schedules';
+      case '/admin/user':
+        return 'User Management';
       case '/admin/ticketing':
         return 'Ticketing';
       case '/admin/ticketing/pre-booking':

@@ -34,7 +34,7 @@ const RoutePerformance = () => {
   const [showAllTickets, setShowAllTickets] = useState(false);
   const [ticketSortMode, setTicketSortMode] = useState('mixed'); // 'mixed', 'pre-tickets', 'conductor-tickets'
   const [showAllSOS, setShowAllSOS] = useState(false);
-  const [sosSortMode, setSOSSortMode] = useState('newest'); // 'newest', 'oldest', 'received', 'in-progress', 'resolved', 'cancelled', 'route', 'emergency-type'
+  const [sosSortMode, setSOSSortMode] = useState('newest'); // 'newest', 'oldest', 'received', 'pending', 'cancelled', 'route', 'emergency-type'
 
   // Load data for selected date with real-time updates (always enabled)
   const handleLoadRouteData = async () => {
@@ -185,9 +185,9 @@ const RoutePerformance = () => {
         // Show only received status
         sosToShow = sosToShow.filter(sos => sos.status && sos.status.toLowerCase() === 'received');
         break;
-      case 'in-progress':
-        // Show only in-progress status
-        sosToShow = sosToShow.filter(sos => sos.status && sos.status.toLowerCase() === 'in-progress');
+      case 'pending':
+        // Show only pending status
+        sosToShow = sosToShow.filter(sos => sos.status && sos.status.toLowerCase() === 'pending');
         break;
       case 'cancelled':
         // Show only cancelled status
@@ -430,11 +430,11 @@ const RoutePerformance = () => {
             <button
               onClick={() => setShowAllTickets(!showAllTickets)}
               style={{
-                padding: '4px 12px',
+                padding: '6px 12px',
                 backgroundColor: showAllTickets ? '#dc3545' : '#28a745',
                 color: 'white',
                 border: 'none',
-                borderRadius: '4px',
+                borderRadius: '6px',
                 cursor: 'pointer'
               }}
             >
@@ -511,8 +511,7 @@ const RoutePerformance = () => {
             SOS Incidents ({routeData.sosRequests.length} total)
             <span className="route-perf-ticket-breakdown">
               Received: {routeData.sosRequests.filter(s => s.status && s.status.toLowerCase() === 'received').length} | 
-              In-Progress: {routeData.sosRequests.filter(s => s.status && s.status.toLowerCase() === 'in-progress').length} | 
-              Resolved: {routeData.sosRequests.filter(s => s.status && s.status.toLowerCase() === 'resolved').length} | 
+              Pending: {routeData.sosRequests.filter(s => s.status && s.status.toLowerCase() === 'pending').length} |  
               Cancelled: {routeData.sosRequests.filter(s => s.status && s.status.toLowerCase() === 'cancelled').length}
             </span>
           </h4>
@@ -529,8 +528,7 @@ const RoutePerformance = () => {
                 <option value="newest">Newest first</option>
                 <option value="oldest">Oldest first</option>
                 <option value="received">Received only</option>
-                <option value="in-progress">In-Progress only</option>
-                <option value="resolved">Resolved only</option>
+                <option value="pending">Pending only</option>
                 <option value="cancelled">Cancelled only</option>
                 <option value="route">Sort by Route</option>
                 <option value="emergency-type">Sort by Emergency Type</option>
@@ -539,11 +537,11 @@ const RoutePerformance = () => {
             <button
               onClick={() => setShowAllSOS(!showAllSOS)}
               style={{
-                padding: '4px 12px',
+                padding: '6px 12px',
                 backgroundColor: showAllSOS ? '#dc3545' : '#28a745',
                 color: 'white',
                 border: 'none',
-                borderRadius: '4px',
+                borderRadius: '6px',
                 cursor: 'pointer'
               }}
             >

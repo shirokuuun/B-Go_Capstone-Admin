@@ -1,15 +1,9 @@
 const express = require("express");
-const cors = require("cors");
 const crypto = require("crypto");
 require('dotenv').config();
 
 const app = express();
 
-// CORS Configuration (your existing setup)
-const corsOptions = {
-  origin: "http://localhost:5173",
-};
-app.use(cors(corsOptions));
 
 // Body parsing middleware
 app.use(express.json());
@@ -78,6 +72,7 @@ function verifyWebhookSignature(payload, signature, webhookSecret) {
 app.get("/api", (req, res) => {
   res.json({ fruits: ["Apple", "strawberry", "mango"] });
 });
+
 
 // ==================== PAYMONGO API ROUTES ====================
 

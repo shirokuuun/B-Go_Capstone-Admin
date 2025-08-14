@@ -1,0 +1,450 @@
+.usermgmt-container {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  background-color: #f8fafc;
+  min-height: 100vh;
+}
+
+.usermgmt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.usermgmt-sort-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.usermgmt-sort-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1a202c;
+  margin: 0;
+}
+
+.usermgmt-sort-select {
+  padding: 8px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  color: #4a5568;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.usermgmt-sort-select:hover {
+  border-color: #cbd5e0;
+}
+
+.usermgmt-sort-select:focus {
+  outline: none;
+  border-color: #4299e1;
+  box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.1);
+}
+
+.usermgmt-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0;
+}
+
+.usermgmt-stats {
+  background: #fff;
+  padding: 16px 24px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+}
+
+.usermgmt-stats-text {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #4a5568;
+}
+
+.usermgmt-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-size: 1.1rem;
+  color: #4a5568;
+}
+
+.usermgmt-error {
+  background: #fed7d7;
+  color: #c53030;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  border: 1px solid #feb2b2;
+}
+
+.usermgmt-split-layout {
+  display: flex;
+  gap: 24px;
+  height: calc(100vh - 200px);
+  margin-top: 24px;
+}
+
+.usermgmt-users-panel {
+  width: 400px;
+  min-width: 350px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.usermgmt-details-panel {
+  flex: 1;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.usermgmt-user-list {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.usermgmt-user-item {
+  padding: 16px 20px;
+  border-bottom: 1px solid #f7fafc;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.usermgmt-user-item:hover {
+  background: #f8fafc;
+}
+
+.usermgmt-user-item.active {
+  background: #e6f3ff;
+  border-left: 4px solid #2563eb;
+}
+
+.usermgmt-user-item:last-child {
+  border-bottom: none;
+}
+
+.usermgmt-user-item-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.usermgmt-user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.usermgmt-user-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.usermgmt-user-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  background: #2563eb;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.usermgmt-user-item-info {
+  flex: 1;
+}
+
+.usermgmt-user-item-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a202c;
+  margin: 0 0 4px 0;
+}
+
+.usermgmt-user-item-email {
+  color: #4a5568;
+  font-size: 0.85rem;
+  margin: 0;
+  word-break: break-word;
+}
+
+.usermgmt-btn-delete-small {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  background: #ef4444;
+  color: #fff;
+  border: 1px solid #ef4444;
+}
+
+.usermgmt-btn-delete-small:hover:not(:disabled) {
+  background: #dc2626;
+  color: #fff;
+}
+
+.usermgmt-btn-delete-small:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.usermgmt-user-details-view {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.usermgmt-details-header {
+  background-color: #007c91;
+  padding: 24px;
+  color: white;
+}
+
+.usermgmt-details-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 8px 0;
+}
+
+.usermgmt-details-subtitle {
+  color: #e6fffa;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.usermgmt-details-content {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.usermgmt-profile-image-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.usermgmt-profile-image-details {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid #e2e8f0;
+}
+
+.usermgmt-profile-image-fallback {
+  color: #9ca3af;
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+.usermgmt-profile-image-url {
+  font-size: 0.75rem;
+  color: #6b7280;
+  word-break: break-all;
+  background: #f9fafb;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+  float: right;
+}
+
+
+.usermgmt-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f7fafc;
+}
+
+.usermgmt-detail-label {
+  font-weight: 500;
+  color: #4a5568;
+  font-size: 0.9rem;
+}
+
+.usermgmt-detail-value {
+  color: #1a202c;
+  font-size: 0.9rem;
+  text-align: right;
+  flex: 1;
+  margin-left: 16px;
+  word-break: break-word;
+}
+
+.usermgmt-no-selection {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 60px 20px;
+  color: #4a5568;
+}
+
+.usermgmt-no-selection-icon {
+  font-size: 4rem;
+  margin-bottom: 16px;
+  opacity: 0.3;
+}
+
+.usermgmt-no-selection-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.usermgmt-no-selection-text {
+  font-size: 0.9rem;
+  margin: 0;
+  opacity: 0.8;
+}
+
+
+.usermgmt-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.usermgmt-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 500px;
+  width: 90%;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  box-shadow: 0 20px 25px rgba(0, 0, 0, 0.15);
+  position: relative;
+  margin: auto;
+}
+
+.usermgmt-modal-header {
+  background-color: #007c91;
+  margin: -32px -32px 24px -32px;
+  padding: 24px 32px;
+  border-radius: 12px 12px 0 0;
+}
+
+.usermgmt-modal-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 8px 0;
+}
+
+.usermgmt-modal-subtitle {
+  color: #e6fffa;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.usermgmt-modal-content {
+  margin-bottom: 24px;
+}
+
+.usermgmt-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.usermgmt-modal-btn {
+  padding: 10px 20px;
+  border-radius: 6px;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  min-width: 80px;
+}
+
+.usermgmt-modal-btn-cancel {
+  background: #f7fafc;
+  color: #4a5568;
+  border: 1px solid #e2e8f0;
+}
+
+.usermgmt-modal-btn-cancel:hover {
+  background: #edf2f7;
+  color: #2d3748;
+}
+
+.usermgmt-modal-btn-delete {
+  background: #e53e3e;
+  color: #fff;
+}
+
+.usermgmt-modal-btn-delete:hover {
+  background: #c53030;
+}
+
+.usermgmt-no-users {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 60px 20px;
+  color: #4a5568;
+}
+
+.usermgmt-no-users-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.usermgmt-no-users-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.usermgmt-no-users-text {
+  font-size: 0.9rem;
+  margin: 0;
+  opacity: 0.8;
+}

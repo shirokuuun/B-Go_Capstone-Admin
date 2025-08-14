@@ -16,6 +16,7 @@ import PageTransitionWrapper from '/src/components/PageTransition/PageTransition
 import Login from '/src/pages/auth/login.jsx'; 
 import Signup from '/src/pages/auth/signup.jsx'; 
 import Conductor from '/src/pages/conductor/conductor.jsx';
+import UserManagement from './pages/UserManagement/UserManagement.jsx';
 
 // Reports components
 import DailyRevenue from './pages/reports/DailyRevenue/DailyRevenue.jsx';
@@ -61,6 +62,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="conductor" element={<PageTransitionWrapper><Conductor /></PageTransitionWrapper>} />
           <Route path="verification" element={<PageTransitionWrapper><IDVerification /></PageTransitionWrapper>} />
           <Route path="schedules" element={<PageTransitionWrapper><TripSchedules /></PageTransitionWrapper>} />
+          <Route path="user" element={<PageTransitionWrapper><UserManagement/></PageTransitionWrapper>} />
           
           {/* Ticketing routes */}
           <Route path="ticketing" element={<Navigate to="/admin/ticketing/pre-booking" replace />} />
