@@ -57,7 +57,7 @@ const ConductorPerformance = () => {
     return unsubscribe;
   };
 
-  // Simple print functionality
+  // Simple print functionality - don't interfere with existing data loading
   const handlePrint = () => {
     window.print();
   };
@@ -133,7 +133,8 @@ const ConductorPerformance = () => {
   }
 
   return (
-    <div className="cp-container">
+    <div className="cp-wrapper">
+      <div className="cp-container">
       {/* Print Header */}
       <div className="cp-print-header">
         <div className="cp-company-info">
@@ -326,6 +327,7 @@ const ConductorPerformance = () => {
           <p>Page 1 of 1</p>
         </div>
       </div>
+    </div>
     </div>
   );
 };

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
   getPreTicketingStats, 
-  getUsersWithPreTickets,
-  getPreTicketsByUser,
-  getUserById,
+  getConductorsWithPreTickets,
+  getPreTicketsByConductor,
+  getConductorById,
   deletePreTicket
 } from './pre-ticketing.js';
 import './pre-ticketing.css';
@@ -11,15 +11,15 @@ import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt } from 'react-ico
 
 const PreTicketing = () => {
   const [activeSection, setActiveSection] = useState('overview');
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedConductor, setSelectedConductor] = useState(null);
   const [stats, setStats] = useState({
     totalTickets: 0,
     onlineTickets: 0,
     offlineTickets: 0,
     totalTrips: 0
   });
-  const [users, setUsers] = useState([]);
-  const [userTickets, setUserTickets] = useState([]);
+  const [conductors, setConductors] = useState([]);
+  const [conductorTickets, setConductorTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [ticketsLoading, setTicketsLoading] = useState(false);
 
@@ -27,12 +27,12 @@ const PreTicketing = () => {
     const fetchInitialData = async () => {
       try {
         setLoading(true);
-        const [statsData, usersData] = await Promise.all([
+        const [statsData, conductorsData] = await Promise.all([
           getPreTicketingStats(),
-          getUsersWithPreTickets()
+          getConductorsWithPreTickets()
         ]);
         setStats(statsData);
-        setUsers(usersData);
+        setConductors(conductorsData);
       } catch (error) {
         console.error('Error fetching initial data:', error);
       } finally {
@@ -43,32 +43,32 @@ const PreTicketing = () => {
     fetchInitialData();
   }, []);
 
-  const handleUserSelect = async (userId) => {
+  const handleConductorSelect = async (conductorId) => {
     try {
       setTicketsLoading(true);
-      const [userData, tickets] = await Promise.all([
-        getUserById(userId),
-        getPreTicketsByUser(userId)
+      const [conductorData, tickets] = await Promise.all([
+        getConductorById(conductorId),
+        getPreTicketsByConductor(conductorId)
       ]);
-      setSelectedUser(userData);
-      setUserTickets(tickets);
+      setSelectedConductor(conductorData);
+      setConductorTickets(tickets);
     } catch (error) {
-      console.error('Error fetching user tickets:', error);
+      console.error('Error fetching conductor tickets:', error);
     } finally {
       setTicketsLoading(false);
     }
   };
 
-  const handleDeleteTicket = async (userId, ticketId) => {
+  const handleDeleteTicket = async (conductorId, ticketId) => {
     if (!window.confirm('Are you sure you want to delete this pre-ticket? This action cannot be undone.')) {
       return;
     }
 
     try {
-      await deletePreTicket(userId, ticketId);
+      await deletePreTicket(conductorId, ticketId);
       // Refresh the tickets list
-      const updatedTickets = userTickets.filter(ticket => ticket.id !== ticketId);
-      setUserTickets(updatedTickets);
+      const updatedTickets = conductorTickets.filter(ticket => ticket.id !== ticketId);
+      setConductorTickets(updatedTickets);
       
       // Update stats
       const statsData = await getPreTicketingStats();
@@ -81,9 +81,9 @@ const PreTicketing = () => {
     }
   };
 
-  const handleBackToUsers = () => {
-    setSelectedUser(null);
-    setUserTickets([]);
+  const handleBackToConductors = () => {
+    setSelectedConductor(null);
+    setConductorTickets([]);
   };
 
   const formatDate = (dateString) => {
@@ -103,47 +103,47 @@ const PreTicketing = () => {
     );
   };
 
-  const renderUsersList = () => (
+  const renderConductorsList = () => (
     <div className="preticket-users-section">
       <div className="preticket-section-header">
-        <h3>Users with Pre-tickets</h3>
-        <p className="preticket-section-subtitle">Click on a user to view their pre-tickets</p>
+        <h3>Conductors with Pre-tickets</h3>
+        <p className="preticket-section-subtitle">Click on a conductor to view their pre-tickets</p>
       </div>
 
       {loading ? (
-        <div className="preticket-loading-state">Loading users...</div>
+        <div className="preticket-loading-state">Loading conductors...</div>
       ) : (
         <div className="preticket-users-grid">
-          {users.length === 0 ? (
+          {conductors.length === 0 ? (
             <div className="preticket-empty-state">
-              <p>No users with pre-tickets found</p>
+              <p>No conductors with pre-tickets found</p>
             </div>
           ) : (
-            users.map((user) => (
+            conductors.map((conductor) => (
               <div 
-                key={user.id} 
+                key={conductor.id} 
                 className="preticket-user-card"
-                onClick={() => handleUserSelect(user.id)}
+                onClick={() => handleConductorSelect(conductor.id)}
               >
                 <div className="preticket-user-avatar">
-                  {user.profileImageUrl ? (
+                  {conductor.profileImageUrl ? (
                     <img 
-                      src={user.profileImageUrl} 
-                      alt={user.name}
+                      src={conductor.profileImageUrl} 
+                      alt={conductor.name}
                       className="preticket-avatar-image"
                     />
                   ) : (
                     <div className="preticket-avatar-placeholder">
-                      {user.name.charAt(0).toUpperCase()}
+                      {conductor.name?.charAt(0).toUpperCase() || 'C'}
                     </div>
                   )}
                 </div>
                 <div className="preticket-user-info">
-                  <h4>{user.name}</h4>
-                  <p className="preticket-user-email">{user.email}</p>
-                  <p className="preticket-user-phone">{user.phone}</p>
+                  <h4>{conductor.name}</h4>
+                  <p className="preticket-user-email">{conductor.email}</p>
+                  <p className="preticket-user-phone">{conductor.phone}</p>
                   <div className="preticket-user-stats">
-                    <span className="preticket-ticket-count">{user.preTicketsCount} pre-ticket{user.preTicketsCount > 1 ? 's' : ''}</span>
+                    <span className="preticket-ticket-count">{conductor.preTicketsCount} pre-ticket{conductor.preTicketsCount > 1 ? 's' : ''}</span>
                   </div>
                 </div>
                 <div className="preticket-user-action">
@@ -159,38 +159,38 @@ const PreTicketing = () => {
        </div>
   );
 
-  const renderUserTickets = () => (
+  const renderConductorTickets = () => (
     <div className="preticket-user-tickets-section">
       <div className="preticket-section-header">
         <button 
-          onClick={handleBackToUsers}
+          onClick={handleBackToConductors}
           className="preticket-back-button"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Back to Users
+          Back to Conductors
         </button>
         
-        {selectedUser && (
+        {selectedConductor && (
           <div className="preticket-selected-user-info">
             <div className="preticket-user-header">
               <div className="preticket-user-avatar-small">
-                {selectedUser.profileImageUrl ? (
+                {selectedConductor.profileImageUrl ? (
                   <img 
-                    src={selectedUser.profileImageUrl} 
-                    alt={selectedUser.name}
+                    src={selectedConductor.profileImageUrl} 
+                    alt={selectedConductor.name}
                     className="preticket-avatar-image"
                   />
                 ) : (
                   <div className="preticket-avatar-placeholder">
-                    {selectedUser.name.charAt(0).toUpperCase()}
+                    {selectedConductor.name?.charAt(0).toUpperCase() || 'C'}
                   </div>
                 )}
               </div>
               <div>
-                <h3>{selectedUser.name}'s Pre-tickets</h3>
-                <p className="preticket-user-details">{selectedUser.email} • {selectedUser.phone}</p>
+                <h3>{selectedConductor.name}'s Pre-tickets</h3>
+                <p className="preticket-user-details">{selectedConductor.email} • {selectedConductor.phone}</p>
               </div>
             </div>
           </div>
@@ -201,12 +201,12 @@ const PreTicketing = () => {
         <div className="preticket-loading-state">Loading tickets...</div>
       ) : (
         <div className="preticket-tickets-list">
-          {userTickets.length === 0 ? (
+          {conductorTickets.length === 0 ? (
             <div className="preticket-empty-state">
-              <p>No pre-tickets found for this user</p>
+              <p>No pre-tickets found for this conductor</p>
             </div>
           ) : (
-            userTickets.map((ticket) => (
+            conductorTickets.map((ticket) => (
               <div key={ticket.id} className="preticket-ticket-card">
                 <div className="preticket-ticket-header">
                   <div className="preticket-ticket-info">
@@ -214,17 +214,18 @@ const PreTicketing = () => {
                       <h4>{ticket.from} → {ticket.to}</h4>
                       {getStatusBadge(ticket.status)}
                     </div>
-                    <p className="preticket-ticket-meta">Distance: {ticket.km} km</p>
+                    <p className="preticket-ticket-meta">Route: {ticket.route}</p>
+                    <p className="preticket-ticket-meta">Distance: {ticket.fromKm} km → {ticket.toKm} km</p>
                     <p className="preticket-ticket-meta">
-                      Created: {formatDate(ticket.createdAt)}
-                      {ticket.boardedAt && ` • Boarded: ${formatDate(ticket.boardedAt)}`}
+                      Date: {ticket.date} at {ticket.time}
+                      {ticket.scannedAt && ` • Scanned: ${formatDate(ticket.scannedAt)}`}
                     </p>
                     {ticket.scannedBy && (
                       <p className="preticket-ticket-meta">Scanned by: {ticket.scannedBy}</p>
                     )}
                   </div>
                   <div className="preticket-ticket-summary">
-                    <p className="preticket-fare-amount">₱{ticket.totalFare}</p>
+                    <p className="preticket-fare-amount">₱{ticket.amount}</p>
                     <p className="preticket-passenger-count">{ticket.quantity} passenger{ticket.quantity > 1 ? 's' : ''}</p>
                   </div>
                 </div>
@@ -242,7 +243,7 @@ const PreTicketing = () => {
                   <button className="preticket-btn preticket-btn-secondary">View Details</button>
                   <button 
                     className="preticket-btn preticket-btn-danger"
-                    onClick={() => handleDeleteTicket(selectedUser.id, ticket.id)}
+                    onClick={() => handleDeleteTicket(selectedConductor.id, ticket.id)}
                   >
                     Delete
                   </button>
@@ -256,10 +257,10 @@ const PreTicketing = () => {
   );
 
   const renderOverview = () => {
-    if (selectedUser) {
-      return renderUserTickets();
+    if (selectedConductor) {
+      return renderConductorTickets();
     }
-    return renderUsersList();
+    return renderConductorsList();
   };
 
   return (
@@ -296,7 +297,7 @@ const PreTicketing = () => {
             </div>
             <div className="preticket-stat-content">
               <div className="preticket-stat-number">{stats.onlineTickets}</div>
-              <div className="preticket-stat-label">Users with Pre-tickets</div>
+              <div className="preticket-stat-label">Conductors with Pre-tickets</div>
             </div>
           </div>
         </div>
@@ -308,15 +309,15 @@ const PreTicketing = () => {
         {/* Navigation Tabs */}
         <div className="preticket-nav-tabs">
           {[
-            { id: 'overview', name: 'Users & Tickets', icon: '👥' }
+            { id: 'overview', name: 'Conductors & Tickets', icon: '👥' }
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => {
                 setActiveSection(tab.id);
                 if (tab.id !== 'overview') {
-                  setSelectedUser(null);
-                  setUserTickets([]);
+                  setSelectedConductor(null);
+                  setConductorTickets([]);
                 }
               }}
               className={`preticket-nav-tab ${activeSection === tab.id ? 'active' : ''}`}

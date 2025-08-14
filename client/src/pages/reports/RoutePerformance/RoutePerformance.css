@@ -1,47 +1,47 @@
 /* RoutePerformance.css - Unique Classes for Route Performance Analytics */
 
-/* Global scrollbar hiding for this component */
-html, body {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* Internet Explorer 10+ */
+/* Wrapper to control scrollbar positioning */
+.route-perf-wrapper {
+  width: 100%;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Custom scrollbar for wrapper - positioned on the right */
 }
 
-/* Hide scrollbar for WebKit browsers globally */
-html::-webkit-scrollbar,
-body::-webkit-scrollbar {
-  display: none;
+/* Custom scrollbar for wrapper */
+.route-perf-wrapper::-webkit-scrollbar {
+  width: 12px;
+}
+
+.route-perf-wrapper::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 6px;
+}
+
+.route-perf-wrapper::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 6px;
+  border: 2px solid #f1f1f1;
+}
+
+.route-perf-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Firefox scrollbar for wrapper */
+.route-perf-wrapper {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
 }
 
 .route-perf-container {
   padding: 20px;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background-color: #f8f9fa;
-  min-height: 100vh;
-  /* Hide scrollbar completely */
-  overflow: auto;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* Internet Explorer 10+ */
-}
-
-/* Hide scrollbar for WebKit browsers (Chrome, Safari, Edge) */
-.route-perf-container::-webkit-scrollbar {
-  display: none;
-  width: 0px;
-  background: transparent;
-}
-
-/* Hide all scrollbars within the component */
-.route-perf-container *,
-.route-perf-container *::-webkit-scrollbar {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.route-perf-container *::-webkit-scrollbar {
-  display: none;
-  width: 0px;
-  height: 0px;
-  background: transparent;
+  min-height: 100%;
+  /* Remove scrollbar from container - wrapper handles it */
+  overflow: visible;
 }
 .route-perf-header {
   margin-bottom: 20px;
@@ -291,13 +291,35 @@ body::-webkit-scrollbar {
   border-radius: 10px;
   box-shadow: 0 3px 15px rgba(0, 0, 0, 0.1);
   background: white;
+  /* Move horizontal scrollbar to bottom and style it */
+  padding-bottom: 5px;
+}
+
+/* Custom scrollbar for table container */
+.route-perf-table-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.route-perf-table-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.route-perf-table-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.route-perf-table-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 .route-perf-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 800px;
+  min-width: 1000px;
   background: white;
+  table-layout: fixed;
 }
 
 .route-perf-table thead tr {
@@ -305,23 +327,83 @@ body::-webkit-scrollbar {
 }
 
 .route-perf-table th {
-  padding: 16px 14px;
+  padding: 12px 8px;
   text-align: left;
   border-bottom: 2px solid #dee2e6;
   font-weight: 600;
   color: #495057;
-  font-size: 14px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   position: relative;
+  white-space: nowrap;
 }
 
 .route-perf-table td {
-  padding: 14px;
+  padding: 10px 8px;
   border-bottom: 1px solid #e9ecef;
   color: #495057;
-  font-size: 14px;
+  font-size: 12px;
   transition: background-color 0.15s ease-in-out;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Specific column widths for better layout */
+.route-perf-table th:nth-child(1), /* Ticket ID */
+.route-perf-table td:nth-child(1) {
+  width: 10%;
+  max-width: 100px;
+}
+
+.route-perf-table th:nth-child(2), /* Route */
+.route-perf-table td:nth-child(2) {
+  width: 15%;
+  max-width: 150px;
+}
+
+.route-perf-table th:nth-child(3), /* Type */
+.route-perf-table td:nth-child(3) {
+  width: 10%;
+  max-width: 100px;
+}
+
+.route-perf-table th:nth-child(4), /* Passengers */
+.route-perf-table td:nth-child(4) {
+  width: 8%;
+  max-width: 80px;
+}
+
+.route-perf-table th:nth-child(5), /* Distance */
+.route-perf-table td:nth-child(5) {
+  width: 10%;
+  max-width: 100px;
+}
+
+.route-perf-table th:nth-child(6), /* Fare */
+.route-perf-table td:nth-child(6) {
+  width: 10%;
+  max-width: 100px;
+}
+
+.route-perf-table th:nth-child(7), /* Timestamp */
+.route-perf-table td:nth-child(7) {
+  width: 12%;
+  max-width: 120px;
+}
+
+.route-perf-table th:nth-child(8), /* Conductor/Source */
+.route-perf-table td:nth-child(8) {
+  width: 15%;
+  max-width: 150px;
+}
+
+.route-perf-table th:nth-child(9), /* Discount */
+.route-perf-table td:nth-child(9) {
+  width: 10%;
+  max-width: 100px;
+  min-width: 80px; /* Ensure discount column has enough space */
 }
 
 .route-perf-table tbody tr:hover {
@@ -423,6 +505,45 @@ body::-webkit-scrollbar {
    ========================= */
 
 @media print {
+  /* Hide wrapper scrollbar completely in print mode */
+  .route-perf-wrapper {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  .route-perf-wrapper::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  /* Global scrollbar hiding for print mode */
+  html, body {
+    scrollbar-width: none !important; /* Firefox */
+    -ms-overflow-style: none !important; /* Internet Explorer 10+ */
+  }
+
+  /* Hide scrollbar for WebKit browsers globally */
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  /* Hide all scrollbars within the component */
+  .route-perf-container *,
+  .route-perf-container *::-webkit-scrollbar,
+  .route-perf-wrapper *,
+  .route-perf-wrapper *::-webkit-scrollbar {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  .route-perf-container *::-webkit-scrollbar,
+  .route-perf-wrapper *::-webkit-scrollbar {
+    display: none !important;
+    width: 0px !important;
+    height: 0px !important;
+    background: transparent !important;
+  }
+
   /* Reset page styles for printing */
   * {
     -webkit-print-color-adjust: exact !important;
@@ -500,25 +621,20 @@ body::-webkit-scrollbar {
     overflow: hidden !important;
   }
 
-  /* Main container - CRITICAL: remove fixed positioning and constraints */
+  /* Main container - Following DailyRevenue pattern */
   .route-perf-container {
     width: 100% !important;
-    max-width: none !important;
-    padding: 0 !important;
+    max-width: 100% !important;
+    padding: 10px !important;
     margin: 0 !important;
+    padding-right: 10px !important; /* Reset padding-right for print */
+    margin-right: 0 !important; /* Reset margin-right for print */
     background: white !important;
     box-shadow: none !important;
     min-height: auto !important;
     height: auto !important;
-    max-height: none !important;
     overflow: visible !important;
     position: static !important;
-    transform: none !important;
-    left: auto !important;
-    top: auto !important;
-    right: auto !important;
-    bottom: auto !important;
-    z-index: auto !important;
   }
 
   /* Hide screen-only elements */
@@ -529,7 +645,17 @@ body::-webkit-scrollbar {
 
   .route-perf-date-controls,
   .route-perf-refresh-btn,
-  .route-perf-print-btn {
+  .route-perf-print-btn,
+  button,
+  select,
+  input[type="date"] {
+    display: none !important;
+  }
+
+  /* Hide interactive controls in print */
+  div[style*="display: flex"],
+  div[style*="gap: 10px"],
+  div[style*="margin-bottom: 15px"] {
     display: none !important;
   }
 
@@ -625,18 +751,31 @@ body::-webkit-scrollbar {
     color: #000;
   }
 
+  /* Summary Cards Container for Print */
+  .route-perf-summary-card-comtainer {
+    background: white !important;
+    padding: 10px !important;
+    margin: 10px 0 !important;
+    border: 1px solid #000 !important;
+    border-radius: 0 !important;
+  }
+
+  .route-perf-header-pattern {
+    display: none !important;
+  }
+
   /* Summary Cards for Print */
   .route-perf-summary-cards {
     display: grid !important;
-    grid-template-columns: repeat(4, 1fr) !important;
+    grid-template-columns: repeat(2, 1fr) !important;
     gap: 6px !important;
-    margin: 10px 0 !important;
+    margin: 0 !important;
     page-break-inside: avoid;
     width: 100% !important;
   }
 
   .route-perf-summary-card {
-    background: white !important;
+    background: #f8f8f8 !important;
     border: 1px solid #000 !important;
     border-radius: 0 !important;
     padding: 6px !important;
@@ -651,7 +790,7 @@ body::-webkit-scrollbar {
   }
 
   .route-perf-card-title {
-    font-size: 7pt !important;
+    font-size: 8pt !important;
     color: #000 !important;
     margin: 0 0 3px 0 !important;
     text-transform: uppercase;
@@ -659,7 +798,7 @@ body::-webkit-scrollbar {
   }
 
   .route-perf-card-value {
-    font-size: 10pt !important;
+    font-size: 11pt !important;
     color: #000 !important;
     font-weight: bold !important;
     margin: 0 !important;
@@ -738,6 +877,8 @@ body::-webkit-scrollbar {
     page-break-inside: auto !important;
     height: auto !important;
     max-height: none !important;
+    table-layout: fixed !important;
+    min-width: auto !important;
   }
 
   .route-perf-table thead {
@@ -784,6 +925,55 @@ body::-webkit-scrollbar {
     vertical-align: top;
     height: auto !important;
     word-wrap: break-word;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Print-specific column widths */
+  .route-perf-table th:nth-child(1), /* Ticket ID */
+  .route-perf-table td:nth-child(1) {
+    width: 8% !important;
+  }
+
+  .route-perf-table th:nth-child(2), /* Route */
+  .route-perf-table td:nth-child(2) {
+    width: 18% !important;
+  }
+
+  .route-perf-table th:nth-child(3), /* Type */
+  .route-perf-table td:nth-child(3) {
+    width: 8% !important;
+  }
+
+  .route-perf-table th:nth-child(4), /* Passengers */
+  .route-perf-table td:nth-child(4) {
+    width: 7% !important;
+  }
+
+  .route-perf-table th:nth-child(5), /* Distance */
+  .route-perf-table td:nth-child(5) {
+    width: 8% !important;
+  }
+
+  .route-perf-table th:nth-child(6), /* Fare */
+  .route-perf-table td:nth-child(6) {
+    width: 10% !important;
+  }
+
+  .route-perf-table th:nth-child(7), /* Timestamp */
+  .route-perf-table td:nth-child(7) {
+    width: 12% !important;
+  }
+
+  .route-perf-table th:nth-child(8), /* Conductor/Source */
+  .route-perf-table td:nth-child(8) {
+    width: 18% !important;
+  }
+
+  .route-perf-table th:nth-child(9), /* Discount */
+  .route-perf-table td:nth-child(9) {
+    width: 11% !important;
   }
 
   /* Force page break after certain number of rows */
@@ -801,24 +991,35 @@ body::-webkit-scrollbar {
     transform: none !important;
   }
 
-  /* Data formatting */
+  /* Data formatting - Remove all colors */
   .route-perf-ticket-id,
   .route-perf-sos-id,
   .route-perf-route,
   .route-perf-fare,
   .route-perf-discount,
-  .route-perf-emergency-type {
+  .route-perf-emergency-type,
+  .route-perf-ticket-type,
+  .route-perf-source {
     color: #000 !important;
-    background: none !important;
+    background: white !important;
     font-weight: normal;
   }
 
   .route-perf-status-received,
   .route-perf-status-in-progress,
   .route-perf-status-resolved,
-  .route-perf-status-cancelled {
+  .route-perf-status-cancelled,
+  .route-perf-status-pending {
     color: #000 !important;
+    background: white !important;
     font-weight: bold;
+  }
+
+  /* Remove ticket row background colors */
+  .route-perf-ticket-row,
+  .route-perf-ticket-row.route-perf-pre-ticket,
+  .route-perf-ticket-row.route-perf-conductor-ticket {
+    background: white !important;
   }
 
   /* Empty states for print */
@@ -1102,6 +1303,10 @@ body::-webkit-scrollbar {
   padding: 2px 8px;
   border-radius: 12px;
   font-size: 0.8em;
+  font-weight: bold;
+}
+
+.route-perf-ticket-type.route-perf-conductor-ticket {
   font-weight: bold;
 }
 

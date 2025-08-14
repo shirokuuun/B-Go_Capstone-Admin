@@ -2,8 +2,8 @@
 import { getFirestore, collection, getDocs, doc, getDoc, query, orderBy, limit as limitQuery, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 
 /**
- * Get all conductors who have pre-tickets
- * @returns {Promise<Array>} Array of conductor objects with pre-ticket counts
+ * Get all conductors who have pre-bookings
+ * @returns {Promise<Array>} Array of conductor objects with pre-booking counts
  */
 export const getConductorsWithPreTickets = async () => {
   try {
@@ -15,21 +15,21 @@ export const getConductorsWithPreTickets = async () => {
     
     for (const conductorDoc of conductorsSnapshot.docs) {
       const conductorData = conductorDoc.data();
-      const preTicketsRef = collection(db, 'conductors', conductorDoc.id, 'preTickets');
-      const preTicketsSnapshot = await getDocs(preTicketsRef);
+      const preBookingsRef = collection(db, 'conductors', conductorDoc.id, 'preBookings');
+      const preBookingsSnapshot = await getDocs(preBookingsRef);
       
-      if (preTicketsSnapshot.size > 0) {
+      if (preBookingsSnapshot.size > 0) {
         conductorsWithTickets.push({
           id: conductorDoc.id,
           ...conductorData,
-          preTicketsCount: preTicketsSnapshot.size
+          preTicketsCount: preBookingsSnapshot.size
         });
       }
     }
     
     return conductorsWithTickets;
   } catch (error) {
-    console.error('Error fetching conductors with pre-tickets:', error);
+    console.error('Error fetching conductors with pre-bookings:', error);
     throw error;
   }
 };
@@ -60,17 +60,17 @@ export const getConductorById = async (conductorId) => {
 };
 
 /**
- * Get pre-tickets for a specific conductor
+ * Get pre-bookings for a specific conductor
  * @param {string} conductorId - Conductor ID
- * @param {number} limit - Number of tickets to fetch
- * @returns {Promise<Array>} Array of pre-ticket objects
+ * @param {number} limit - Number of bookings to fetch
+ * @returns {Promise<Array>} Array of pre-booking objects
  */
 export const getPreTicketsByConductor = async (conductorId, limit = 10) => {
   try {
     const db = getFirestore();
-    const preTicketsRef = collection(db, 'conductors', conductorId, 'preTickets');
+    const preBookingsRef = collection(db, 'conductors', conductorId, 'preBookings');
     const q = query(
-      preTicketsRef, 
+      preBookingsRef, 
       orderBy('scannedAt', 'desc'), 
       limitQuery(limit)
     );
@@ -83,39 +83,51 @@ export const getPreTicketsByConductor = async (conductorId, limit = 10) => {
       tickets.push({
         id: doc.id,
         conductorId: conductorId,
+        originalCollection: docData.originalCollection || '',
+        originalDocumentId: docData.originalDocumentId || '',
+        qr: docData.qr || false,
+        qrData: docData.qrData || '',
+        scannedAt: docData.scannedAt?.toDate?.()?.toISOString() || docData.scannedAt,
+        scannedBy: docData.scannedBy || null,
+        status: docData.status || 'pending',
+        // Data from nested 'data' map
         amount: data.amount || 0,
-        date: data.date || '',
+        boardingStatus: data.boardingStatus || 'pending',
+        direction: data.direction || '',
         discountBreakdown: data.discountBreakdown || [],
         fare: data.fare || 0,
         fareTypes: data.fareTypes || [],
         from: data.from || '',
         fromKm: data.fromKm || 0,
-        originalCollection: docData.originalCollection || '',
-        originalDocumentId: docData.originalDocumentId || '',
+        fromLatitude: data.fromLatitude || 0,
+        fromLongitude: data.fromLongitude || 0,
         passengerFares: data.passengerFares || [],
-        qr: docData.qr || false,
-        qrData: docData.qrData || '',
+        passengerLatitude: data.passengerLatitude || 0,
+        passengerLongitude: data.passengerLongitude || 0,
         quantity: data.quantity || 0,
         route: data.route || '',
-        scannedAt: docData.scannedAt?.toDate?.()?.toISOString() || docData.scannedAt,
-        scannedBy: docData.scannedBy || null,
-        status: docData.status || 'pending',
-        time: data.time || '',
+        timestamp: data.timestamp || 0,
         to: data.to || '',
         toKm: data.toKm || 0,
-        type: data.type || 'preTicket'
+        toLatitude: data.toLatitude || 0,
+        toLongitude: data.toLongitude || 0,
+        type: data.type || 'preBooking',
+        userId: data.userId || '',
+        // Format timestamp for display
+        date: data.timestamp ? new Date(data.timestamp).toLocaleDateString() : '',
+        time: data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : ''
       });
     });
     
     return tickets;
   } catch (error) {
-    console.error('Error fetching pre-tickets by conductor:', error);
+    console.error('Error fetching pre-bookings by conductor:', error);
     throw error;
   }
 };
 
 /**
- * Get pre-ticketing statistics
+ * Get pre-booking statistics
  * @returns {Promise<Object>} Statistics object
  */
 export const getPreTicketingStats = async () => {
@@ -130,8 +142,8 @@ export const getPreTicketingStats = async () => {
     let totalTrips = 0;
 
     for (const conductorDoc of conductorsSnapshot.docs) {
-      const preTicketsRef = collection(db, 'conductors', conductorDoc.id, 'preTickets');
-      const snapshot = await getDocs(preTicketsRef);
+      const preBookingsRef = collection(db, 'conductors', conductorDoc.id, 'preBookings');
+      const snapshot = await getDocs(preBookingsRef);
       
       snapshot.forEach((doc) => {
         const docData = doc.data();
@@ -156,15 +168,15 @@ export const getPreTicketingStats = async () => {
       totalTrips
     };
   } catch (error) {
-    console.error('Error fetching pre-ticketing stats:', error);
+    console.error('Error fetching pre-booking stats:', error);
     throw error;
   }
 };
 
 /**
- * Get all recent pre-tickets (across all conductors)
- * @param {number} limit - Number of tickets to fetch
- * @returns {Promise<Array>} Array of ticket objects with conductor info
+ * Get all recent pre-bookings (across all conductors)
+ * @param {number} limit - Number of bookings to fetch
+ * @returns {Promise<Array>} Array of booking objects with conductor info
  */
 export const getAllRecentPreTickets = async (limitParam = 10) => {
   try {
@@ -176,8 +188,8 @@ export const getAllRecentPreTickets = async (limitParam = 10) => {
     
     for (const conductorDoc of conductorsSnapshot.docs) {
       const conductorData = conductorDoc.data();
-      const preTicketsRef = collection(db, 'conductors', conductorDoc.id, 'preTickets');
-      const q = query(preTicketsRef, orderBy('scannedAt', 'desc'));
+      const preBookingsRef = collection(db, 'conductors', conductorDoc.id, 'preBookings');
+      const q = query(preBookingsRef, orderBy('scannedAt', 'desc'));
       const ticketsSnapshot = await getDocs(q);
       
       ticketsSnapshot.forEach((ticketDoc) => {
@@ -187,27 +199,39 @@ export const getAllRecentPreTickets = async (limitParam = 10) => {
           id: ticketDoc.id,
           conductorId: conductorDoc.id,
           conductor: conductorData,
+          originalCollection: docData.originalCollection || '',
+          originalDocumentId: docData.originalDocumentId || '',
+          qr: docData.qr || false,
+          qrData: docData.qrData || '',
+          scannedAt: docData.scannedAt?.toDate?.()?.toISOString() || docData.scannedAt,
+          scannedBy: docData.scannedBy || null,
+          status: docData.status || 'pending',
+          // Data from nested 'data' map
           amount: data.amount || 0,
-          date: data.date || '',
+          boardingStatus: data.boardingStatus || 'pending',
+          direction: data.direction || '',
           discountBreakdown: data.discountBreakdown || [],
           fare: data.fare || 0,
           fareTypes: data.fareTypes || [],
           from: data.from || '',
           fromKm: data.fromKm || 0,
-          originalCollection: docData.originalCollection || '',
-          originalDocumentId: docData.originalDocumentId || '',
+          fromLatitude: data.fromLatitude || 0,
+          fromLongitude: data.fromLongitude || 0,
           passengerFares: data.passengerFares || [],
-          qr: docData.qr || false,
-          qrData: docData.qrData || '',
+          passengerLatitude: data.passengerLatitude || 0,
+          passengerLongitude: data.passengerLongitude || 0,
           quantity: data.quantity || 0,
           route: data.route || '',
-          scannedAt: docData.scannedAt?.toDate?.()?.toISOString() || docData.scannedAt,
-          scannedBy: docData.scannedBy || null,
-          status: docData.status || 'pending',
-          time: data.time || '',
+          timestamp: data.timestamp || 0,
           to: data.to || '',
           toKm: data.toKm || 0,
-          type: data.type || 'preTicket'
+          toLatitude: data.toLatitude || 0,
+          toLongitude: data.toLongitude || 0,
+          type: data.type || 'preBooking',
+          userId: data.userId || '',
+          // Format timestamp for display
+          date: data.timestamp ? new Date(data.timestamp).toLocaleDateString() : '',
+          time: data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : ''
         });
       });
     }
@@ -217,106 +241,118 @@ export const getAllRecentPreTickets = async (limitParam = 10) => {
       .sort((a, b) => new Date(b.scannedAt || 0) - new Date(a.scannedAt || 0))
       .slice(0, limitParam);
   } catch (error) {
-    console.error('Error fetching all recent pre-tickets:', error);
+    console.error('Error fetching all recent pre-bookings:', error);
     throw error;
   }
 };
 
 /**
- * Get specific pre-ticket by ID
+ * Get specific pre-booking by ID
  * @param {string} conductorId - Conductor ID
- * @param {string} ticketId - Ticket ID
- * @returns {Promise<Object>} Ticket object
+ * @param {string} bookingId - Booking ID (DocumentId)
+ * @returns {Promise<Object>} Booking object
  */
-export const getPreTicketById = async (conductorId, ticketId) => {
+export const getPreTicketById = async (conductorId, bookingId) => {
   try {
     const db = getFirestore();
-    const ticketRef = doc(db, 'conductors', conductorId, 'preTickets', ticketId);
+    const bookingRef = doc(db, 'conductors', conductorId, 'preBookings', bookingId);
     const conductorRef = doc(db, 'conductors', conductorId);
     
-    const [ticketSnapshot, conductorSnapshot] = await Promise.all([
-      getDoc(ticketRef),
+    const [bookingSnapshot, conductorSnapshot] = await Promise.all([
+      getDoc(bookingRef),
       getDoc(conductorRef)
     ]);
     
-    if (!ticketSnapshot.exists()) {
-      throw new Error('Ticket not found');
+    if (!bookingSnapshot.exists()) {
+      throw new Error('Booking not found');
     }
     
-    const docData = ticketSnapshot.data();
+    const docData = bookingSnapshot.data();
     const data = docData.data || {}; // Access the nested 'data' map
     
     return {
-      id: ticketSnapshot.id,
+      id: bookingSnapshot.id,
       conductorId: conductorId,
       conductor: conductorSnapshot.exists() ? conductorSnapshot.data() : { name: 'Unknown Conductor', email: 'N/A' },
+      originalCollection: docData.originalCollection || '',
+      originalDocumentId: docData.originalDocumentId || '',
+      qr: docData.qr || false,
+      qrData: docData.qrData || '',
+      scannedAt: docData.scannedAt?.toDate?.()?.toISOString() || docData.scannedAt,
+      scannedBy: docData.scannedBy || null,
+      status: docData.status || 'pending',
+      // Data from nested 'data' map
       amount: data.amount || 0,
-      date: data.date || '',
+      boardingStatus: data.boardingStatus || 'pending',
+      direction: data.direction || '',
       discountBreakdown: data.discountBreakdown || [],
       fare: data.fare || 0,
       fareTypes: data.fareTypes || [],
       from: data.from || '',
       fromKm: data.fromKm || 0,
-      originalCollection: docData.originalCollection || '',
-      originalDocumentId: docData.originalDocumentId || '',
+      fromLatitude: data.fromLatitude || 0,
+      fromLongitude: data.fromLongitude || 0,
       passengerFares: data.passengerFares || [],
-      qr: docData.qr || false,
-      qrData: docData.qrData || '',
+      passengerLatitude: data.passengerLatitude || 0,
+      passengerLongitude: data.passengerLongitude || 0,
       quantity: data.quantity || 0,
       route: data.route || '',
-      scannedAt: docData.scannedAt?.toDate?.()?.toISOString() || docData.scannedAt,
-      scannedBy: docData.scannedBy || null,
-      status: docData.status || 'pending',
-      time: data.time || '',
+      timestamp: data.timestamp || 0,
       to: data.to || '',
       toKm: data.toKm || 0,
-      type: data.type || 'preTicket'
+      toLatitude: data.toLatitude || 0,
+      toLongitude: data.toLongitude || 0,
+      type: data.type || 'preBooking',
+      userId: data.userId || '',
+      // Format timestamp for display
+      date: data.timestamp ? new Date(data.timestamp).toLocaleDateString() : '',
+      time: data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : ''
     };
   } catch (error) {
-    console.error('Error fetching pre-ticket:', error);
+    console.error('Error fetching pre-booking:', error);
     throw error;
   }
 };
 
 /**
- * Update ticket status
+ * Update booking status
  * @param {string} conductorId - Conductor ID
- * @param {string} ticketId - Ticket ID
+ * @param {string} bookingId - Booking ID (DocumentId)
  * @param {string} newStatus - New status
  * @returns {Promise<boolean>} Success status
  */
-export const updateTicketStatus = async (conductorId, ticketId, newStatus) => {
+export const updateTicketStatus = async (conductorId, bookingId, newStatus) => {
   try {
     const db = getFirestore();
-    const ticketRef = doc(db, 'conductors', conductorId, 'preTickets', ticketId);
+    const bookingRef = doc(db, 'conductors', conductorId, 'preBookings', bookingId);
     
     const updateData = { status: newStatus };
     if (newStatus === 'boarded') {
       updateData.scannedAt = serverTimestamp();
     }
     
-    await updateDoc(ticketRef, updateData);
+    await updateDoc(bookingRef, updateData);
     return true;
   } catch (error) {
-    console.error('Error updating ticket status:', error);
+    console.error('Error updating booking status:', error);
     throw error;
   }
 };
 
 /**
- * Delete a pre-ticket
+ * Delete a pre-booking
  * @param {string} conductorId - Conductor ID
- * @param {string} ticketId - Ticket ID to delete
+ * @param {string} bookingId - Booking ID (DocumentId) to delete
  * @returns {Promise<boolean>} Success status
  */
-export const deletePreTicket = async (conductorId, ticketId) => {
+export const deletePreTicket = async (conductorId, bookingId) => {
   try {
     const db = getFirestore();
-    const ticketRef = doc(db, 'conductors', conductorId, 'preTickets', ticketId);
-    await deleteDoc(ticketRef);
+    const bookingRef = doc(db, 'conductors', conductorId, 'preBookings', bookingId);
+    await deleteDoc(bookingRef);
     return true;
   } catch (error) {
-    console.error('Error deleting pre-ticket:', error);
+    console.error('Error deleting pre-booking:', error);
     throw error;
   }
 };

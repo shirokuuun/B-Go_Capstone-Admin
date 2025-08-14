@@ -2,6 +2,113 @@
 import { collection, getDocs, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../firebase/firebase';
 
+// Fetch conductor trips and pre-booking data (same as DailyRevenue)
+export const fetchConductorTripsAndPreBooking = async (date) => {
+  try {
+    const conductorsRef = collection(db, 'conductors');
+    const conductorsSnapshot = await getDocs(conductorsRef);
+    let conductorTrips = [];
+    let preBookingTrips = [];
+
+    console.log('🎫 Fetching conductor trips and pre-booking for date:', date);
+
+    for (const conductorDoc of conductorsSnapshot.docs) {
+      const conductorId = conductorDoc.id;
+      console.log(`\n📍 Processing conductor: ${conductorId}`);
+
+      // If no date is provided, get all trips by fetching from all date collections
+      if (!date) {
+        // Get all trip dates for this conductor
+        const conductorTripsRef = collection(db, `conductors/${conductorId}/trips`);
+        const tripDatesSnapshot = await getDocs(conductorTripsRef);
+        
+        for (const dateDoc of tripDatesSnapshot.docs) {
+          const tripsRef = collection(db, `conductors/${conductorId}/trips/${dateDoc.id}/tickets`);
+          const tripsSnapshot = await getDocs(tripsRef);
+          console.log(`📦 Found ${tripsSnapshot.docs.length} tickets for conductor ${conductorId} on ${dateDoc.id}`);
+          
+          tripsSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            if (data.active && data.totalFare) {
+              const ticketData = {
+                id: doc.id,
+                conductorId: conductorId,
+                totalFare: parseFloat(data.totalFare),
+                quantity: data.quantity || 1,
+                from: data.from,
+                to: data.to,
+                timestamp: data.timestamp,
+                discountAmount: parseFloat(data.discountAmount || 0),
+                documentType: data.documentType || null,
+                date: dateDoc.id
+              };
+
+              // Categorize based on documentType
+              if (data.documentType === 'preBooking') {
+                preBookingTrips.push({
+                  ...ticketData,
+                  source: 'Pre-booking'
+                });
+              } else {
+                // Manual ticket or no documentType = Conductor trips
+                conductorTrips.push({
+                  ...ticketData,
+                  source: 'Conductor Trips'
+                });
+              }
+            }
+          });
+        }
+      } else {
+        // Specific date
+        const tripsRef = collection(db, `conductors/${conductorId}/trips/${date}/tickets`);
+        const tripsSnapshot = await getDocs(tripsRef);
+        console.log(`📦 Found ${tripsSnapshot.docs.length} tickets for conductor ${conductorId} on ${date}`);
+        
+        tripsSnapshot.docs.forEach(doc => {
+          const data = doc.data();
+          if (data.active && data.totalFare) {
+            const ticketData = {
+              id: doc.id,
+              conductorId: conductorId,
+              totalFare: parseFloat(data.totalFare),
+              quantity: data.quantity || 1,
+              from: data.from,
+              to: data.to,
+              timestamp: data.timestamp,
+              discountAmount: parseFloat(data.discountAmount || 0),
+              documentType: data.documentType || null,
+              date: date
+            };
+
+            // Categorize based on documentType
+            if (data.documentType === 'preBooking') {
+              preBookingTrips.push({
+                ...ticketData,
+                source: 'Pre-booking'
+              });
+            } else {
+              // Manual ticket or no documentType = Conductor trips
+              conductorTrips.push({
+                ...ticketData,
+                source: 'Conductor Trips'
+              });
+            }
+          }
+        });
+      }
+    }
+
+    console.log('🎫 Total conductor trips found:', conductorTrips.length);
+    console.log('🎫 Total pre-booking trips found:', preBookingTrips.length);
+    
+    return { conductorTrips, preBookingTrips };
+  } catch (error) {
+    console.error('Error fetching conductor trips and pre-booking:', error);
+    return { conductorTrips: [], preBookingTrips: [] };
+  }
+};
+
 // Fetch conductor details
 export const fetchConductorDetails = async (conductorId) => {
   try {
@@ -20,97 +127,222 @@ export const fetchConductorDetails = async (conductorId) => {
   }
 };
 
-// Fetch all conductors with their performance data
-export const fetchConductorPerformance = async (date) => {
+// Fetch pre-ticketing data from conductors/preTickets (same as DailyRevenue)
+export const fetchPreTicketingData = async (date) => {
   try {
+    console.log('🚀 Starting fetchPreTicketingData for date:', date);
+    console.log('📍 Using Firebase path: /conductors/{conductorId}/preTickets/');
+    
     const conductorsRef = collection(db, 'conductors');
     const conductorsSnapshot = await getDocs(conductorsRef);
-    let conductorPerformanceData = [];
+    let allPreTickets = [];
+
+    console.log(`🎯 Found ${conductorsSnapshot.docs.length} conductors`);
 
     for (const conductorDoc of conductorsSnapshot.docs) {
       const conductorId = conductorDoc.id;
-      const conductorData = conductorDoc.data();
+      console.log(`\n📍 Processing conductor: ${conductorId}`);
       
-      let trips = [];
-      let totalRevenue = 0;
-      let totalPassengers = 0;
-      let totalTrips = 0;
+      try {
+        const preTicketsRef = collection(db, 'conductors', conductorId, 'preTickets');
+        const preTicketsSnapshot = await getDocs(preTicketsRef);
+        console.log(`📦 Found ${preTicketsSnapshot.docs.length} pre-tickets for conductor ${conductorId}`);
 
-      // If no date is provided, get all trips by fetching from all date collections
-      if (!date) {
-        const conductorTripsRef = collection(db, `conductors/${conductorId}/trips`);
-        const tripDatesSnapshot = await getDocs(conductorTripsRef);
-        
-        for (const dateDoc of tripDatesSnapshot.docs) {
-          const tripsRef = collection(db, `conductors/${conductorId}/trips/${dateDoc.id}/tickets`);
-          const tripsSnapshot = await getDocs(tripsRef);
+        preTicketsSnapshot.docs.forEach((doc) => {
+          const docData = doc.data();
+          const data = docData.data || {}; // Access the nested 'data' map
           
-          tripsSnapshot.docs.forEach(doc => {
-            const data = doc.data();
-            if (data.active && data.totalFare) {
-              trips.push({
-                id: doc.id,
-                totalFare: parseFloat(data.totalFare),
-                quantity: data.quantity || 1,
-                from: data.from,
-                to: data.to,
-                timestamp: data.timestamp,
-                discountAmount: parseFloat(data.discountAmount || 0),
-                date: dateDoc.id
-              });
-              totalRevenue += parseFloat(data.totalFare);
-              totalPassengers += data.quantity || 1;
-              totalTrips++;
-            }
-          });
-        }
-      } else {
-        // Specific date
-        const tripsRef = collection(db, `conductors/${conductorId}/trips/${date}/tickets`);
-        const tripsSnapshot = await getDocs(tripsRef);
-        
-        tripsSnapshot.docs.forEach(doc => {
-          const data = doc.data();
-          if (data.active && data.totalFare) {
-            trips.push({
-              id: doc.id,
-              totalFare: parseFloat(data.totalFare),
-              quantity: data.quantity || 1,
+          // Check if ticket has required fields
+          if (data.amount && data.quantity) {
+            console.log(`📝 Processing pre-ticket ${doc.id}:`, {
               from: data.from,
               to: data.to,
-              timestamp: data.timestamp,
-              discountAmount: parseFloat(data.discountAmount || 0),
-              date: date
+              amount: data.amount,
+              quantity: data.quantity,
+              date: data.date,
+              status: docData.status
             });
-            totalRevenue += parseFloat(data.totalFare);
-            totalPassengers += data.quantity || 1;
-            totalTrips++;
+            
+            // If no date is provided, include all records
+            if (!date) {
+              allPreTickets.push({
+                id: doc.id,
+                conductorId: conductorId,
+                totalFare: data.amount,
+                quantity: data.quantity,
+                from: data.from,
+                to: data.to,
+                route: data.route,
+                date: data.date,
+                time: data.time,
+                timestamp: docData.scannedAt || docData.createdAt,
+                discountAmount: 0, // Calculate from discountBreakdown if needed
+                fareTypes: data.fareTypes || [],
+                discountBreakdown: data.discountBreakdown || [],
+                source: 'Pre-ticketing',
+                status: docData.status
+              });
+            } else {
+              // Filter by specific date
+              const ticketDate = data.date;
+              console.log(`📅 Ticket date: ${ticketDate}, Selected date: ${date}`);
+              
+              if (ticketDate === date) {
+                console.log(`✅ Including pre-ticket ${doc.id} (date match)`);
+                allPreTickets.push({
+                  id: doc.id,
+                  conductorId: conductorId,
+                  totalFare: data.amount,
+                  quantity: data.quantity,
+                  from: data.from,
+                  to: data.to,
+                  route: data.route,
+                  date: data.date,
+                  time: data.time,
+                  timestamp: docData.scannedAt || docData.createdAt,
+                  discountAmount: 0, // Calculate from discountBreakdown if needed
+                  fareTypes: data.fareTypes || [],
+                  discountBreakdown: data.discountBreakdown || [],
+                  source: 'Pre-ticketing',
+                  status: docData.status
+                });
+              } else {
+                console.log(`❌ Excluding pre-ticket ${doc.id} (date mismatch: ${ticketDate} !== ${date})`);
+              }
+            }
+          } else {
+            console.log(`❌ Filtering out pre-ticket ${doc.id}: missing amount or quantity`);
           }
         });
+        
+      } catch (conductorError) {
+        console.error(`❌ Error fetching pre-tickets for conductor ${conductorId}:`, conductorError);
+        continue;
       }
+    }
 
-      // Calculate performance metrics
+    console.log(`\n🎯 FINAL PRE-TICKETING RESULTS:`);
+    console.log(`📊 Total pre-tickets found: ${allPreTickets.length}`);
+    console.log(`📋 Sample pre-tickets:`, allPreTickets.slice(0, 3));
+    
+    return allPreTickets;
+  } catch (error) {
+    console.error('❌ CRITICAL ERROR in fetchPreTicketingData:', error);
+    console.error('Error details:', {
+      code: error.code,
+      message: error.message,
+      stack: error.stack
+    });
+    return [];
+  }
+};
+
+// Fetch all conductors with their performance data using new data sources
+export const fetchConductorPerformance = async (date) => {
+  try {
+    console.log('🚀 Starting fetchConductorPerformance for date:', date);
+    
+    // Fetch all data using the new functions
+    const [{ conductorTrips, preBookingTrips }, preTicketingData] = await Promise.all([
+      fetchConductorTripsAndPreBooking(date),
+      fetchPreTicketingData(date)
+    ]);
+
+    console.log('📊 Data fetched:', {
+      conductorTrips: conductorTrips.length,
+      preBookingTrips: preBookingTrips.length,
+      preTicketingData: preTicketingData.length
+    });
+
+    // Get all conductors to include those with no trips
+    const conductorsRef = collection(db, 'conductors');
+    const conductorsSnapshot = await getDocs(conductorsRef);
+    const allConductors = new Map();
+
+    // Initialize all conductors with basic data
+    conductorsSnapshot.docs.forEach(doc => {
+      const conductorData = doc.data();
+      allConductors.set(doc.id, {
+        conductorId: doc.id,
+        conductorName: conductorData.name || `Conductor ${doc.id}`,
+        busNumber: conductorData.busNumber || 'N/A',
+        capacity: conductorData.capacity || 27,
+        originalCurrentPassengers: conductorData.currentPassengers || conductorData.passengerCount || 0,
+        lastSeen: conductorData.lastSeen || null,
+        isOnline: conductorData.isOnline !== false,
+        // Initialize metrics
+        conductorTripsRevenue: 0,
+        conductorTripsPassengers: 0,
+        conductorTripsCount: 0,
+        preBookingRevenue: 0,
+        preBookingPassengers: 0,
+        preBookingCount: 0,
+        preTicketingRevenue: 0,
+        preTicketingPassengers: 0,
+        preTicketingCount: 0,
+        allTickets: []
+      });
+    });
+
+    // Process conductor trips
+    conductorTrips.forEach(trip => {
+      if (allConductors.has(trip.conductorId)) {
+        const conductor = allConductors.get(trip.conductorId);
+        conductor.conductorTripsRevenue += trip.totalFare;
+        conductor.conductorTripsPassengers += trip.quantity;
+        conductor.conductorTripsCount++;
+        conductor.allTickets.push(trip);
+      }
+    });
+
+    // Process pre-booking trips
+    preBookingTrips.forEach(trip => {
+      if (allConductors.has(trip.conductorId)) {
+        const conductor = allConductors.get(trip.conductorId);
+        conductor.preBookingRevenue += trip.totalFare;
+        conductor.preBookingPassengers += trip.quantity;
+        conductor.preBookingCount++;
+        conductor.allTickets.push(trip);
+      }
+    });
+
+    // Process pre-ticketing data
+    preTicketingData.forEach(ticket => {
+      if (allConductors.has(ticket.conductorId)) {
+        const conductor = allConductors.get(ticket.conductorId);
+        conductor.preTicketingRevenue += ticket.totalFare;
+        conductor.preTicketingPassengers += ticket.quantity;
+        conductor.preTicketingCount++;
+        conductor.allTickets.push(ticket);
+      }
+    });
+
+    // Calculate final metrics for each conductor
+    const conductorPerformanceData = Array.from(allConductors.values()).map(conductor => {
+      const totalRevenue = conductor.conductorTripsRevenue + conductor.preBookingRevenue + conductor.preTicketingRevenue;
+      const totalPassengers = conductor.conductorTripsPassengers + conductor.preBookingPassengers + conductor.preTicketingPassengers;
+      const totalTrips = conductor.conductorTripsCount + conductor.preBookingCount + conductor.preTicketingCount;
+      
       const averageFare = totalPassengers > 0 ? totalRevenue / totalPassengers : 0;
       const averagePassengersPerTrip = totalTrips > 0 ? totalPassengers / totalTrips : 0;
 
-      conductorPerformanceData.push({
-        conductorId,
-        conductorName: conductorData.name || `Conductor ${conductorId}`,
-        busNumber: conductorData.busNumber || 'N/A',
-        capacity: conductorData.capacity || 27, // Default capacity
-        currentPassengers: conductorData.currentPassengers || conductorData.passengerCount || 0,
-        lastSeen: conductorData.lastSeen || null,
+      // Calculate current passengers: add preTicket and preBooking passenger counts
+      const finalCurrentPassengers = conductor.preTicketingPassengers + conductor.preBookingPassengers;
+
+      return {
+        ...conductor,
         totalRevenue,
         totalPassengers,
         totalTrips,
+        currentPassengers: finalCurrentPassengers,
         averageFare,
         averagePassengersPerTrip,
-        utilizationRate: conductorData.capacity ? ((conductorData.currentPassengers || conductorData.passengerCount || 0) / conductorData.capacity) * 100 : 0,
-        trips,
-        isOnline: conductorData.isOnline !== false
-      });
-    }
+        utilizationRate: conductor.capacity ? (finalCurrentPassengers / conductor.capacity) * 100 : 0,
+        trips: conductor.allTickets
+      };
+    });
 
+    console.log('📋 Final conductor performance data:', conductorPerformanceData.length);
     return conductorPerformanceData.sort((a, b) => b.totalRevenue - a.totalRevenue);
   } catch (error) {
     console.error('Error fetching conductor performance:', error);
@@ -166,94 +398,20 @@ export const prepareRoutePopularityData = (conductorData) => {
   return [];
 };
 
-// Set up real-time listener for conductor performance data
+// Set up real-time listener for conductor performance data using new data sources
 export const setupConductorPerformanceListener = (callback, selectedDate) => {
   const conductorsRef = collection(db, 'conductors');
   
   const unsubscribe = onSnapshot(conductorsRef, async (snapshot) => {
     try {
-      let conductorPerformanceData = [];
+      console.log('🔄 Real-time update triggered, refetching conductor performance data...');
       
-      for (const conductorDoc of snapshot.docs) {
-        const conductorId = conductorDoc.id;
-        const conductorData = conductorDoc.data();
-        
-        let trips = [];
-        let totalRevenue = 0;
-        let totalPassengers = 0;
-        let totalTrips = 0;
-        let currentPassengers = 0;
-
-        // Use consistent field name - check both possible field names
-        currentPassengers = conductorData.currentPassengers || conductorData.passengerCount || 0;
-
-        // Calculate average fare from trips (for context)
-        if (!selectedDate) {
-          // Get all trips across all dates
-          try {
-            const conductorTripsRef = collection(db, `conductors/${conductorId}/trips`);
-            const tripDatesSnapshot = await getDocs(conductorTripsRef);
-            
-            for (const dateDoc of tripDatesSnapshot.docs) {
-              const tripsRef = collection(db, `conductors/${conductorId}/trips/${dateDoc.id}/tickets`);
-              const tripsSnapshot = await getDocs(tripsRef);
-              
-              tripsSnapshot.docs.forEach(doc => {
-                const data = doc.data();
-                if (data.active && data.totalFare) {
-                  totalRevenue += parseFloat(data.totalFare);
-                  totalPassengers += data.quantity || 1;
-                  totalTrips++;
-                }
-              });
-            }
-          } catch (error) {
-            console.log(`No trip data found for conductor ${conductorId}`);
-          }
-        } else {
-          // For specific date, only get that date's trip data
-          try {
-            const tripsRef = collection(db, `conductors/${conductorId}/trips/${selectedDate}/tickets`);
-            const tripsSnapshot = await getDocs(tripsRef);
-            
-            tripsSnapshot.docs.forEach(doc => {
-              const data = doc.data();
-              if (data.active && data.totalFare) {
-                totalRevenue += parseFloat(data.totalFare);
-                totalPassengers += data.quantity || 1;
-                totalTrips++;
-              }
-            });
-          } catch (error) {
-            // If the date collection doesn't exist, no trips for this date
-            console.log(`No trips found for conductor ${conductorId} on ${selectedDate}`);
-          }
-        }
-
-        // Calculate average fare (from trip data for context)
-        const averageFare = totalPassengers > 0 ? totalRevenue / totalPassengers : 0;
-
-        conductorPerformanceData.push({
-          conductorId,
-          conductorName: conductorData.name || `Conductor ${conductorId}`,
-          busNumber: conductorData.busNumber || 'N/A',
-          capacity: conductorData.capacity || 27,
-          currentPassengers, // This is the main metric we care about
-          lastSeen: conductorData.lastSeen || null,
-          averageFare: averageFare || 0, // Ensure it's never undefined
-          totalRevenue: totalRevenue || 0, // Add this for overall metrics calculation
-          totalPassengers: totalPassengers || 0, // Add this for overall metrics calculation
-          totalTrips: totalTrips || 0, // Add this for overall metrics calculation
-          utilizationRate: conductorData.capacity ? (currentPassengers / conductorData.capacity) * 100 : 0,
-          isOnline: conductorData.isOnline !== false
-        });
-      }
-
-      const sortedData = conductorPerformanceData.sort((a, b) => b.currentPassengers - a.currentPassengers);
-      const overallMetrics = calculateOverallMetrics(sortedData);
+      // Use the updated fetchConductorPerformance function
+      const conductorPerformanceData = await fetchConductorPerformance(selectedDate);
+      const overallMetrics = calculateOverallMetrics(conductorPerformanceData);
 
       callback({
-        conductorData: sortedData,
+        conductorData: conductorPerformanceData,
         overallMetrics
       });
     } catch (error) {

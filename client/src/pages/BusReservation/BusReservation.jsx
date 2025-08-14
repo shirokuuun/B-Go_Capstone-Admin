@@ -7,7 +7,7 @@ import { FaCheckCircle } from "react-icons/fa";
 import { IoAlertCircleSharp } from "react-icons/io5";
 import { FaListAlt } from 'react-icons/fa';
 
-import { subscribeToBuses } from "./BusReservation.js";
+import { subscribeToBuses, initializeBusStatusChecker } from "./BusReservation.js";
 import AddBusModal from '/src/pages/BusReservation/BusReservationModal.jsx';
 
 function BusReservation() {
@@ -34,6 +34,17 @@ function BusReservation() {
     });
 
     return () => unsubscribe();
+  }, []);
+
+  // ✅ Initialize bus status checker
+  useEffect(() => {
+    console.log('Initializing bus status checker...');
+    const cleanup = initializeBusStatusChecker();
+    
+    return () => {
+      console.log('Cleaning up bus status checker...');
+      cleanup();
+    };
   }, []);
 
   const renderDetailsContent = () => {

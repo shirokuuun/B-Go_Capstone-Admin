@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import conductorService from '/src/pages/conductor/conductor.js';
 import './conductor.css';
 import { IoMdAdd } from "react-icons/io";
+import { FaSync } from "react-icons/fa";
 import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaTrash } from 'react-icons/fa';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '/src/firebase/firebase';
@@ -22,6 +23,7 @@ const Conductor = () => {
   const [trips, setTrips] = useState([]);
   const [availableDates, setAvailableDates] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     // Setup real-time listener for conductors list
@@ -140,6 +142,29 @@ const Conductor = () => {
     }
   };
 
+  // NEW: Handle sync all trip counts
+  const handleSyncTripCounts = async () => {
+    if (!window.confirm("This will update trip counts for all conductors. Continue?")) {
+      return;
+    }
+
+    try {
+      setIsSyncing(true);
+      const result = await conductorService.syncAllConductorTripCounts();
+      
+      if (result.success) {
+        alert(`${result.message}`);
+      } else {
+        alert(`Error syncing trip counts: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error syncing trip counts:', error);
+      alert('Failed to sync trip counts. Please try again.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const filteredAndSortedConductors = () => {
     let filtered = conductors.filter(conductor => {
       const matchesSearch = 
@@ -208,14 +233,25 @@ const Conductor = () => {
               </div>
             </div>
 
-            {/* Add Conductor Button */}
-            <button 
-              onClick={() => setShowAddModal(true)}
-              className="conductor-add-btn"
-            >
-              <IoMdAdd className="conductor-add-icon" />
-              Add Conductor
-            </button>
+            {/* Action Buttons */}
+            <div className="conductor-action-buttons">
+              <button 
+                onClick={handleSyncTripCounts}
+                className="conductor-sync-btn"
+                disabled={isSyncing}
+                title="Sync trip counts for all conductors"
+              >
+                <FaSync className={`mr-2 ${isSyncing ? 'animate-spin': ''}`}/>
+                {isSyncing ? 'Syncing...' : 'Sync Trips'}
+              </button>
+              <button 
+                onClick={() => setShowAddModal(true)}
+                className="conductor-add-btn"
+              >
+                <IoMdAdd className="conductor-add-icon" />
+                Add Conductor
+              </button>
+            </div>
           </div>
 
           {/* Real-time Stats Cards */}

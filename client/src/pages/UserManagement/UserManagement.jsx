@@ -238,6 +238,10 @@ const UserManagement = () => {
       <div className="usermgmt-split-layout">
         {/* Left Side - Users List */}
         <div className="usermgmt-users-panel">
+          <div className="usermgmt-users-header">
+            <h2 className="usermgmt-users-title">All Users</h2>
+            <p className="usermgmt-users-subtitle">Select a user to view details</p>
+          </div>
           {users.length === 0 && !loading ? (
             <div className="usermgmt-no-users">
               <div className="usermgmt-no-users-icon">👥</div>

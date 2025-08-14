@@ -12,6 +12,7 @@ import {
   where,
   deleteDoc
 } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 
 import { db, auth } from '/src/firebase/firebase';
 
@@ -226,7 +227,7 @@ class ConductorService {
     }
   }
 
-  // FIXED: Real-time listener for conductors list
+  // FIXED: Real-time listener for conductors list with accurate trip counts
   setupConductorsListener(callback) {
     const conductorsRef = collection(db, 'conductors');
     
@@ -238,11 +239,19 @@ class ConductorService {
         const conductorPromises = snapshot.docs.map(async (doc) => {
           try {
             const conductorData = doc.data();
-            // Only get basic data for list view - don't fetch all trips for performance
+            
+            // Get actual trip count by fetching trips collection
+            const actualTripsCount = await this.getConductorTripsCount(doc.id);
+            
+            // If cached count doesn't match actual count, update it
+            if (conductorData.totalTrips !== actualTripsCount) {
+              await this.updateConductorTripsCount(doc.id);
+            }
+            
             return {
               id: doc.id,
               ...conductorData,
-              tripsCount: conductorData.totalTrips || 0 // Use cached count if available
+              tripsCount: actualTripsCount // Use actual trips count
             };
           } catch (error) {
             console.error(`Error processing conductor ${doc.id}:`, error);
@@ -778,6 +787,49 @@ class ConductorService {
     } catch (error) {
       console.error('Error deleting conductor:', error);
       throw error;
+    }
+  }
+
+  // NEW: Sync all conductor trip counts (run this to fix existing data)
+  async syncAllConductorTripCounts() {
+    try {
+      console.log('Starting sync of all conductor trip counts...');
+      
+      const conductorsRef = collection(db, 'conductors');
+      const snapshot = await getDocs(conductorsRef);
+      
+      let updatedCount = 0;
+      const updatePromises = [];
+      
+      for (const doc of snapshot.docs) {
+        const conductorData = doc.data();
+        const actualTripsCount = await this.getConductorTripsCount(doc.id);
+        
+        // Only update if counts don't match
+        if (conductorData.totalTrips !== actualTripsCount) {
+          console.log(`Updating trips count for ${conductorData.name}: ${conductorData.totalTrips || 0} -> ${actualTripsCount}`);
+          updatePromises.push(this.updateConductorTripsCount(doc.id));
+          updatedCount++;
+        }
+      }
+      
+      // Execute all updates in parallel
+      await Promise.all(updatePromises);
+      
+      console.log(`Sync completed. Updated ${updatedCount} conductors.`);
+      
+      return {
+        success: true,
+        message: `Successfully synced trip counts for ${updatedCount} conductors`,
+        updatedCount
+      };
+      
+    } catch (error) {
+      console.error('Error syncing conductor trip counts:', error);
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 }

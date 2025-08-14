@@ -11,11 +11,13 @@ import './DailyRevenue.css';
 const DailyRevenue = () => {
   const [revenueData, setRevenueData] = useState({
     conductorTrips: [],
+    preBookingTrips: [],
     preTicketing: [],
     totalRevenue: 0,
     totalPassengers: 0,
     averageFare: 0,
     conductorRevenue: 0,
+    preBookingRevenue: 0,
     preTicketingRevenue: 0
   });
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -38,21 +40,29 @@ const DailyRevenue = () => {
     handleLoadRevenueData();
   }, [selectedDate]);
 
-  // Simple print functionality - let CSS handle the hiding
-  const handlePrint = () => {
-    window.print();
+  // Enhanced print functionality - ensure data is loaded before printing
+  const handlePrint = async () => {
+    // If there's no data or we're currently loading, refresh the data first
+    if (loading || revenueData.totalRevenue === 0) {
+      await handleLoadRevenueData();
+    }
+    
+    // Give a small delay to ensure everything is rendered
+    setTimeout(() => {
+      window.print();
+    }, 100);
   };
 
   // Prepare chart data
-  const pieChartData = preparePieChartData(revenueData.conductorRevenue, revenueData.preTicketingRevenue);
-  const routeChartData = prepareRouteRevenueData(revenueData.conductorTrips, revenueData.preTicketing);
+  const pieChartData = preparePieChartData(revenueData.conductorRevenue, revenueData.preBookingRevenue, revenueData.preTicketingRevenue);
+  const routeChartData = prepareRouteRevenueData(revenueData.conductorTrips, revenueData.preBookingTrips, revenueData.preTicketing);
 
   const formatTime = (timestamp) => {
     if (!timestamp || !timestamp.toDate) return 'N/A';
     return timestamp.toDate().toLocaleTimeString();
   };
 
-  const formatCurrency = (amount) => `₱${amount.toFixed(2)}`;
+  const formatCurrency = (amount) => `₱${(amount || 0).toFixed(2)}`;
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -140,7 +150,7 @@ const DailyRevenue = () => {
           <div className="summary-card">
             <h3 className="card-title">Total Trips</h3>
             <p className="card-value trips">
-              {revenueData.conductorTrips.length + revenueData.preTicketing.length}
+              {revenueData.conductorTrips.length + (revenueData.preBookingTrips?.length || 0) + revenueData.preTicketing.length}
             </p>
           </div>
         </div>
@@ -153,6 +163,10 @@ const DailyRevenue = () => {
           <div className="breakdown-item">
             <span className="breakdown-label">Conductor Trips Revenue:</span>
             <span className="breakdown-value">{formatCurrency(revenueData.conductorRevenue)}</span>
+          </div>
+          <div className="breakdown-item">
+            <span className="breakdown-label">Pre-booking Revenue:</span>
+            <span className="breakdown-value">{formatCurrency(revenueData.preBookingRevenue)}</span>
           </div>
           <div className="breakdown-item">
             <span className="breakdown-label">Pre-ticketing Revenue:</span>
@@ -260,6 +274,46 @@ const DailyRevenue = () => {
             <div className="empty-state">
               <h3>No conductor trips found</h3>
               <p>No conductor trip data available for the selected date.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Pre-booking Section */}
+        <div className="section-container">
+          <h4 className="section-title pre-booking">
+            Pre-booking ({formatCurrency(revenueData.preBookingRevenue || 0)})
+          </h4>
+          {revenueData.preBookingTrips && revenueData.preBookingTrips.length > 0 ? (
+            <div className="table-container">
+              <table className="revenue-table">
+                <thead>
+                  <tr>
+                    <th>Route</th>
+                    <th>Passengers</th>
+                    <th>Fare</th>
+                    <th>Discount</th>
+                    <th>Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {revenueData.preBookingTrips.map((trip, index) => (
+                    <tr key={index}>
+                      <td className="route-text">
+                        {trip.from} → {trip.to}
+                      </td>
+                      <td>{trip.quantity}</td>
+                      <td className="fare-amount">{formatCurrency(trip.totalFare)}</td>
+                      <td className="discount-amount">{formatCurrency(trip.discountAmount)}</td>
+                      <td>{formatTime(trip.timestamp)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="empty-state">
+              <h3>No pre-booking data found</h3>
+              <p>No pre-booking data available for the selected date.</p>
             </div>
           )}
         </div>

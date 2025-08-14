@@ -32,7 +32,7 @@ const RoutePerformance = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
   const [showAllTickets, setShowAllTickets] = useState(false);
-  const [ticketSortMode, setTicketSortMode] = useState('mixed'); // 'mixed', 'pre-tickets', 'conductor-tickets'
+  const [ticketSortMode, setTicketSortMode] = useState('mixed'); // 'mixed', 'conductor-tickets'
   const [showAllSOS, setShowAllSOS] = useState(false);
   const [sosSortMode, setSOSSortMode] = useState('newest'); // 'newest', 'oldest', 'received', 'pending', 'cancelled', 'route', 'emergency-type'
 
@@ -100,9 +100,17 @@ const RoutePerformance = () => {
     };
   }, []);
 
-  // Simple print functionality
-  const handlePrint = () => {
-    window.print();
+  // Enhanced print functionality - ensure data is loaded before printing
+  const handlePrint = async () => {
+    // If there's no data or we're currently loading, refresh the data first
+    if (loading || routeData.totalRevenue === 0) {
+      await handleLoadRouteData();
+    }
+    
+    // Give a small delay to ensure everything is rendered
+    setTimeout(() => {
+      window.print();
+    }, 100);
   };
 
   // Prepare chart data
@@ -139,25 +147,33 @@ const RoutePerformance = () => {
     
     // Sort based on selected mode
     switch (ticketSortMode) {
-      case 'pre-tickets':
-        // Show only pre-tickets
-        ticketsToShow = ticketsToShow.filter(t => t.type === 'pre-ticket');
-        break;
       case 'conductor-tickets':
         // Show only conductor tickets
-        ticketsToShow = ticketsToShow.filter(t => t.type === 'conductor-ticket');
+        ticketsToShow = ticketsToShow.filter(t => t.source === 'Conductor Trips' || t.type === 'conductor-ticket');
+        break;
+      case 'pre-booking':
+        // Show only pre-booking tickets
+        ticketsToShow = ticketsToShow.filter(t => t.source === 'Pre-booking');
+        break;
+      case 'pre-ticketing':
+        // Show only pre-ticketing data
+        ticketsToShow = ticketsToShow.filter(t => t.source === 'Pre-ticketing');
         break;
       case 'mixed':
       default:
         // Interleave ticket types for better representation
         const preTickets = ticketsToShow.filter(t => t.type === 'pre-ticket');
-        const conductorTickets = ticketsToShow.filter(t => t.type === 'conductor-ticket');
+        const conductorTickets = ticketsToShow.filter(t => t.source === 'Conductor Trips' || t.type === 'conductor-ticket');
+        const preBookingTickets = ticketsToShow.filter(t => t.source === 'Pre-booking');
+        const preTicketingData = ticketsToShow.filter(t => t.source === 'Pre-ticketing');
         const mixed = [];
-        const maxLength = Math.max(preTickets.length, conductorTickets.length);
+        const maxLength = Math.max(preTickets.length, conductorTickets.length, preBookingTickets.length, preTicketingData.length);
         
         for (let i = 0; i < maxLength; i++) {
           if (i < preTickets.length) mixed.push(preTickets[i]);
           if (i < conductorTickets.length) mixed.push(conductorTickets[i]);
+          if (i < preBookingTickets.length) mixed.push(preBookingTickets[i]);
+          if (i < preTicketingData.length) mixed.push(preTicketingData[i]);
         }
         ticketsToShow = mixed;
         break;
@@ -235,7 +251,8 @@ const RoutePerformance = () => {
   }
 
   return (
-    <div className="route-perf-container">
+    <div className="route-perf-wrapper">
+      <div className="route-perf-container">
       {/* Print Header - Only visible when printing */}
       <div className="route-perf-print-header">
         <div className="route-perf-company-info">
@@ -408,8 +425,9 @@ const RoutePerformance = () => {
           <h4 className="route-perf-section-title route-perf-tickets">
             Recent Tickets ({routeData.tickets.length} total)
             <span className="route-perf-ticket-breakdown">
-              Pre-tickets: {routeData.tickets.filter(t => t.type === 'pre-ticket').length} | 
-              Conductor: {routeData.tickets.filter(t => t.type === 'conductor-ticket').length}
+              Conductor: {routeData.tickets.filter(t => t.source === 'Conductor Trips').length} |
+              Pre-Booking: {routeData.tickets.filter(t => t.source === 'Pre-booking').length} |
+              Pre-Ticketing: {routeData.tickets.filter(t => t.source === 'Pre-ticketing').length}
             </span>
           </h4>
           
@@ -423,8 +441,9 @@ const RoutePerformance = () => {
                 style={{ marginLeft: '5px', padding: '4px 8px' }}
               >
                 <option value="mixed">Mixed (All tickets)</option>
-                <option value="pre-tickets">Pre-tickets only</option>
                 <option value="conductor-tickets">Conductor tickets only</option>
+                <option value="pre-booking">Pre-booking only</option>
+                <option value="pre-ticketing">Pre-ticketing only</option>
               </select>
             </label>
             <button
@@ -476,8 +495,11 @@ const RoutePerformance = () => {
                       <tr key={`${formattedTicket.type}-${formattedTicket.id}-${index}`} className={`route-perf-ticket-row route-perf-${formattedTicket.type}`}>
                         <td className="route-perf-ticket-id">{formattedTicket.id}</td>
                         <td className="route-perf-route">{formattedTicket.route}</td>
-                        <td className={`route-perf-ticket-type route-perf-${formattedTicket.type}`}>
-                          {formattedTicket.type === 'pre-ticket' ? 'Pre-Ticket' : 
+                        <td className={`route-perf-ticket-type route-perf-${formattedTicket.source ? formattedTicket.source.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase() : formattedTicket.type}`}>
+                          {formattedTicket.source === 'Pre-booking' ? 'Pre-Booking' :
+                           formattedTicket.source === 'Pre-ticketing' ? 'Pre-Ticketing' :
+                           formattedTicket.source === 'Conductor Trips' ? 'Conductor' :
+                           formattedTicket.type === 'pre-ticket' ? 'Pre-Ticket' : 
                            formattedTicket.type === 'conductor-ticket' ? 'Manual' : 'Unknown'}
                         </td>
                         <td>{formattedTicket.passengers}</td>
@@ -485,7 +507,11 @@ const RoutePerformance = () => {
                         <td className="route-perf-fare">{formatCurrency(formattedTicket.fare)}</td>
                         <td>{formatTime(formattedTicket.timestamp)}</td>
                         <td className="route-perf-source">
-                          {formattedTicket.type === 'conductor-ticket' 
+                          {formattedTicket.source === 'Conductor Trips' || formattedTicket.source === 'Pre-booking' 
+                            ? `${formattedTicket.conductorId} (${formattedTicket.tripDate || formattedTicket.date})`
+                            : formattedTicket.source === 'Pre-ticketing'
+                            ? `${formattedTicket.conductorId} (Pre-Ticket)`
+                            : formattedTicket.type === 'conductor-ticket' 
                             ? `${formattedTicket.conductorId} (${formattedTicket.tripDate})`
                             : formattedTicket.sourceRoute
                           }
@@ -600,6 +626,7 @@ const RoutePerformance = () => {
           <p>Page 1 of 1</p>
         </div>
       </div>
+    </div>
     </div>
   );
 };
