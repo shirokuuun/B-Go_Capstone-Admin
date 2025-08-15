@@ -326,8 +326,8 @@ export const fetchConductorPerformance = async (date) => {
       const averageFare = totalPassengers > 0 ? totalRevenue / totalPassengers : 0;
       const averagePassengersPerTrip = totalTrips > 0 ? totalPassengers / totalTrips : 0;
 
-      // Calculate current passengers: add preTicket and preBooking passenger counts
-      const finalCurrentPassengers = conductor.preTicketingPassengers + conductor.preBookingPassengers;
+      // Get current passengers from passengerCount field in conductor document
+      const finalCurrentPassengers = conductor.originalCurrentPassengers;
 
       return {
         ...conductor,

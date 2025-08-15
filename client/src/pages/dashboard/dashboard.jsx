@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import DashboardService from './dashboard.js';
+import AdminTest from '/src/pages/dashboard/AdminTest.jsx';
 import './dashboard.css';
 
 function Dashboard() {
@@ -49,6 +50,9 @@ function Dashboard() {
 
   return (
     <div className="dashboard-container">
+      {/* Admin Test Component - Add this temporarily for testing */}
+      <AdminTest />
+      
       {/* Filter Section */}
       <div className="filter-section">
         <label htmlFor="filter">Filter:</label>

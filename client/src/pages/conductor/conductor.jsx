@@ -4,10 +4,10 @@ import './conductor.css';
 import { IoMdAdd } from "react-icons/io";
 import { FaSync } from "react-icons/fa";
 import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaTrash } from 'react-icons/fa';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '/src/firebase/firebase';
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from '/src/firebase/firebase';
+import { initializeApp } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { getFirestore, doc, setDoc } from 'firebase/firestore';
 
 const Conductor = () => {
   const [conductors, setConductors] = useState([]);
@@ -26,40 +26,49 @@ const Conductor = () => {
   const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
-    // Setup real-time listener for conductors list
-    const unsubscribe = conductorService.setupConductorsListener((updatedConductors) => {
-      setConductors(updatedConductors);
-      setLoading(false);
-    });
+    // Clean up any existing listeners first
+    conductorService.removeAllListeners();
+    
+    // Use simple fetch instead of real-time listeners to avoid connection issues
+    const fetchConductors = async () => {
+      try {
+        const conductorsList = await conductorService.getAllConductors();
+        setConductors(conductorsList);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching conductors:', error);
+        setLoading(false);
+      }
+    };
+
+    fetchConductors();
+
+    // Set up interval for periodic updates instead of real-time
+    const interval = setInterval(fetchConductors, 10000); // Update every 10 seconds
 
     return () => {
-      unsubscribe();
+      clearInterval(interval);
       conductorService.removeAllListeners();
     };
   }, []);
 
-  // NEW: Real-time listener for selected conductor details
+  // Fetch conductor details without real-time listeners
   useEffect(() => {
     if (!selectedConductor?.id) return;
 
-    setDetailsLoading(true);
-    
-    // Setup real-time listener for conductor details
-    const unsubscribe = conductorService.setupConductorDetailsListener(
-      selectedConductor.id,
-      (updatedConductor) => {
-        if (updatedConductor) {
-          setSelectedConductor(updatedConductor);
-        } else {
-          setSelectedConductor(null);
-        }
+    const fetchConductorDetails = async () => {
+      setDetailsLoading(true);
+      try {
+        const details = await conductorService.getConductorDetails(selectedConductor.id);
+        setSelectedConductor(details);
+        setDetailsLoading(false);
+      } catch (error) {
+        console.error('Error fetching conductor details:', error);
         setDetailsLoading(false);
       }
-    );
-
-    return () => {
-      conductorService.removeConductorDetailsListener(selectedConductor.id);
     };
+
+    fetchConductorDetails();
   }, [selectedConductor?.id]);
 
   const handleConductorSelect = async (conductorId) => {
@@ -88,7 +97,7 @@ const Conductor = () => {
   const handleViewTrips = async (conductor) => {
     try {
       setDetailsLoading(true);
-      const { allTrips, availableDates } = await conductorService.getConductorTrips(conductor.id);
+      const { allTrips, availableDates } = await conductorService.getConductorTripsSimple(conductor.id);
       setTrips(allTrips);
       setAvailableDates(availableDates);
       setSelectedDate('all');
@@ -491,14 +500,32 @@ const AddConductorModal = ({ onClose, onSuccess }) => {
         throw new Error('All fields are required');
       }
 
-      // Create user in Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-      const user = userCredential.user;
+      console.log('Creating conductor with separate Firebase instance...');
+
+      // Use the same Firebase config as the main app
+      const firebaseConfig = {
+        apiKey: "AIzaSyDjqLNklma1gr3IOwPxiMO5S38hu8UQ2Fc",
+        authDomain: "it-capstone-6fe19.firebaseapp.com",
+        projectId: "it-capstone-6fe19",
+        storageBucket: "it-capstone-6fe19.firebasestorage.app",
+        messagingSenderId: "183068104612",
+        appId: "1:183068104612:web:26109c8ebb28585e265331",
+        measurementId: "G-0MW2KZMGR2"
+      };
+
+      // Initialize separate Firebase app for conductor creation
+      const conductorApp = initializeApp(firebaseConfig, 'conductor-creation-' + Date.now());
+      const conductorAuth = getAuth(conductorApp);
+      const conductorDb = getFirestore(conductorApp);
+
+      // Create Firebase Auth user in separate instance
+      const userCredential = await createUserWithEmailAndPassword(conductorAuth, formData.email, formData.password);
+      const conductorUser = userCredential.user;
 
       // Extract document ID from email
       const documentId = extractDocumentId(formData.email);
 
-      // Create conductor document in Firestore
+      // Create conductor document in Firestore using separate instance
       const conductorData = {
         busNumber: parseInt(formData.busNumber),
         email: formData.email,
@@ -508,15 +535,15 @@ const AddConductorModal = ({ onClose, onSuccess }) => {
         createdAt: new Date(),
         lastSeen: null,
         currentLocation: null,
-        uid: user.uid,
+        uid: conductorUser.uid,
         totalTrips: 0,
         todayTrips: 0,
         status: 'offline'
       };
 
-      await setDoc(doc(db, 'conductors', documentId), conductorData);
+      await setDoc(doc(conductorDb, 'conductors', documentId), conductorData);
 
-      console.log('Conductor created successfully:', documentId);
+      console.log('Conductor created successfully without affecting admin session:', documentId);
       onSuccess();
     } catch (error) {
       console.error('Error creating conductor:', error);

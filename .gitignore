@@ -15,10 +15,16 @@ dist-ssr/
 # Environment variables (CRITICAL!)
 .env
 .env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Firebase service account keys (CRITICAL!)
 *firebase*adminsdk*.json
 *serviceAccount*.json
+firebase-key*.json
+serviceAccountKey.json
 
 # Editor directories and files
 .vscode/*
@@ -31,7 +37,13 @@ dist-ssr/
 *.sln
 *.sw?
 
-# Remove these problematic lines:
-# DON'T put absolute paths in .gitignore
-# DON'T use "*.json" (too broad)
-# DON'T put single letter "c"
+# Build files
+build/
+.next/
+.nuxt/
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

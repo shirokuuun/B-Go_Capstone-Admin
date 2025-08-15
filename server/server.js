@@ -2,11 +2,41 @@ const express = require("express");
 const crypto = require("crypto");
 require('dotenv').config();
 
+// Firebase Admin SDK setup
+const admin = require('firebase-admin');
+
+// Initialize Firebase Admin if not already initialized
+if (!admin.apps.length) {
+  const serviceAccount = {
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+  };
+
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    projectId: process.env.FIREBASE_PROJECT_ID
+  });
+}
+
 const app = express();
 
 
 // Body parsing middleware
 app.use(express.json());
+
+// CORS middleware to allow requests from React app
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'http://localhost:5173');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
 
 // Raw body parsing for webhook signature verification
 //app.use('/api/webhook', express.raw({ type: 'application/json' }));
@@ -71,6 +101,83 @@ function verifyWebhookSignature(payload, signature, webhookSecret) {
 // Your existing API route (keeping it exactly as you had it)
 app.get("/api", (req, res) => {
   res.json({ fruits: ["Apple", "strawberry", "mango"] });
+});
+
+// ==================== CONDUCTOR MANAGEMENT API ====================
+
+// CREATE CONDUCTOR ENDPOINT
+app.post('/api/conductors/create', async (req, res) => {
+  try {
+    const { busNumber, email, name, route, password } = req.body;
+
+    // Validate required fields
+    if (!busNumber || !email || !name || !route || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'All fields are required: busNumber, email, name, route, password'
+      });
+    }
+
+    console.log(`🚌 Creating conductor: ${name} (${email})`);
+
+    // Create Firebase Auth user using Admin SDK
+    const userRecord = await admin.auth().createUser({
+      email: email,
+      password: password,
+      displayName: name,
+    });
+
+    console.log(`✅ Firebase Auth user created: ${userRecord.uid}`);
+
+    // Extract document ID from email (same logic as frontend)
+    const documentId = email.split('@')[0].replace(/\./g, '_');
+
+    // Create conductor document in Firestore using Admin SDK
+    const db = admin.firestore();
+    const conductorData = {
+      busNumber: parseInt(busNumber),
+      email: email,
+      name: name,
+      route: route,
+      isOnline: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastSeen: null,
+      currentLocation: null,
+      uid: userRecord.uid,
+      totalTrips: 0,
+      todayTrips: 0,
+      status: 'offline'
+    };
+
+    await db.collection('conductors').doc(documentId).set(conductorData);
+
+    console.log(`✅ Conductor document created: ${documentId}`);
+
+    res.json({
+      success: true,
+      message: 'Conductor created successfully',
+      conductorId: documentId,
+      uid: userRecord.uid
+    });
+
+  } catch (error) {
+    console.error('❌ Error creating conductor:', error);
+    
+    let errorMessage = 'Failed to create conductor';
+    if (error.code === 'auth/email-already-exists') {
+      errorMessage = 'Email already exists';
+    } else if (error.code === 'auth/invalid-email') {
+      errorMessage = 'Invalid email format';
+    } else if (error.code === 'auth/weak-password') {
+      errorMessage = 'Password is too weak';
+    }
+
+    res.status(500).json({
+      success: false,
+      error: errorMessage,
+      details: error.message
+    });
+  }
 });
 
 

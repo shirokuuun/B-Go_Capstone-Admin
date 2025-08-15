@@ -304,7 +304,7 @@ const RoutePerformance = () => {
             </p>
           </div>
           <div className="route-perf-summary-card">
-            <h3 className="route-perf-card-title">Total Passengers</h3>
+            <h3 className="route-perf-card-title">Total Tickets</h3>
             <p className="route-perf-card-value route-perf-passengers">
               {routeData.totalPassengers}
             </p>
@@ -469,7 +469,7 @@ const RoutePerformance = () => {
                     <th>Ticket ID</th>
                     <th>Route</th>
                     <th>Type</th>
-                    <th>Passengers</th>
+                    <th>Quantity</th>
                     <th>Distance (KM)</th>
                     <th>Fare</th>
                     <th>Timestamp</th>

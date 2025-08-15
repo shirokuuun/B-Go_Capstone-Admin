@@ -3,6 +3,7 @@ import { collection, getDocs, query, where, onSnapshot } from 'firebase/firestor
 import { db } from '../../../firebase/firebase';
 
 // Fetch conductor trips and pre-booking data (same as DailyRevenue)
+// Fixed fetchConductorTripsAndPreBooking function
 export const fetchConductorTripsAndPreBooking = async (date) => {
   try {
     const conductorsRef = collection(db, 'conductors');
@@ -34,13 +35,17 @@ export const fetchConductorTripsAndPreBooking = async (date) => {
                 id: doc.id,
                 conductorId: conductorId,
                 totalFare: parseFloat(data.totalFare),
+                totalKm: parseFloat(data.totalKm || data.endKm - data.startKm || 0), // ✅ Include totalKm
                 quantity: data.quantity || 1,
                 from: data.from,
                 to: data.to,
                 timestamp: data.timestamp,
                 discountAmount: parseFloat(data.discountAmount || 0),
                 documentType: data.documentType || null,
-                date: dateDoc.id
+                date: dateDoc.id,
+                // Add other distance-related fields for backup
+                startKm: data.startKm || 0,
+                endKm: data.endKm || 0
               };
 
               // Categorize based on documentType
@@ -72,13 +77,17 @@ export const fetchConductorTripsAndPreBooking = async (date) => {
               id: doc.id,
               conductorId: conductorId,
               totalFare: parseFloat(data.totalFare),
+              totalKm: parseFloat(data.totalKm || data.endKm - data.startKm || 0), // ✅ FIXED: Include totalKm
               quantity: data.quantity || 1,
               from: data.from,
               to: data.to,
               timestamp: data.timestamp,
               discountAmount: parseFloat(data.discountAmount || 0),
               documentType: data.documentType || null,
-              date: date
+              date: date,
+              // Add other distance-related fields for backup
+              startKm: data.startKm || 0,
+              endKm: data.endKm || 0
             };
 
             // Categorize based on documentType
@@ -980,7 +989,7 @@ export const formatRouteData = (ticket) => {
             `Conductor ${ticket.conductorId || 'Unknown'}`;
     
     passengers = ticket.quantity || ticket.passengers || ticket.passengerCount || 0;
-    distance = ticket.totalKm || ticket.distance || ticket.km || 0;
+    distance = ticket.totalKm|| 0;
     fare = ticket.totalFare || ticket.fare || ticket.amount || 0;
     discount = ticket.discountAmount || ticket.discount || 0;
   } else if (ticket.source === 'Pre-booking') {

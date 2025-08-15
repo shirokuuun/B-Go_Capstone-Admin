@@ -19,6 +19,29 @@ import { db, auth } from '/src/firebase/firebase';
 class ConductorService {
   constructor() {
     this.listeners = new Map();
+    this.maxListeners = 1; // Only allow 1 listener at a time
+    this.cleanupOnError = true;
+    
+    // Force cleanup on page load/refresh
+    this.forceCleanup();
+  }
+
+  // Force cleanup method
+  forceCleanup() {
+    try {
+      // Clear any existing listeners
+      this.removeAllListeners();
+      
+      // Also try to clear any global Firestore listeners if they exist
+      if (window.firestoreListeners) {
+        window.firestoreListeners.forEach(unsubscribe => {
+          try { unsubscribe(); } catch (e) {}
+        });
+        window.firestoreListeners = [];
+      }
+    } catch (error) {
+      console.warn('Error during force cleanup:', error);
+    }
   }
 
   // Get all conductors with basic info
@@ -26,10 +49,12 @@ class ConductorService {
     try {
       const conductorsRef = collection(db, 'conductors');
       const snapshot = await getDocs(conductorsRef);
+      console.log(`👥 Found ${snapshot.docs.length} conductors in database`);
       
       const conductors = [];
       for (const doc of snapshot.docs) {
         const conductorData = doc.data();
+        console.log(`👤 Processing conductor: ${doc.id} - Route: ${conductorData.route}`);
         conductors.push({
           id: doc.id,
           ...conductorData,
@@ -37,6 +62,7 @@ class ConductorService {
         });
       }
       
+      console.log(`✅ Processed ${conductors.length} conductors`);
       return conductors;
     } catch (error) {
       console.error('Error fetching conductors:', error);
@@ -74,20 +100,26 @@ class ConductorService {
   // Get conductor trips
   async getConductorTrips(conductorId, limit = null) {
     try {
+      console.log(`🔍 Fetching trips for conductor: ${conductorId}`);
       const tripsRef = collection(db, 'conductors', conductorId, 'trips');
       const datesSnapshot = await getDocs(tripsRef);
+      console.log(`📅 Found ${datesSnapshot.docs.length} date documents`);
+      
       const allTrips = [];
       const availableDates = [];
 
       for (const dateDoc of datesSnapshot.docs) {
         const date = dateDoc.id;
         availableDates.push(date);
+        console.log(`📅 Processing date: ${date}`);
 
         const ticketsRef = collection(db, 'conductors', conductorId, 'trips', date, 'tickets');
         const ticketsSnapshot = await getDocs(ticketsRef);
+        console.log(`🎫 Found ${ticketsSnapshot.docs.length} tickets for date ${date}`);
 
         ticketsSnapshot.docs.forEach(ticketDoc => {
           const ticketData = ticketDoc.data();
+          console.log(`🎫 Processing ticket: ${ticketDoc.id}`, ticketData);
           allTrips.push({
             id: ticketDoc.id,
             date: date,
@@ -98,10 +130,17 @@ class ConductorService {
         });
       }
 
+      console.log(`✅ Total trips found: ${allTrips.length}`);
+
       // Sort by timestamp (most recent first)
       allTrips.sort((a, b) => {
         if (!a.timestamp || !b.timestamp) return 0;
-        return b.timestamp.toDate() - a.timestamp.toDate();
+        try {
+          return b.timestamp.toDate() - a.timestamp.toDate();
+        } catch (error) {
+          console.error('Error sorting timestamps:', error);
+          return 0;
+        }
       });
 
       return {
@@ -229,6 +268,14 @@ class ConductorService {
 
   // FIXED: Real-time listener for conductors list with accurate trip counts
   setupConductorsListener(callback) {
+    // Force cleanup before creating new listener
+    this.removeAllListeners();
+    
+    // Initialize global listener tracking if not exists
+    if (!window.firestoreListeners) {
+      window.firestoreListeners = [];
+    }
+
     const conductorsRef = collection(db, 'conductors');
     
     const unsubscribe = onSnapshot(conductorsRef, async (snapshot) => {
@@ -278,15 +325,35 @@ class ConductorService {
       }
     }, (error) => {
       console.error('Error setting up conductors listener:', error);
+      
+      // Clean up all listeners on error
+      if (this.cleanupOnError) {
+        console.warn('Cleaning up all listeners due to error...');
+        this.removeAllListeners();
+      }
+      
       callback([]);
     });
     
     this.listeners.set('conductors', unsubscribe);
+    
+    // Also track globally
+    window.firestoreListeners.push(unsubscribe);
+    
     return unsubscribe;
   }
 
   // FIXED: Real-time listener for specific conductor with trips
   setupConductorDetailsListener(conductorId, callback) {
+    // Remove existing listener for this conductor if it exists
+    this.removeConductorDetailsListener(conductorId);
+    
+    // Check listener limit
+    if (this.listeners.size >= this.maxListeners) {
+      console.warn('Too many listeners. Cleaning up old ones...');
+      this.removeAllListeners();
+    }
+
     const conductorRef = doc(db, 'conductors', conductorId);
     
     const unsubscribe = onSnapshot(conductorRef, async (doc) => {
@@ -498,6 +565,52 @@ class ConductorService {
     if (diffMinutes < 60) return `${Math.floor(diffMinutes)}m ago`;
     if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)}h ago`;
     return `${Math.floor(diffMinutes / 1440)}d ago`;
+  }
+
+  // Get trips without setting up listeners (for modal view)
+  async getConductorTripsSimple(conductorId, limit = null) {
+    try {
+      const tripsRef = collection(db, 'conductors', conductorId, 'trips');
+      const datesSnapshot = await getDocs(tripsRef);
+      const allTrips = [];
+      const availableDates = [];
+
+      for (const dateDoc of datesSnapshot.docs) {
+        const date = dateDoc.id;
+        availableDates.push(date);
+
+        const ticketsRef = collection(db, 'conductors', conductorId, 'trips', date, 'tickets');
+        const ticketsSnapshot = await getDocs(ticketsRef);
+
+        ticketsSnapshot.docs.forEach(ticketDoc => {
+          const ticketData = ticketDoc.data();
+          allTrips.push({
+            id: ticketDoc.id,
+            date: date,
+            ticketNumber: ticketDoc.id,
+            ...ticketData,
+            timestamp: ticketData.timestamp || null
+          });
+        });
+      }
+
+      // Sort by timestamp (most recent first)
+      allTrips.sort((a, b) => {
+        if (!a.timestamp || !b.timestamp) return 0;
+        return b.timestamp.toDate() - a.timestamp.toDate();
+      });
+
+      return {
+        allTrips: limit ? allTrips.slice(0, limit) : allTrips,
+        availableDates,
+      };
+    } catch (error) {
+      console.error('Error fetching conductor trips:', error);
+      return {
+        allTrips: [],
+        availableDates: [],
+      };
+    }
   }
 
   // Clean up listeners
@@ -786,6 +899,78 @@ class ConductorService {
       console.log('Deleted conductor:', conductorId);
     } catch (error) {
       console.error('Error deleting conductor:', error);
+      throw error;
+    }
+  }
+
+  // NEW: Create conductor with Firebase Auth user
+  async createConductorWithAuth(formData) {
+    try {
+      const { busNumber, email, name, route, password } = formData;
+      
+      // Store current admin user
+      const currentAdmin = auth.currentUser;
+      const adminEmail = currentAdmin?.email;
+      
+      // Create Firebase Authentication user
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const conductorUser = userCredential.user;
+      
+      // Extract document ID from email
+      const documentId = this.extractDocumentId(email);
+      
+      // Create conductor document in Firestore
+      const conductorData = {
+        busNumber: parseInt(busNumber),
+        email: email,
+        name: name,
+        route: route,
+        isOnline: false,
+        createdAt: serverTimestamp(),
+        lastSeen: null,
+        currentLocation: null,
+        uid: conductorUser.uid,
+        totalTrips: 0,
+        todayTrips: 0,
+        status: 'offline'
+      };
+      
+      await setDoc(doc(db, 'conductors', documentId), conductorData);
+      
+      // Sign out the conductor immediately
+      await auth.signOut();
+      
+      // Re-authenticate as admin using stored credentials
+      // Note: You'll need to store admin password securely or handle this differently
+      console.log('Conductor created successfully. Please sign back in as admin.');
+      
+      return {
+        success: true,
+        message: 'Conductor created successfully',
+        conductorId: documentId,
+        uid: conductorUser.uid,
+        requiresAdminReauth: true,
+        adminEmail: adminEmail
+      };
+      
+    } catch (error) {
+      console.error('Error creating conductor with auth:', error);
+      throw error;
+    }
+  }
+
+  // NEW: Create conductor document only (no Firebase Auth)
+  async createConductorDocument(documentId, conductorData) {
+    try {
+      const conductorRef = doc(db, 'conductors', documentId);
+      await setDoc(conductorRef, conductorData);
+      
+      return {
+        success: true,
+        message: 'Conductor document created successfully'
+      };
+    } catch (error) {
+      console.error('Error creating conductor document:', error);
       throw error;
     }
   }
