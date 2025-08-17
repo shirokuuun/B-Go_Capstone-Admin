@@ -97,37 +97,52 @@ class ConductorService {
     }
   }
 
-  // Get conductor trips
+  // Get conductor trips using new dailyTrips path structure
   async getConductorTrips(conductorId, limit = null) {
     try {
       console.log(`🔍 Fetching trips for conductor: ${conductorId}`);
-      const tripsRef = collection(db, 'conductors', conductorId, 'trips');
-      const datesSnapshot = await getDocs(tripsRef);
-      console.log(`📅 Found ${datesSnapshot.docs.length} date documents`);
+      const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
+      const datesSnapshot = await getDocs(dailyTripsRef);
+      console.log(`📅 Found ${datesSnapshot.docs.length} daily trip documents`);
       
       const allTrips = [];
       const availableDates = [];
 
       for (const dateDoc of datesSnapshot.docs) {
-        const date = dateDoc.id;
-        availableDates.push(date);
-        console.log(`📅 Processing date: ${date}`);
+        const dateId = dateDoc.id;
+        availableDates.push(dateId);
+        console.log(`📅 Processing date: ${dateId}`);
 
-        const ticketsRef = collection(db, 'conductors', conductorId, 'trips', date, 'tickets');
-        const ticketsSnapshot = await getDocs(ticketsRef);
-        console.log(`🎫 Found ${ticketsSnapshot.docs.length} tickets for date ${date}`);
-
-        ticketsSnapshot.docs.forEach(ticketDoc => {
-          const ticketData = ticketDoc.data();
-          console.log(`🎫 Processing ticket: ${ticketDoc.id}`, ticketData);
-          allTrips.push({
-            id: ticketDoc.id,
-            date: date,
-            ticketNumber: ticketDoc.id,
-            ...ticketData,
-            timestamp: ticketData.timestamp || null
-          });
-        });
+        // Process trip subcollections (trip1, trip2, etc.)
+        const tripNames = ['trip1', 'trip2', 'trip3', 'trip4', 'trip5', 'trip6', 'trip7', 'trip8', 'trip9', 'trip10'];
+        
+        for (const tripName of tripNames) {
+          try {
+            // Check for tickets in: /conductors/{conductorId}/dailyTrips/{dateId}/{tripName}/tickets/tickets/
+            const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
+            const ticketsSnapshot = await getDocs(ticketsRef);
+            
+            if (ticketsSnapshot.docs.length > 0) {
+              console.log(`🎫 Found ${ticketsSnapshot.docs.length} tickets in ${tripName}/tickets/tickets for date ${dateId}`);
+              
+              ticketsSnapshot.docs.forEach(ticketDoc => {
+                const ticketData = ticketDoc.data();
+                console.log(`🎫 Processing ticket: ${ticketDoc.id}`, ticketData);
+                allTrips.push({
+                  id: ticketDoc.id,
+                  date: dateId,
+                  tripId: tripName,
+                  ticketNumber: ticketDoc.id,
+                  ...ticketData,
+                  timestamp: ticketData.timestamp || ticketData.createdAt || null
+                });
+              });
+            }
+          } catch (tripError) {
+            // Normal - not all trip numbers will exist
+            console.log(`ℹ️ No tickets found for ${tripName} on ${dateId} (this is normal)`);
+          }
+        }
       }
 
       console.log(`✅ Total trips found: ${allTrips.length}`);
@@ -136,7 +151,9 @@ class ConductorService {
       allTrips.sort((a, b) => {
         if (!a.timestamp || !b.timestamp) return 0;
         try {
-          return b.timestamp.toDate() - a.timestamp.toDate();
+          const timestampA = a.timestamp.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
+          const timestampB = b.timestamp.toDate ? b.timestamp.toDate() : new Date(b.timestamp);
+          return timestampB - timestampA;
         } catch (error) {
           console.error('Error sorting timestamps:', error);
           return 0;
@@ -167,22 +184,42 @@ class ConductorService {
     }
   }
 
-  // Get trips for a specific date
+  // Get trips for a specific date using new dailyTrips path structure
   async getConductorTripsByDate(conductorId, date) {
     try {
-      const ticketsRef = collection(db, 'conductors', conductorId, 'trips', date, 'tickets');
-      const snapshot = await getDocs(ticketsRef);
-      
+      console.log(`🔍 Fetching trips for conductor: ${conductorId} on date: ${date}`);
       const trips = [];
-      snapshot.docs.forEach(doc => {
-        trips.push({
-          id: doc.id,
-          ticketNumber: doc.id,
-          date: date,
-          ...doc.data()
-        });
-      });
       
+      // Process trip subcollections (trip1, trip2, etc.)
+      const tripNames = ['trip1', 'trip2', 'trip3', 'trip4', 'trip5', 'trip6', 'trip7', 'trip8', 'trip9', 'trip10'];
+      
+      for (const tripName of tripNames) {
+        try {
+          // Check for tickets in: /conductors/{conductorId}/dailyTrips/{date}/{tripName}/tickets/tickets/
+          const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', date, tripName, 'tickets', 'tickets');
+          const ticketsSnapshot = await getDocs(ticketsRef);
+          
+          if (ticketsSnapshot.docs.length > 0) {
+            console.log(`🎫 Found ${ticketsSnapshot.docs.length} tickets in ${tripName}/tickets/tickets for date ${date}`);
+            
+            ticketsSnapshot.docs.forEach(ticketDoc => {
+              const ticketData = ticketDoc.data();
+              trips.push({
+                id: ticketDoc.id,
+                ticketNumber: ticketDoc.id,
+                tripId: tripName,
+                date: date,
+                ...ticketData
+              });
+            });
+          }
+        } catch (tripError) {
+          // Normal - not all trip numbers will exist
+          console.log(`ℹ️ No tickets found for ${tripName} on ${date} (this is normal)`);
+        }
+      }
+      
+      console.log(`✅ Total trips found for ${date}: ${trips.length}`);
       return trips;
     } catch (error) {
       console.error('Error fetching trips by date:', error);
@@ -190,44 +227,98 @@ class ConductorService {
     }
   }
 
-  // NEW: Delete a specific trip
-  async deleteTrip(conductorId, date, ticketNumber) {
+  // NEW: Delete a specific trip using new dailyTrips path structure
+  async deleteTrip(conductorId, date, ticketNumber, tripId = null) {
     try {
       // Validate parameters
       if (!conductorId || !date || !ticketNumber) {
         throw new Error('Missing required parameters: conductorId, date, or ticketNumber');
       }
 
-      // Reference to the specific trip document
-      const tripDocRef = doc(db, 'conductors', conductorId, 'trips', date, 'tickets', ticketNumber);
+      console.log(`🗑️ Attempting to delete trip: ${conductorId}/${date}/${ticketNumber}`);
       
-      // Check if trip exists before deleting
-      const tripDoc = await getDoc(tripDocRef);
-      if (!tripDoc.exists()) {
-        throw new Error('Trip not found');
+      let foundTripId = tripId;
+      let tripDocRef = null;
+
+      // If tripId is provided, try that specific location first
+      if (tripId) {
+        tripDocRef = doc(db, 'conductors', conductorId, 'dailyTrips', date, tripId, 'tickets', 'tickets', ticketNumber);
+        const tripDoc = await getDoc(tripDocRef);
+        if (!tripDoc.exists()) {
+          foundTripId = null;
+          tripDocRef = null;
+        }
+      }
+
+      // If no tripId provided or not found, search through all trip collections
+      if (!foundTripId) {
+        const tripNames = ['trip1', 'trip2', 'trip3', 'trip4', 'trip5', 'trip6', 'trip7', 'trip8', 'trip9', 'trip10'];
+        
+        for (const tripName of tripNames) {
+          try {
+            const testTripDocRef = doc(db, 'conductors', conductorId, 'dailyTrips', date, tripName, 'tickets', 'tickets', ticketNumber);
+            const testTripDoc = await getDoc(testTripDocRef);
+            
+            if (testTripDoc.exists()) {
+              foundTripId = tripName;
+              tripDocRef = testTripDocRef;
+              console.log(`✅ Found ticket in ${tripName}/tickets/tickets`);
+              break;
+            }
+          } catch (searchError) {
+            // Continue searching
+            continue;
+          }
+        }
+      }
+
+      if (!tripDocRef || !foundTripId) {
+        throw new Error('Trip not found in any trip collection');
       }
 
       // Delete the trip document
       await deleteDoc(tripDocRef);
+      console.log(`✅ Deleted ticket: ${ticketNumber} from ${foundTripId}`);
 
-      // Check if this was the last trip for this date
-      const ticketsRef = collection(db, 'conductors', conductorId, 'trips', date, 'tickets');
+      // Check if this was the last ticket in this trip collection
+      const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', date, foundTripId, 'tickets', 'tickets');
       const remainingTickets = await getDocs(ticketsRef);
 
-      // If no more tickets for this date, delete the date document too
-      if (remainingTickets.empty) {
-        const dateDocRef = doc(db, 'conductors', conductorId, 'trips', date);
-        await deleteDoc(dateDocRef);
+      // Check if any tickets remain across all trip collections for this date
+      let totalRemainingTickets = 0;
+      const tripNames = ['trip1', 'trip2', 'trip3', 'trip4', 'trip5', 'trip6', 'trip7', 'trip8', 'trip9', 'trip10'];
+      
+      for (const tripName of tripNames) {
+        try {
+          const tripTicketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', date, tripName, 'tickets', 'tickets');
+          const tripTicketsSnapshot = await getDocs(tripTicketsRef);
+          totalRemainingTickets += tripTicketsSnapshot.docs.length;
+        } catch (checkError) {
+          // Continue checking other trips
+          continue;
+        }
+      }
+
+      // If no more tickets for this date, delete the date document
+      if (totalRemainingTickets === 0) {
+        try {
+          const dateDocRef = doc(db, 'conductors', conductorId, 'dailyTrips', date);
+          await deleteDoc(dateDocRef);
+          console.log(`🗑️ Deleted empty date document: ${date}`);
+        } catch (deleteError) {
+          console.warn('Could not delete date document:', deleteError);
+        }
       }
 
       // Update conductor's total trips count
       await this.updateConductorTripsCount(conductorId);
 
-      console.log(`Trip deleted successfully: ${conductorId}/${date}/${ticketNumber}`);
+      console.log(`✅ Trip deleted successfully: ${conductorId}/${date}/${foundTripId}/${ticketNumber}`);
       
       return {
         success: true,
-        message: 'Trip deleted successfully'
+        message: 'Trip deleted successfully',
+        deletedFrom: foundTripId
       };
 
     } catch (error) {
@@ -567,38 +658,62 @@ class ConductorService {
     return `${Math.floor(diffMinutes / 1440)}d ago`;
   }
 
-  // Get trips without setting up listeners (for modal view)
+  // Get trips without setting up listeners (for modal view) using new dailyTrips path structure
   async getConductorTripsSimple(conductorId, limit = null) {
     try {
-      const tripsRef = collection(db, 'conductors', conductorId, 'trips');
-      const datesSnapshot = await getDocs(tripsRef);
+      console.log(`🔍 Fetching simple trips for conductor: ${conductorId}`);
+      const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
+      const datesSnapshot = await getDocs(dailyTripsRef);
       const allTrips = [];
       const availableDates = [];
 
       for (const dateDoc of datesSnapshot.docs) {
-        const date = dateDoc.id;
-        availableDates.push(date);
+        const dateId = dateDoc.id;
+        availableDates.push(dateId);
 
-        const ticketsRef = collection(db, 'conductors', conductorId, 'trips', date, 'tickets');
-        const ticketsSnapshot = await getDocs(ticketsRef);
-
-        ticketsSnapshot.docs.forEach(ticketDoc => {
-          const ticketData = ticketDoc.data();
-          allTrips.push({
-            id: ticketDoc.id,
-            date: date,
-            ticketNumber: ticketDoc.id,
-            ...ticketData,
-            timestamp: ticketData.timestamp || null
-          });
-        });
+        // Process trip subcollections (trip1, trip2, etc.)
+        const tripNames = ['trip1', 'trip2', 'trip3', 'trip4', 'trip5', 'trip6', 'trip7', 'trip8', 'trip9', 'trip10'];
+        
+        for (const tripName of tripNames) {
+          try {
+            // Check for tickets in: /conductors/{conductorId}/dailyTrips/{dateId}/{tripName}/tickets/tickets/
+            const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
+            const ticketsSnapshot = await getDocs(ticketsRef);
+            
+            if (ticketsSnapshot.docs.length > 0) {
+              ticketsSnapshot.docs.forEach(ticketDoc => {
+                const ticketData = ticketDoc.data();
+                allTrips.push({
+                  id: ticketDoc.id,
+                  date: dateId,
+                  tripId: tripName,
+                  ticketNumber: ticketDoc.id,
+                  ...ticketData,
+                  timestamp: ticketData.timestamp || ticketData.createdAt || null
+                });
+              });
+            }
+          } catch (tripError) {
+            // Normal - not all trip numbers will exist
+            continue;
+          }
+        }
       }
 
       // Sort by timestamp (most recent first)
       allTrips.sort((a, b) => {
         if (!a.timestamp || !b.timestamp) return 0;
-        return b.timestamp.toDate() - a.timestamp.toDate();
+        try {
+          const timestampA = a.timestamp.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
+          const timestampB = b.timestamp.toDate ? b.timestamp.toDate() : new Date(b.timestamp);
+          return timestampB - timestampA;
+        } catch (error) {
+          console.error('Error sorting timestamps:', error);
+          return 0;
+        }
       });
+
+      console.log(`✅ Simple fetch completed. Total trips: ${allTrips.length}`);
 
       return {
         allTrips: limit ? allTrips.slice(0, limit) : allTrips,

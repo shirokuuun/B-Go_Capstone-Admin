@@ -1,56 +1,315 @@
-/* DailyRevenue.css */
+/* Revenue.css */
 
-.daily-revenue-container {
+/* =========================
+   GENERAL LAYOUT FIXES
+   ========================= */
+
+/* Ensure proper box sizing */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Prevent horizontal overflow but allow vertical scrolling */
+html, body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.revenue-container {
   padding: 20px;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background-color: #f8f9fa;
   min-height: 100vh;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: visible; /* Allow vertical scrolling */
+  margin: 0 auto;
+  width: 100%;
+  position: relative; /* Ensure proper positioning */
 }
 
-/* Header Styles */
-.revenue-header {
+/* =========================
+   REVENUE MENU STYLES
+   ========================= */
+
+.revenue-menu-container {
   margin-bottom: 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 15px;
+  width: 100%;
+  overflow: visible; /* Ensure menu doesn't get cut */
 }
 
-.revenue-title {
+.revenue-menu-item {
+  border-bottom: 1px solid #e1e8ed;
+  background: white;
+  border-radius: 12px;
+  overflow: visible; /* Changed from hidden to visible */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 100%;
+}
+
+.revenue-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: #f8f9fa;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
   color: #2c3e50;
-  margin: 0;
-  font-size: 28px;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.revenue-menu-header:hover {
+  background: #e9ecef;
+}
+
+.revenue-menu-header.revenue-menu-active {
+  background: #007c91;
+  color: white;
+}
+
+.revenue-menu-icon {
+  margin-right: 10px;
+  opacity: 0.7;
+}
+
+.revenue-chevron {
+  transition: transform 0.3s ease;
+  font-size: 14px;
+}
+
+.revenue-chevron.revenue-chevron-rotated {
+  transform: rotate(180deg);
+}
+
+.revenue-submenu {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  background: #fdfdfd;
+  width: 100%;
+}
+
+.revenue-submenu.revenue-submenu-open {
+  max-height: 500px; /* Increased max height */
+  overflow-y: auto; /* Allow scrolling if content exceeds max height */
+}
+
+.revenue-submenu-item {
+  padding: 12px 40px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.revenue-submenu-item:hover {
+  background: #f8f9fa;
+  padding-left: 45px;
+}
+
+.revenue-submenu-item:last-child {
+  border-bottom: none;
+}
+
+.revenue-submenu-item.revenue-submenu-selected {
+  background: #e3f2fd;
+  border-left: 4px solid #007c91;
+  color: #1976d2;
   font-weight: 600;
 }
 
-.date-controls {
+/* =========================
+   FILTERS SECTION
+   ========================= */
+
+.revenue-filters {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 25px;
+  flex-wrap: wrap;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  overflow: visible;
+}
+
+.revenue-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.revenue-filter-label {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.revenue-filter-select, .revenue-filter-input {
+  padding: 10px 12px;
+  border: 2px solid #e1e8ed;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+  min-width: 150px;
+}
+
+.revenue-filter-select:focus, .revenue-filter-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+/* =========================
+   CONTENT AREA
+   ========================= */
+
+.revenue-content-area {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow: visible; /* Changed from hidden to visible */
+  max-width: 100%;
+  width: 100%;
+  position: relative;
+}
+
+/* =========================
+   DEFAULT VIEW
+   ========================= */
+
+.revenue-default-view {
+  padding: 40px;
+  text-align: center;
+  width: 100%;
+}
+
+.revenue-welcome-card {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.revenue-welcome-title {
+  color: #2c3e50;
+  margin-bottom: 15px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.revenue-welcome-description {
+  color: #7f8c8d;
+  line-height: 1.6;
+  margin-bottom: 30px;
+  font-size: 16px;
+}
+
+.revenue-quick-stats {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  flex-wrap: wrap;
+}
+
+.revenue-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.revenue-stat-label {
+  color: #7f8c8d;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.revenue-stat-value {
+  color: #2c3e50;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+/* =========================
+   COMING SOON VIEW
+   ========================= */
+
+.revenue-monthly-container,
+.revenue-trips-container {
+  padding: 40px;
+  text-align: center;
+  width: 100%;
+}
+
+.revenue-coming-soon {
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 40px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 2px dashed #dee2e6;
+}
+
+.revenue-coming-title {
+  color: #2c3e50;
+  margin-bottom: 15px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.revenue-coming-description {
+  color: #7f8c8d;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* =========================
+   DAILY REVENUE STYLES
+   ========================= */
+
+.revenue-daily-container {
+  padding: 20px;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
+  width: 100%;
+}
+
+.revenue-loading-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+  color: #6c757d;
+  font-size: 16px;
+}
+
+/* Print Header - Hidden on screen */
+.revenue-print-header,
+.revenue-print-summary,
+.revenue-print-footer {
+  display: none;
+}
+
+/* Daily Controls */
+.revenue-daily-controls {
   display: flex;
   gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
+  margin-bottom: 20px;
+  justify-content: flex-end;
+  width: 100%;
 }
 
-.date-label {
-  font-weight: 600;
-  color: #495057;
-}
-
-.date-input {
-  padding: 8px 12px;
-  border: 1px solid #ced4da;
-  border-radius: 6px;
-  font-size: 14px;
-  transition: border-color 0.15s ease-in-out;
-}
-
-.date-input:focus {
-  outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-}
-
-.refresh-btn, .print-btn {
+.revenue-refresh-btn, .revenue-print-btn {
   padding: 8px 16px;
   background-color: #007bff;
   color: white;
@@ -61,64 +320,70 @@
   transition: background-color 0.15s ease-in-out;
 }
 
-.print-btn {
+.revenue-print-btn {
   background-color: #28a745;
 }
 
-.refresh-btn:hover:not(:disabled) {
+.revenue-refresh-btn:hover:not(:disabled) {
   background-color: #0056b3;
 }
 
-.print-btn:hover:not(:disabled) {
+.revenue-print-btn:hover:not(:disabled) {
   background-color: #1e7e34;
 }
 
-.refresh-btn:disabled, .print-btn:disabled {
+.revenue-refresh-btn:disabled, .revenue-print-btn:disabled {
   background-color: #6c757d;
   cursor: not-allowed;
 }
 
 /* Summary Cards */
-.daily-revenue-summary-card-container{
-      background: #007c91;
-    border-radius: 1rem;
-    padding: 1.5rem 1.5rem 0.3rem 1.5rem; /* top, right, bottom, left */
-    margin-bottom: 2rem;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    position: relative;
-    overflow: hidden;
+.revenue-daily-summary-card-container {
+  background: #007c91;
+  border-radius: 1rem;
+  padding: 1.5rem 1.5rem 0.3rem 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  position: relative;
+  overflow: visible; /* Changed from hidden to visible */
+  width: 100%;
 }
 
-.daily-revenue-header-pattern{
+.revenue-daily-header-pattern {
   position: absolute;
   inset: 0;
   background-color: rgba(255, 255, 255, 0.05);
   background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.15) 1px, transparent 0);
   background-size: 20px 20px;
+  pointer-events: none; /* Prevent interference with content */
 }
 
-.summary-cards {
+.revenue-summary-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 20px;
   margin-bottom: 30px;
+  width: 100%;
+  position: relative;
+  z-index: 1; /* Ensure cards appear above pattern */
 }
 
-.summary-card {
+.revenue-summary-card {
   background: rgba(255, 255, 255, 0.15);
   padding: 24px;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   border: 1px solid #e9ecef;
   transition: transform 0.2s ease-in-out;
+  width: 100%;
 }
 
-.summary-card:hover {
+.revenue-summary-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
 }
 
-.card-title {
+.revenue-card-title {
   margin: 0 0 12px 0;
   color: white;
   font-size: 14px;
@@ -127,7 +392,7 @@
   letter-spacing: 0.5px;
 }
 
-.card-value {
+.revenue-card-value {
   color: white;
   font-size: 28px;
   font-weight: 700;
@@ -136,62 +401,68 @@
 }
 
 /* Charts Section */
-.charts-section {
+.revenue-charts-section {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 30px;
   margin-bottom: 30px;
+  width: 100%;
 }
 
 @media (max-width: 1024px) {
-  .charts-section {
+  .revenue-charts-section {
     grid-template-columns: 1fr;
   }
 }
 
-.chart-container {
+.revenue-chart-container {
   background: white;
   padding: 24px;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   border: 1px solid #e9ecef;
+  width: 100%;
 }
 
-.chart-title {
+.revenue-chart-title {
   margin-bottom: 20px;
   color: #2c3e50;
   font-size: 18px;
   font-weight: 600;
 }
 
-/* Print-specific sections (hidden on screen) */
-.print-header,
-.print-summary,
-.print-footer {
-  display: none;
-}
-
 /* Detailed Breakdown */
-.breakdown-section {
+.revenue-breakdown-section {
   background: white;
   padding: 24px;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   border: 1px solid #e9ecef;
+  max-width: 100%;
+  overflow: visible; /* Changed from hidden to visible */
+  margin-bottom: 20px;
+  width: 100%;
 }
 
-.breakdown-title {
+.revenue-breakdown-title {
   margin-bottom: 20px;
   color: #2c3e50;
   font-size: 20px;
   font-weight: 600;
 }
 
-.section-container {
+.revenue-section-container {
   margin-bottom: 30px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 20px;
+  background: #f8f9fa;
+  max-width: 100%;
+  overflow: visible; /* Changed from hidden to visible */
+  width: 100%;
 }
 
-.section-title {
+.revenue-section-title {
   margin-bottom: 15px;
   font-size: 16px;
   font-weight: 600;
@@ -200,33 +471,65 @@
   gap: 8px;
 }
 
-.section-title.conductor {
+.revenue-section-title.revenue-section-conductor {
   color: #8884d8;
 }
 
-.section-title.pre-ticketing {
+.revenue-section-title.revenue-section-pre-booking {
+  color: #ffc658;
+}
+
+.revenue-section-title.revenue-section-pre-ticketing {
   color: #82ca9d;
 }
 
-/* Table Styles */
-.table-container {
+/* Table Styles - FIXED SCROLLBAR ISSUES */
+.revenue-table-container {
   overflow-x: auto;
+  overflow-y: visible;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin: 0;
+  max-width: 100%;
+  width: 100%;
+  /* Add proper scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: #ccc #f1f1f1;
 }
 
-.revenue-table {
+/* Webkit scrollbar styling for better appearance */
+.revenue-table-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.revenue-table-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.revenue-table-container::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+
+.revenue-table-container::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
+.revenue-revenue-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 600px;
+  min-width: 800px; /* Adjusted for 6 columns instead of 7 */
   background: white;
+  max-width: none; /* Remove max-width restriction */
+  table-layout: auto; /* Allow table to size naturally */
 }
 
-.revenue-table thead tr {
+.revenue-revenue-table thead tr {
   background-color: #f8f9fa;
 }
 
-.revenue-table th {
+.revenue-revenue-table th {
   padding: 16px 12px;
   text-align: left;
   border-bottom: 2px solid #dee2e6;
@@ -235,64 +538,363 @@
   font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  white-space: nowrap; /* Prevent header text wrapping */
 }
 
-.revenue-table td {
+.revenue-revenue-table td {
   padding: 14px 12px;
   border-bottom: 1px solid #e9ecef;
   color: #495057;
   font-size: 14px;
+  vertical-align: top;
 }
 
-.revenue-table tbody tr:hover {
+.revenue-revenue-table tbody tr:hover {
   background-color: #f8f9fa;
 }
 
-.revenue-table tbody tr:last-child td {
+.revenue-revenue-table tbody tr:last-child td {
   border-bottom: none;
 }
 
+/* Trip ID */
+.revenue-trip-id {
+  font-weight: 600;
+  color: #007c91;
+  text-transform: uppercase;
+  font-size: 12px;
+  max-width: 80px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
 /* Route Text */
-.route-text {
+.revenue-route-text {
   font-weight: 500;
   color: #2c3e50;
+  min-width: 120px; /* Ensure minimum width */
 }
 
-.fare-amount {
+/* Trip Direction */
+.revenue-trip-direction {
+  font-weight: 500;
+  color: #17a2b8;
+  font-style: italic;
+  max-width: 200px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.3;
+}
+
+.revenue-fare-amount {
   font-weight: 600;
   color: #28a745;
-}
-
-.discount-amount {
-  font-weight: 500;
-  color: #dc3545;
-}
-
-/* Loading State */
-.loading-state {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 40px;
-  color: #6c757d;
-  font-size: 16px;
+  text-align: right;
+  min-width: 80px;
 }
 
 /* Empty State */
-.empty-state {
+.revenue-empty-state {
   text-align: center;
-  padding: 40px;
+  padding: 40px 20px;
   color: #6c757d;
+  max-width: 100%;
+  margin: 0 auto;
+  word-wrap: break-word;
+  width: 100%;
 }
 
-.empty-state h3 {
+.revenue-empty-state h3 {
   margin-bottom: 8px;
   color: #495057;
 }
 
-.empty-state p {
+.revenue-empty-state p {
   margin: 0;
   font-size: 14px;
+}
+
+/* =========================
+   MONTHLY REVENUE STYLES
+   ========================= */
+
+.revenue-monthly-container {
+  padding: 20px;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
+  width: 100%;
+}
+
+/* Month Selector - Updated to Monthly Filters */
+.revenue-monthly-filters {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 25px;
+  flex-wrap: wrap;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 100%;
+}
+
+/* Legacy support for old selector */
+.revenue-month-selector {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 25px;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 100%;
+}
+
+/* Growth indicator colors */
+.revenue-card-positive {
+  color: #28a745 !important;
+}
+
+.revenue-card-negative {
+  color: #dc3545 !important;
+}
+
+/* Daily breakdown table enhancements */
+.revenue-monthly-container .revenue-revenue-table {
+  min-width: 900px; /* Wider for additional columns */
+}
+
+.revenue-monthly-container .revenue-revenue-table th,
+.revenue-monthly-container .revenue-revenue-table td {
+  padding: 12px 8px; /* Slightly reduced padding for more columns */
+  font-size: 13px;
+}
+
+/* Chart container adjustments for monthly view */
+.revenue-monthly-container .revenue-chart-container {
+  margin-bottom: 20px;
+}
+
+/* Top Routes Chart Specific Styling */
+.revenue-monthly-container .revenue-chart-container:last-of-type {
+  margin-bottom: 30px;
+}
+
+/* Horizontal bar chart styling for routes */
+.revenue-monthly-container .revenue-chart-container:last-of-type .recharts-cartesian-axis-tick-value {
+  font-size: 10px !important;
+  fill: #666 !important;
+}
+
+.revenue-monthly-container .revenue-chart-container:last-of-type .recharts-cartesian-axis-tick {
+  font-size: 10px !important;
+}
+
+.revenue-monthly-container .revenue-chart-container:last-of-type .recharts-yAxis .recharts-cartesian-axis-tick-value {
+  font-size: 10px !important;
+  text-anchor: end !important;
+}
+
+/* Line chart specific styling */
+.revenue-monthly-container .recharts-line {
+  stroke-width: 2px;
+}
+
+.revenue-monthly-container .recharts-legend-wrapper {
+  padding-top: 10px !important;
+}
+
+/* Monthly trend chart tooltip */
+.revenue-monthly-container .recharts-tooltip-wrapper {
+  z-index: 1000;
+}
+
+/* Ensure bar chart labels are readable */
+.revenue-monthly-container .recharts-cartesian-axis-tick-value {
+  font-size: 11px;
+}
+
+/* Print styles for monthly revenue */
+@media print {
+  .revenue-monthly-filters,
+  .revenue-month-selector {
+    display: none !important;
+  }
+  
+  /* Monthly print header adjustments */
+  .revenue-monthly-container .revenue-print-header {
+    margin-bottom: 20px !important;
+  }
+  
+  .revenue-monthly-container .revenue-print-summary {
+    page-break-inside: avoid;
+    margin-bottom: 15px !important;
+  }
+  
+  /* Monthly table print styles */
+  .revenue-monthly-container .revenue-revenue-table {
+    font-size: 6pt !important;
+    min-width: 800px !important;
+  }
+  
+  .revenue-monthly-container .revenue-revenue-table th,
+  .revenue-monthly-container .revenue-revenue-table td {
+    padding: 1px 2px !important;
+    font-size: 6pt !important;
+  }
+  
+  /* Hide all charts in charts section */
+  .revenue-monthly-container .revenue-charts-section {
+    display: none !important;
+  }
+  
+  /* Show only the routes chart in print, but make it smaller */
+  .revenue-monthly-container .revenue-routes-chart {
+    display: block !important;
+    margin: 10px 0 !important;
+    padding: 10px !important;
+    page-break-inside: avoid;
+    height: auto !important;
+    border: 1px solid #ccc !important;
+  }
+  
+  /* Hide the data verification table in print */
+  .revenue-monthly-container .revenue-routes-chart .revenue-data-verification {
+    display: none !important;
+  }
+  
+  /* Make the chart smaller in print */
+  .revenue-monthly-container .revenue-routes-chart .recharts-wrapper {
+    height: 250px !important;
+  }
+  
+  .revenue-monthly-container .revenue-routes-chart .recharts-responsive-container {
+    height: 250px !important;
+  }
+  
+  /* Make chart title smaller in print */
+  .revenue-monthly-container .revenue-routes-chart .revenue-chart-title {
+    font-size: 10pt !important;
+    margin-bottom: 5px !important;
+    color: #000 !important;
+  }
+  
+  /* Make chart text smaller in print */
+  .revenue-monthly-container .revenue-routes-chart .recharts-cartesian-axis-tick-value {
+    font-size: 6px !important;
+    fill: #000 !important;
+  }
+  
+  .revenue-monthly-container .revenue-routes-chart .recharts-cartesian-axis-tick {
+    font-size: 6px !important;
+  }
+  
+  /* Make daily breakdown table more prominent in print */
+  .revenue-monthly-container .revenue-breakdown-section {
+    page-break-inside: auto;
+  }
+  
+  .revenue-monthly-container .revenue-breakdown-title {
+    font-size: 12pt !important;
+    margin-bottom: 10px !important;
+  }
+}
+
+/* Responsive design for monthly view */
+@media (max-width: 1200px) {
+  .revenue-monthly-container .revenue-charts-section {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .revenue-monthly-filters,
+  .revenue-month-selector {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .revenue-monthly-filters .revenue-filter-group,
+  .revenue-month-selector .revenue-filter-group {
+    width: 100%;
+  }
+  
+  .revenue-monthly-container .revenue-revenue-table {
+    min-width: 800px; /* Maintain horizontal scroll on mobile */
+    font-size: 11px;
+  }
+  
+  .revenue-monthly-container {
+    padding: 15px;
+  }
+  
+  /* Mobile chart adjustments */
+  .revenue-monthly-container .revenue-chart-container {
+    padding: 15px;
+  }
+  
+  .revenue-monthly-container .revenue-chart-title {
+    font-size: 16px;
+  }
+  
+  /* Routes chart mobile adjustments */
+  .revenue-monthly-container .revenue-chart-container:last-of-type .recharts-cartesian-axis-tick-value {
+    font-size: 7px !important;
+  }
+  
+  .revenue-monthly-container .revenue-chart-container:last-of-type .recharts-yAxis .recharts-cartesian-axis-tick-value {
+    font-size: 7px !important;
+  }
+  
+  /* Stack summary cards on mobile */
+  .revenue-monthly-container .revenue-summary-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .revenue-monthly-container .revenue-summary-cards {
+    grid-template-columns: 1fr;
+  }
+  
+  .revenue-monthly-container .revenue-card-value {
+    font-size: 24px;
+  }
+  
+  .revenue-monthly-container .revenue-revenue-table {
+    font-size: 10px;
+  }
+}
+
+/* =========================
+   SCROLLBAR ENHANCEMENTS
+   ========================= */
+
+/* Global scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #ccc #f1f1f1;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #999;
 }
 
 /* =========================
@@ -326,59 +928,22 @@
     background: white !important;
   }
 
-  /* Hide all navigation and layout elements - More comprehensive */
-  nav, 
-  aside,
-  .Navigation,
-  .sidebar, 
-  .navigation, 
-  .nav, 
-  .header, 
-  .app-header,
-  .layout-sidebar,
-  .main-sidebar,
-  .navbar,
-  .menu,
-  .breadcrumb,
-  .back-button,
-  .toolbar,
-  .side-nav,
-  .sidenav,
-  .left-panel,
-  .main-nav,
-  .app-nav,
-  .dashboard-nav,
-  .vertical-nav,
-  .menu-container,
-  .nav-container,
-  .side-menu,
-  .main-menu,
-  .app-sidebar,
-  .layout-nav,
-  .page-nav,
-  .nav-header-logo,
-  .nav-scroll,
-  .menu-top-right,
-  [class*="sidebar"],
-  [class*="nav"],
-  [class*="header"],
-  [class*="menu"],
-  [class*="aside"],
-  [class*="Navigation"],
-  [id*="sidebar"],
-  [id*="nav"],
-  [id*="menu"] {
+  /* Hide navigation and menu elements BUT KEEP SUMMARY CARDS */
+  .revenue-menu-item,
+  .revenue-filters,
+  .revenue-daily-controls,
+  .revenue-charts-section {
     display: none !important;
-    visibility: hidden !important;
-    width: 0 !important;
-    height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: hidden !important;
   }
 
-  /* Ensure main content takes full width - Force it */
-  .daily-revenue-container {
+  /* Ensure menu container and summary cards are visible */
+  .revenue-menu-container {
+    display: block !important;
+    margin-bottom: 10px !important;
+  }
+
+  /* Ensure main content takes full width */
+  .revenue-container {
     width: 100% !important;
     max-width: 100% !important;
     padding: 10px !important;
@@ -386,147 +951,167 @@
     background: white !important;
     box-shadow: none !important;
     min-height: auto !important;
-    height: auto !important;
-    overflow: visible !important;
-    position: static !important;
   }
 
-  /* Override any layout containers that might constrain width */
-  .container,
-  .main-content,
-  .content-wrapper,
-  .page-content,
-  .app-content,
-  .layout-content,
-  .main-container,
-  .page-container,
-  .content-container {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    position: static !important;
-  }
-
-  /* Force body and html to use full width */
-  html, body {
-    width: 100% !important;
-    max-width: 100% !important;
-    overflow-x: visible !important;
-  }
-
-  /* Hide screen-only elements but keep necessary containers */
-  .summary-card:hover,
-  .table-container {
+  .revenue-content-area {
     box-shadow: none !important;
+    border-radius: 0 !important;
   }
 
-  .date-controls,
-  .refresh-btn,
-  .print-btn {
-    display: none !important;
-  }
-
-  /* Show revenue header content but hide controls */
-  .revenue-header {
-    display: none !important;
+  .revenue-daily-container {
+    padding: 0 !important;
   }
 
   /* Show print-only elements */
-  .print-header,
-  .print-summary,
-  .print-footer {
+  .revenue-print-header,
+  .revenue-print-summary,
+  .revenue-print-footer {
     display: block !important;
   }
 
-  /* Print Header - Make it smaller */
-  .print-header {
+  /* Print Header */
+  .revenue-print-header {
     display: flex !important;
     justify-content: space-between;
     align-items: flex-start;
-    margin: 0 0 10px 0 !important;
-    padding: 0 0 8px 0 !important;
+    margin: 0 0 15px 0 !important;
+    padding: 0 0 10px 0 !important;
     border-bottom: 2px solid #000;
     page-break-inside: avoid;
   }
 
-  .company-info h1 {
+  .revenue-company-info h1 {
     margin: 0;
     font-size: 16pt;
     font-weight: bold;
     color: #000;
   }
 
-  .company-info p {
+  .revenue-company-info p {
     margin: 2px 0 0 0;
     font-size: 10pt;
     color: #000;
   }
 
-  .report-info {
+  .revenue-report-info {
     text-align: right;
   }
 
-  .report-info p {
+  .revenue-report-info p {
     margin: 1px 0;
     font-size: 8pt;
     color: #000;
   }
 
-  /* Print Summary Sections - Compact */
-  .print-summary {
-    margin: 0 0 10px 0 !important;
+  /* SUMMARY CARDS - SHOW AND STYLE FOR PRINT */
+  .revenue-daily-summary-card-container {
+    background: white !important;
+    padding: 15px !important;
+    margin: 15px 0 !important;
+    border: 2px solid #000 !important;
+    border-radius: 0 !important;
+    display: block !important;
+    page-break-inside: avoid;
+  }
+
+  .revenue-daily-header-pattern {
+    display: block !important;
+    position: absolute;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.05) !important;
+    background-image: radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.1) 1px, transparent 0) !important;
+    background-size: 15px 15px !important;
+  }
+
+  .revenue-summary-cards {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 10px !important;
+    margin: 0 !important;
     page-break-inside: avoid;
     width: 100% !important;
   }
 
-  .print-summary h3 {
-    font-size: 11pt;
-    font-weight: bold;
-    margin: 0 0 5px 0 !important;
-    color: #000;
-    border-bottom: 1px solid #000;
-    padding-bottom: 2px;
+  .revenue-summary-card {
+    background: #f8f8f8 !important;
+    border: 1px solid #000 !important;
+    border-radius: 0 !important;
+    padding: 10px !important;
+    text-align: center;
+    margin: 0 !important;
+    box-shadow: none !important;
+    transform: none !important;
   }
 
-  .breakdown-summary {
+  .revenue-card-title {
+    font-size: 9pt !important;
+    color: #000 !important;
+    margin: 0 0 5px 0 !important;
+    text-transform: uppercase;
+    font-weight: bold;
+  }
+
+  .revenue-card-value {
+    font-size: 12pt !important;
+    color: #000 !important;
+    font-weight: bold !important;
+    margin: 0 !important;
+  }
+
+  /* Print Summary Sections */
+  .revenue-print-summary {
+    margin: 0 0 15px 0 !important;
+    page-break-inside: avoid;
+    width: 100% !important;
+  }
+
+  .revenue-print-summary h3 {
+    font-size: 12pt;
+    font-weight: bold;
+    margin: 0 0 8px 0 !important;
+    color: #000;
+    border-bottom: 1px solid #000;
+    padding-bottom: 3px;
+  }
+
+  .revenue-breakdown-summary {
     background: #f8f9fa;
-    padding: 6px !important;
+    padding: 8px !important;
     border: 1px solid #000;
     width: 100% !important;
     box-sizing: border-box;
   }
 
-  .breakdown-item {
+  .revenue-breakdown-item {
     display: flex;
     justify-content: space-between;
-    margin: 0 0 3px 0 !important;
-    font-size: 8pt;
-  }
-
-  .breakdown-item.total {
-    border-top: 1px solid #000;
-    padding-top: 3px !important;
-    margin-top: 3px !important;
-    font-weight: bold;
+    margin: 0 0 4px 0 !important;
     font-size: 9pt;
   }
 
-  .breakdown-label {
+  .revenue-breakdown-item.revenue-breakdown-total {
+    border-top: 1px solid #000;
+    padding-top: 4px !important;
+    margin-top: 4px !important;
+    font-weight: bold;
+    font-size: 10pt;
+  }
+
+  .revenue-breakdown-label {
     color: #000;
   }
 
-  .breakdown-value {
+  .revenue-breakdown-value {
     font-weight: bold;
     color: #000;
   }
 
   /* Top Routes Summary */
-  .top-routes-summary {
+  .revenue-top-routes-summary {
     border: 1px solid #000;
   }
 
-  .route-item {
+  .revenue-route-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -535,130 +1120,81 @@
     font-size: 11pt;
   }
 
-  .route-item:last-child {
+  .revenue-route-item:last-child {
     border-bottom: none;
   }
 
-  .route-name {
+  .revenue-route-name {
     flex: 1;
     font-weight: bold;
     color: #000;
   }
 
-  .route-revenue {
+  .revenue-route-revenue {
     font-weight: bold;
     color: #000;
     margin-right: 10px;
   }
 
-  .route-passengers {
+  .revenue-route-passengers {
     color: #666;
     font-size: 10pt;
   }
 
-  /* Summary Cards Container for Print */
-  .daily-revenue-summary-card-container {
-    background: white !important;
-    padding: 10px !important;
-    margin: 10px 0 !important;
-    border: 1px solid #000 !important;
-    border-radius: 0 !important;
-  }
-
-  .daily-revenue-header-pattern {
-    display: none !important;
-  }
-
-  /* Summary Cards for Print - Make them fit better */
-  .summary-cards {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 6px !important;
-    margin: 0 !important;
-    page-break-inside: avoid;
-    width: 100% !important;
-  }
-
-  .summary-card {
-    background: #f8f8f8 !important;
-    border: 1px solid #000 !important;
-    border-radius: 0 !important;
-    padding: 6px !important;
-    text-align: center;
-    margin: 0 !important;
-    box-shadow: none !important;
-    transform: none !important;
-  }
-
-  .card-title {
-    font-size: 8pt !important;
-    color: #000 !important;
-    margin: 0 0 3px 0 !important;
-    text-transform: uppercase;
-    font-weight: bold;
-  }
-
-  .card-value {
-    font-size: 11pt !important;
-    color: #000 !important;
-    font-weight: bold !important;
-    margin: 0 !important;
-  }
-
-  /* Charts - Hide in print as they don't print well */
-  .charts-section {
-    display: none !important;
-  }
-
-  /* Table Styles for Print - More compact */
-  .breakdown-section {
+  /* Table Styles for Print */
+  .revenue-breakdown-section {
     background: white !important;
     padding: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
     border: none !important;
-    margin: 0 0 8px 0 !important;
+    margin: 0 0 10px 0 !important;
     width: 100% !important;
   }
 
-  .breakdown-title {
-    font-size: 12pt;
+  .revenue-breakdown-title {
+    font-size: 14pt;
     color: #000;
-    margin: 0 0 8px 0 !important;
+    margin: 0 0 10px 0 !important;
     border-bottom: 1px solid #000;
-    padding-bottom: 2px;
+    padding-bottom: 3px;
     font-weight: bold;
   }
 
-  .section-container {
-    margin: 0 0 8px 0 !important;
+  .revenue-section-container {
+    margin: 0 0 10px 0 !important;
     page-break-inside: auto;
     width: 100% !important;
+    border: 1px solid #000 !important;
+    border-radius: 0 !important;
+    padding: 10px !important;
+    background: #f8f8f8 !important;
   }
 
-  .section-title {
-    font-size: 10pt !important;
+  .revenue-section-title {
+    font-size: 11pt !important;
     color: #000 !important;
-    margin: 5px 0 3px 0 !important;
+    margin: 5px 0 5px 0 !important;
     font-weight: bold;
   }
 
-  .table-container {
+  .revenue-table-container {
     overflow: visible !important;
     width: 100% !important;
     margin: 0 0 5px 0 !important;
   }
 
-  .revenue-table {
+  .revenue-revenue-table {
     border: 1px solid #000 !important;
     margin: 0 0 5px 0 !important;
     width: 100% !important;
     border-collapse: collapse !important;
     font-size: 7pt !important;
     page-break-inside: auto;
+    min-width: 600px !important;
   }
 
-  .revenue-table th {
+  .revenue-revenue-table th {
     background: #f0f0f0 !important;
     border: 1px solid #000 !important;
     padding: 2px !important;
@@ -668,7 +1204,7 @@
     text-align: left;
   }
 
-  .revenue-table td {
+  .revenue-revenue-table td {
     border: 1px solid #000 !important;
     padding: 2px !important;
     font-size: 7pt !important;
@@ -676,165 +1212,176 @@
     vertical-align: top;
   }
 
-  .route-text,
-  .fare-amount,
-  .discount-amount {
+  .revenue-route-text,
+  .revenue-fare-amount,
+  .revenue-trip-direction,
+  .revenue-trip-id {
     color: #000 !important;
   }
 
-  /* Top Routes Summary - More compact */
-  .top-routes-summary {
-    border: 1px solid #000;
-    margin: 0 0 8px 0 !important;
+  .revenue-trip-id {
+    max-width: 60px !important;
+    font-size: 6pt !important;
+    word-wrap: break-word !important;
   }
 
-  .route-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 2px 5px !important;
-    border-bottom: 1px solid #ddd;
-    font-size: 8pt;
+  .revenue-trip-direction {
+    max-width: 100px !important;
+    word-wrap: break-word !important;
+    font-size: 6pt !important;
   }
 
-  .route-item:last-child {
-    border-bottom: none;
-  }
-
-  .route-name {
-    flex: 1;
-    font-weight: bold;
-    color: #000;
-    font-size: 7pt;
-  }
-
-  .route-revenue {
-    font-weight: bold;
-    color: #000;
-    margin-right: 5px;
-    font-size: 7pt;
-  }
-
-  .route-passengers {
-    color: #666;
-    font-size: 6pt;
-  }
-
-  /* Print Footer - Compact */
-  .print-footer {
+  /* Print Footer */
+  .revenue-print-footer {
     display: flex !important;
     justify-content: space-between;
     align-items: center;
-    margin: 8px 0 0 0 !important;
+    margin: 10px 0 0 0 !important;
     padding: 5px 0 0 0 !important;
     border-top: 1px solid #000;
-    font-size: 7pt;
+    font-size: 8pt;
     color: #000;
     page-break-inside: avoid;
   }
 
-  /* Better page break control */
-  .section-container {
+  .revenue-empty-state {
+    background: #f8f8f8;
+    border: 1px solid #000;
+    padding: 8px !important;
+    text-align: center;
+    margin: 0 0 8px 0 !important;
+  }
+
+  .revenue-empty-state h3,
+  .revenue-empty-state p {
+    color: #000;
+    font-size: 9pt;
+    margin: 3px 0 !important;
+  }
+
+  .revenue-section-container {
     page-break-inside: avoid;
   }
 
-  .revenue-table {
+  .revenue-revenue-table {
     page-break-inside: auto;
   }
 
-  .revenue-table tr {
+  .revenue-revenue-table tr {
     page-break-inside: avoid;
     page-break-after: auto;
   }
 
-  .revenue-table thead {
+  .revenue-revenue-table thead {
     display: table-header-group;
   }
 
-  .revenue-table tbody tr {
+  .revenue-revenue-table tbody tr {
     page-break-before: auto;
     page-break-after: auto;
   }
-
-  /* Force table to break at reasonable points */
-  .revenue-table tbody tr:nth-child(20n) {
-    page-break-after: always;
-  }
-
-  /* Empty states for print - Compact */
-  .empty-state {
-    background: #f8f8f8;
-    border: 1px solid #000;
-    padding: 5px !important;
-    text-align: center;
-    margin: 0 0 5px 0 !important;
-  }
-
-  .empty-state h3,
-  .empty-state p {
-    color: #000;
-    font-size: 8pt;
-    margin: 2px 0 !important;
-  }
-
-  /* Force full width and proper positioning */
-  body {
-    width: 100% !important;
-    height: auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    position: relative !important;
-  }
-
-  /* Override any parent container constraints */
-  .daily-revenue-container * {
-    max-width: 100% !important;
-  }
 }
 
-/* Responsive Design */
+/* =========================
+   RESPONSIVE DESIGN
+   ========================= */
+
 @media (max-width: 768px) {
-  .daily-revenue-container {
-    padding: 15px;
+  .revenue-container {
+    padding: 10px;
+    margin: 0;
   }
   
-  .revenue-header {
+  .revenue-filters {
     flex-direction: column;
-    align-items: stretch;
+    gap: 15px;
   }
   
-  .date-controls {
-    justify-content: center;
+  .revenue-filter-group {
+    width: 100%;
   }
   
-  .revenue-title {
-    font-size: 24px;
-    text-align: center;
+  .revenue-filter-select,
+  .revenue-filter-input {
+    min-width: 100%;
   }
   
-  .summary-cards {
+  .revenue-summary-cards {
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 15px;
   }
   
-  .summary-card {
+  .revenue-summary-card {
     padding: 20px;
   }
   
-  .card-value {
+  .revenue-card-value {
     font-size: 24px;
   }
   
-  .chart-container {
+  .revenue-chart-container {
     padding: 20px;
   }
   
-  .breakdown-section {
-    padding: 20px;
+  .revenue-breakdown-section {
+    padding: 15px;
+    margin: 0;
   }
 
-  .print-btn {
+  .revenue-section-container {
+    padding: 15px;
+    margin-bottom: 20px;
+  }
+
+  .revenue-print-btn {
     font-size: 12px;
     padding: 6px 12px;
+  }
+
+  .revenue-daily-controls {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .revenue-menu-header {
+    padding: 12px 16px;
+  }
+
+  .revenue-submenu-item {
+    padding: 10px 30px;
+  }
+
+  .revenue-submenu-item:hover {
+    padding-left: 35px;
+  }
+
+  /* Mobile table responsiveness */
+  .revenue-revenue-table {
+    min-width: 700px; /* Reduced for mobile */
+    font-size: 12px;
+  }
+  
+  .revenue-trip-id {
+    max-width: 60px;
+    font-size: 10px;
+  }
+  
+  .revenue-trip-direction {
+    max-width: 120px;
+    font-size: 11px;
+  }
+
+  .revenue-table-container {
+    margin: 0;
+    border-radius: 6px;
+  }
+
+  .revenue-empty-state {
+    padding: 30px 15px;
+  }
+
+  .revenue-daily-container {
+    padding: 15px;
   }
 }
