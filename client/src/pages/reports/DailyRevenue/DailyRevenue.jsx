@@ -16,6 +16,8 @@ import {
   loadAvailableMonths 
 } from './MonthlyRevenue.js';
 import './DailyRevenue.css';
+import RemittanceReport from './Remittance.jsx';
+
 
 const Revenue = () => {
   const [currentView, setCurrentView] = useState('');
@@ -210,6 +212,31 @@ const Revenue = () => {
   const pieChartData = preparePieChartData(revenueData.conductorRevenue, revenueData.preBookingRevenue, revenueData.preTicketingRevenue);
   const routeChartData = prepareRouteRevenueData(revenueData.conductorTrips, revenueData.preBookingTrips, revenueData.preTicketing);
 
+  // Prepare data for summary tables
+  const revenueBreakdownData = [
+    {
+      source: 'Conductor Trips',
+      amount: revenueData.conductorRevenue,
+      trips: revenueData.conductorTrips.length
+    },
+    {
+      source: 'Pre-booking',
+      amount: revenueData.preBookingRevenue,
+      trips: revenueData.preBookingTrips?.length || 0
+    },
+    {
+      source: 'Pre-ticketing',
+      amount: revenueData.preTicketingRevenue,
+      trips: revenueData.preTicketing.length
+    }
+  ].filter(item => !selectedTicketType || 
+    (selectedTicketType === 'conductor' && item.source === 'Conductor Trips') ||
+    (selectedTicketType === 'pre-book' && item.source === 'Pre-booking') ||
+    (selectedTicketType === 'pre-ticket' && item.source === 'Pre-ticketing')
+  );
+
+  const topRoutesData = routeChartData.slice(0, 5);
+
   const renderViewContent = () => {
     switch(currentView) {
       case 'daily-revenue':
@@ -264,17 +291,9 @@ const Revenue = () => {
     );
   };
 
-  const renderDailyTripsRemittance = () => (
-    <div className="revenue-trips-container">
-      <div className="revenue-coming-soon">
-        <h3 className="revenue-coming-title">Daily Trips Remittance</h3>
-        <p className="revenue-coming-description">
-          Track daily trip remittances from conductors and pre-booked tickets. 
-          This feature is currently under development.
-        </p>
-      </div>
-    </div>
-  );
+  const renderDailyTripsRemittance = () => {
+    return <RemittanceReport />;
+  };
 
   const renderDailyRevenue = () => {
     if (loading) {
@@ -351,57 +370,69 @@ const Revenue = () => {
           </button>
         </div>
 
-        {/* Revenue Breakdown Summary for Print */}
-        <div className="revenue-print-summary">
-          <h3>Revenue Breakdown Summary</h3>
-          <div className="revenue-breakdown-summary">
-            {/* Show Conductor Trips Revenue only if no filter or conductor filter is selected */}
-            {(!selectedTicketType || selectedTicketType === '' || selectedTicketType === 'conductor') && (
-              <div className="revenue-breakdown-item">
-                <span className="revenue-breakdown-label">Conductor Trips Revenue:</span>
-                <span className="revenue-breakdown-value">{formatCurrency(revenueData.conductorRevenue)}</span>
-              </div>
-            )}
-            
-            {/* Show Pre-booking Revenue only if no filter or pre-book filter is selected */}
-            {(!selectedTicketType || selectedTicketType === '' || selectedTicketType === 'pre-book') && (
-              <div className="revenue-breakdown-item">
-                <span className="revenue-breakdown-label">Pre-booking Revenue:</span>
-                <span className="revenue-breakdown-value">{formatCurrency(revenueData.preBookingRevenue)}</span>
-              </div>
-            )}
-            
-            {/* Show Pre-ticketing Revenue only if no filter or pre-ticket filter is selected */}
-            {(!selectedTicketType || selectedTicketType === '' || selectedTicketType === 'pre-ticket') && (
-              <div className="revenue-breakdown-item">
-                <span className="revenue-breakdown-label">Pre-ticketing Revenue:</span>
-                <span className="revenue-breakdown-value">{formatCurrency(revenueData.preTicketingRevenue)}</span>
-              </div>
-            )}
-            
-            {/* Total Revenue - always show */}
-            <div className="revenue-breakdown-item revenue-breakdown-total">
-              <span className="revenue-breakdown-label">Total Revenue:</span>
-              <span className="revenue-breakdown-value">{formatCurrency(revenueData.totalRevenue)}</span>
-            </div>
+        {/* Summary Tables Section - Only visible when printing daily revenue */}
+        <div className="revenue-summary-tables-section revenue-daily-print-only revenue-daily-print-tables">
+          {/* Revenue Breakdown Summary Table */}
+          <div className="revenue-summary-table-container">
+            <h3 className="revenue-summary-table-title">Revenue Breakdown Summary</h3>
+            <table className="revenue-summary-table">
+              <thead>
+                <tr>
+                  <th>Source</th>
+                  <th>Trips</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {revenueBreakdownData.map((item, index) => (
+                  <tr key={index}>
+                    <td>{item.source}</td>
+                    <td className="revenue-count">{item.trips}</td>
+                    <td className="revenue-amount">{formatCurrency(item.amount)}</td>
+                  </tr>
+                ))}
+                <tr style={{ borderTop: '2px solid #dee2e6', fontWeight: 'bold' }}>
+                  <td><strong>Total</strong></td>
+                  <td className="revenue-count">
+                    <strong>
+                      {revenueBreakdownData.reduce((sum, item) => sum + item.trips, 0)}
+                    </strong>
+                  </td>
+                  <td className="revenue-amount">
+                    <strong>{formatCurrency(revenueData.totalRevenue)}</strong>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Top 5 Routes Table */}
+          <div className="revenue-summary-table-container">
+            <h3 className="revenue-summary-table-title">Top 5 Routes by Revenue</h3>
+            <table className="revenue-summary-table">
+              <thead>
+                <tr>
+                  <th>Route</th>
+                  <th>Passengers</th>
+                  <th>Revenue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topRoutesData.map((route, index) => (
+                  <tr key={index}>
+                    <td>{route.route}</td>
+                    <td className="revenue-count">{route.passengers}</td>
+                    <td className="revenue-amount">{formatCurrency(route.revenue)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
-        {/* Top Routes Summary for Print */}
-        <div className="revenue-print-summary">
-          <h3>Top 5 Routes by Revenue</h3>
-          <div className="revenue-top-routes-summary">
-            {routeChartData.slice(0, 5).map((route, index) => (
-              <div key={index} className="revenue-route-item">
-                <span className="revenue-route-name">{route.route}</span>
-                <span className="revenue-route-revenue">{formatCurrency(route.revenue)}</span>
-                <span className="revenue-route-passengers">({route.passengers} passengers)</span>
-              </div>
-            ))}
-          </div>
-        </div>
 
-        {/* Charts Section */}
+
+        {/* Charts Section - Hidden when printing */}
         <div className="revenue-charts-section">
           {/* Revenue Source Breakdown */}
           <div className="revenue-chart-container">
@@ -442,7 +473,7 @@ const Revenue = () => {
           </div>
         </div>
 
-        {/* Detailed Breakdown */}
+        {/* Detailed Breakdown - Now positioned in the main content area */}
         <div className="revenue-breakdown-section">
           <h3 className="revenue-breakdown-title">Detailed Revenue Breakdown</h3>
           

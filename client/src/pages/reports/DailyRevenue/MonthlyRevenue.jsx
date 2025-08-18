@@ -1,9 +1,6 @@
-// MonthlyRevenue.jsx
-// Pure JSX component for monthly revenue display
-
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, BarChart, Bar, ResponsiveContainer } from 'recharts';
-import { preparePieChartData } from './DailyRevenue.js'; // Updated to match your structure
+import { preparePieChartData } from './DailyRevenue.js'; 
 import {
   formatMonthForDisplay,
   formatDateForBreakdown,
@@ -62,6 +59,55 @@ const MonthlyRevenue = ({
         </div>
       </div>
 
+        {/* Monthly Filters */}
+      <div className="revenue-monthly-filters">
+        <div className="revenue-filter-group">
+          <label className="revenue-filter-label">Select Month</label>
+          <select
+            value={selectedMonth}
+            onChange={(e) => onMonthChange(e.target.value)}
+            className="revenue-filter-select"
+          >
+            <option value="">Select a month...</option>
+            {monthOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="revenue-filter-group">
+          <label className="revenue-filter-label">Trip Direction</label>
+          <select 
+            value={selectedRoute}
+            onChange={(e) => onRouteChange(e.target.value)}
+            className="revenue-filter-select"
+          >
+            <option value="">All Trip Directions</option>
+            {availableRoutes && availableRoutes.map((route) => (
+              <option key={route} value={route}>
+                {route}
+              </option>
+            ))}
+          </select>
+        </div>
+        
+        <div className="revenue-filter-group">
+          <label className="revenue-filter-label">Ticket Type</label>
+          <select 
+            value={selectedTicketType}
+            onChange={(e) => onTicketTypeChange(e.target.value)}
+            className="revenue-filter-select"
+          >
+            <option value="">All Tickets</option>
+            <option value="pre-ticket">Pre Ticket</option>
+            <option value="pre-book">Pre Book</option>
+            <option value="conductor">Conductor Ticket</option>
+          </select>
+        </div>
+      </div>
+
       {/* Monthly Summary Cards */}
       <div className="revenue-daily-summary-card-container">
         <div className="revenue-daily-header-pattern"></div>
@@ -109,55 +155,6 @@ const MonthlyRevenue = ({
         >
           🖨️ Print Report
         </button>
-      </div>
-
-      {/* Monthly Filters */}
-      <div className="revenue-monthly-filters">
-        <div className="revenue-filter-group">
-          <label className="revenue-filter-label">Select Month</label>
-          <select
-            value={selectedMonth}
-            onChange={(e) => onMonthChange(e.target.value)}
-            className="revenue-filter-select"
-          >
-            <option value="">Select a month...</option>
-            {monthOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="revenue-filter-group">
-          <label className="revenue-filter-label">Trip Direction</label>
-          <select 
-            value={selectedRoute}
-            onChange={(e) => onRouteChange(e.target.value)}
-            className="revenue-filter-select"
-          >
-            <option value="">All Trip Directions</option>
-            {availableRoutes && availableRoutes.map((route) => (
-              <option key={route} value={route}>
-                {route}
-              </option>
-            ))}
-          </select>
-        </div>
-        
-        <div className="revenue-filter-group">
-          <label className="revenue-filter-label">Ticket Type</label>
-          <select 
-            value={selectedTicketType}
-            onChange={(e) => onTicketTypeChange(e.target.value)}
-            className="revenue-filter-select"
-          >
-            <option value="">All Tickets</option>
-            <option value="pre-ticket">Pre Ticket</option>
-            <option value="pre-book">Pre Book</option>
-            <option value="conductor">Conductor Ticket</option>
-          </select>
-        </div>
       </div>
 
       {/* Monthly Revenue Breakdown Summary for Print */}
@@ -272,29 +269,6 @@ const MonthlyRevenue = ({
         <h3 className="revenue-chart-title">Top 5 Routes by Monthly Revenue</h3>
         {topRoutes && topRoutes.length > 0 ? (
           <div>
-            {/* Simple table to verify data - will be hidden in print */}
-            <div className="revenue-data-verification" style={{ marginBottom: '20px', fontSize: '12px' }}>
-              <strong>Route Data:</strong>
-              <table style={{ width: '100%', border: '1px solid #ccc', fontSize: '11px' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#f5f5f5' }}>
-                    <th style={{ padding: '4px', border: '1px solid #ccc' }}>Route</th>
-                    <th style={{ padding: '4px', border: '1px solid #ccc' }}>Revenue</th>
-                    <th style={{ padding: '4px', border: '1px solid #ccc' }}>Passengers</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topRoutes.slice(0, 5).map((route, index) => (
-                    <tr key={index}>
-                      <td style={{ padding: '4px', border: '1px solid #ccc' }}>{route.route}</td>
-                      <td style={{ padding: '4px', border: '1px solid #ccc' }}>{formatCurrency(route.revenue)}</td>
-                      <td style={{ padding: '4px', border: '1px solid #ccc' }}>{route.passengers}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
             <ResponsiveContainer width="100%" height={400}>
               <BarChart 
                 data={topRoutes.slice(0, 5)} 
@@ -343,12 +317,11 @@ const MonthlyRevenue = ({
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>Day</th>
                   <th>Total Revenue</th>
                   <th>Passengers</th>
-                  <th>Conductor Revenue</th>
-                  <th>Pre-booking Revenue</th>
-                  <th>Pre-ticketing Revenue</th>
+                  <th>Conductor</th>
+                  <th>Pre-booking</th>
+                  <th>Pre-ticketing </th>
                   <th>Avg Fare</th>
                 </tr>
               </thead>
@@ -356,7 +329,6 @@ const MonthlyRevenue = ({
                 {monthlyData.dailyBreakdown.map((day, index) => (
                   <tr key={index}>
                     <td>{formatDateForBreakdown(day.date)}</td>
-                    <td>{day.day}</td>
                     <td className="revenue-fare-amount">{formatCurrency(day.totalRevenue)}</td>
                     <td>{day.totalPassengers}</td>
                     <td className="revenue-fare-amount">{formatCurrency(day.conductorRevenue)}</td>

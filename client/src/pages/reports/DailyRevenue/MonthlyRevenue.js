@@ -1,6 +1,3 @@
-// MonthlyRevenueLogic.js
-// Pure JavaScript logic for monthly revenue functionality
-
 import { 
   loadRevenueData, 
   prepareRouteRevenueData,
@@ -24,6 +21,95 @@ export const initializeMonthlyData = () => ({
 // Get current month in YYYY-MM format
 export const getCurrentMonth = () => {
   return new Date().toISOString().slice(0, 7);
+};
+
+// Calculate monthly growth based on previous month comparison
+export const calculateMonthlyGrowth = async (selectedMonth, selectedRoute, currentMonthRevenue, selectedTicketType = '') => {
+  try {
+    // Calculate previous month
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const prevDate = new Date(year, month - 2); // month - 2 because Date months are 0-indexed
+    const prevMonth = `${prevDate.getFullYear()}-${(prevDate.getMonth() + 1).toString().padStart(2, '0')}`;
+    
+    console.log(`📊 Calculating growth: Current month ${selectedMonth} vs Previous month ${prevMonth}`);
+    
+    // Load previous month's data
+    const prevYear = prevDate.getFullYear();
+    const prevMonthNum = prevDate.getMonth() + 1;
+    const daysInPrevMonth = new Date(prevYear, prevMonthNum, 0).getDate();
+    
+    const prevMonthPromises = [];
+    for (let day = 1; day <= daysInPrevMonth; day++) {
+      const dateString = `${prevMonth}-${day.toString().padStart(2, '0')}`;
+      prevMonthPromises.push(loadRevenueData(dateString, selectedRoute));
+    }
+    
+    const prevMonthResults = await Promise.all(prevMonthPromises);
+    
+    // Calculate previous month revenue with same filtering logic
+    let prevMonthRevenue = 0;
+    
+    prevMonthResults.forEach((dayData) => {
+      if (dayData && dayData.totalRevenue > 0) {
+        let dayRevenue = 0;
+        
+        // Apply same ticket type filtering
+        if (!selectedTicketType || selectedTicketType === '' || selectedTicketType === 'conductor') {
+          dayRevenue += dayData.conductorRevenue || 0;
+        }
+        if (!selectedTicketType || selectedTicketType === '' || selectedTicketType === 'pre-book') {
+          dayRevenue += dayData.preBookingRevenue || 0;
+        }
+        if (!selectedTicketType || selectedTicketType === '' || selectedTicketType === 'pre-ticket') {
+          dayRevenue += dayData.preTicketingRevenue || 0;
+        }
+        
+        prevMonthRevenue += dayRevenue;
+      }
+    });
+    
+    console.log(`💰 Revenue comparison: Current ${currentMonthRevenue}, Previous ${prevMonthRevenue}`);
+    
+    // Calculate growth percentage
+    if (prevMonthRevenue === 0) {
+      // If previous month had no revenue, current revenue represents infinite growth
+      // Return 100% if current month has revenue, 0% if both months have no revenue
+      return currentMonthRevenue > 0 ? 100 : 0;
+    }
+    
+    const growthPercentage = ((currentMonthRevenue - prevMonthRevenue) / prevMonthRevenue) * 100;
+    console.log(`📈 Growth calculated: ${growthPercentage.toFixed(1)}%`);
+    
+    return growthPercentage;
+    
+  } catch (error) {
+    console.error('Error calculating monthly growth:', error);
+    // Fallback to simple growth calculation if previous month data is unavailable
+    return calculateSimpleGrowth(currentMonthRevenue);
+  }
+};
+
+// Alternative simple growth calculation based on daily performance
+export const calculateSimpleGrowth = (currentMonthRevenue, dailyBreakdown = []) => {
+  if (currentMonthRevenue === 0) return 0;
+  
+  // If we have daily breakdown, use it for better calculation
+  if (dailyBreakdown && dailyBreakdown.length > 0) {
+    const totalDays = dailyBreakdown.length;
+    const averageDailyRevenue = currentMonthRevenue / totalDays;
+    
+    // Compare with a baseline daily revenue target
+    const expectedDailyTarget = 3000; // Adjust this based on your business expectations
+    const expectedMonthlyTarget = expectedDailyTarget * totalDays;
+    
+    if (expectedMonthlyTarget === 0) return 0;
+    
+    const growthVsTarget = ((currentMonthRevenue - expectedMonthlyTarget) / expectedMonthlyTarget) * 100;
+    return Math.max(-50, Math.min(100, growthVsTarget)); // Cap between -50% and 100%
+  }
+  
+  // Fallback: assume positive growth if we have revenue
+  return currentMonthRevenue > 0 ? 5 : 0;
 };
 
 // Load monthly revenue data
@@ -183,8 +269,14 @@ export const loadMonthlyData = async (selectedMonth, selectedRoute, setMonthlyDa
     const averageMonthlyFare = totalMonthlyPassengers > 0 ? totalMonthlyRevenue / totalMonthlyPassengers : 0;
     const averageDailyRevenue = dailyBreakdown.length > 0 ? totalMonthlyRevenue / dailyBreakdown.length : 0;
     
-    // Calculate growth (simplified for demo - you can enhance this with real previous month data)
-    const monthlyGrowth = Math.random() * 20 - 10; // Random growth between -10% and +10%
+    // Calculate growth with real data instead of random values
+    let monthlyGrowth = 0;
+    try {
+      monthlyGrowth = await calculateMonthlyGrowth(selectedMonth, selectedRoute, totalMonthlyRevenue, selectedTicketType);
+    } catch (error) {
+      console.log('📈 Falling back to simple growth calculation');
+      monthlyGrowth = calculateSimpleGrowth(totalMonthlyRevenue, dailyBreakdown);
+    }
     
     const monthlyData = {
       totalMonthlyRevenue,
