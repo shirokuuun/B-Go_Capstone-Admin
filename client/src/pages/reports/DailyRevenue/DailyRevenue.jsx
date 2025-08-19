@@ -690,7 +690,7 @@ const Revenue = () => {
               </h4>
               {revenueData.conductorTrips.length > 0 ? (
                 <div className="revenue-table-container">
-                  <table className="revenue-revenue-table">
+                  <table className="revenue-revenue-table revenue-detailed-breakdown-table">
                     <thead>
                       <tr>
                         <th>Trip ID</th>
@@ -760,7 +760,7 @@ const Revenue = () => {
               </h4>
               {revenueData.preBookingTrips && revenueData.preBookingTrips.length > 0 ? (
                 <div className="revenue-table-container">
-                  <table className="revenue-revenue-table">
+                  <table className="revenue-revenue-table revenue-detailed-breakdown-table">
                     <thead>
                       <tr>
                         <th>Trip ID</th>
@@ -830,7 +830,7 @@ const Revenue = () => {
               </h4>
               {revenueData.preTicketing.length > 0 ? (
                 <div className="revenue-table-container">
-                  <table className="revenue-revenue-table">
+                  <table className="revenue-revenue-table revenue-detailed-breakdown-table">
                     <thead>
                       <tr>
                         <th>Trip ID</th>

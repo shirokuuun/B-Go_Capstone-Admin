@@ -194,6 +194,85 @@ export const getRemittanceSummaryData = async (conductorId, date) => {
   }
 };
 
+// Function to get conductor details including bus number from subcollection
+export const getConductorDetails = async (conductorId) => {
+  try {
+    console.log(`📋 Fetching conductor details for: ${conductorId}`);
+    
+    // Get conductor basic info
+    const conductorRef = doc(db, 'conductors', conductorId);
+    const conductorDoc = await getDoc(conductorRef);
+    
+    let conductorData = {
+      id: conductorId,
+      name: conductorId,
+      busNumber: 'N/A'
+    };
+    
+    if (conductorDoc.exists()) {
+      const data = conductorDoc.data();
+      conductorData = {
+        id: conductorId,
+        name: data.name || conductorId,
+        busNumber: 'N/A',
+        ...data
+      };
+    }
+    
+    // Get bus number from subcollection
+    try {
+      const busNumberRef = collection(db, `conductors/${conductorId}/busNumber`);
+      const busNumberSnapshot = await getDocs(busNumberRef);
+      
+      console.log(`🚌 Found ${busNumberSnapshot.docs.length} bus number documents for conductor ${conductorId}`);
+      
+      if (!busNumberSnapshot.empty) {
+        // Get the most recent bus number document (or first one if multiple exist)
+        const busDoc = busNumberSnapshot.docs[0];
+        const busData = busDoc.data();
+        
+        // Try different possible field names for bus number
+        const busNumber = busData.busNumber || busData.number || busData.bus || busDoc.id || 'N/A';
+        conductorData.busNumber = busNumber;
+        
+        console.log(`✅ Found bus number for conductor ${conductorId}: ${busNumber}`);
+      } else {
+        console.log(`⚠️ No bus number found for conductor ${conductorId}`);
+      }
+    } catch (busError) {
+      console.error(`Error fetching bus number for conductor ${conductorId}:`, busError);
+    }
+    
+    return conductorData;
+  } catch (error) {
+    console.error(`Error fetching conductor details for ${conductorId}:`, error);
+    return {
+      id: conductorId,
+      busNumber: 'N/A',
+      name: conductorId
+    };
+  }
+};
+
+// Function to get all conductor details
+export const getAllConductorDetails = async () => {
+  try {
+    const conductorsRef = collection(db, 'conductors');
+    const conductorsSnapshot = await getDocs(conductorsRef);
+    const conductorData = {};
+
+    for (const doc of conductorsSnapshot.docs) {
+      const details = await getConductorDetails(doc.id);
+      conductorData[doc.id] = details;
+    }
+
+    return conductorData;
+  } catch (error) {
+    console.error('Error fetching all conductor details:', error);
+    return {};
+  }
+};
+
 // UPDATED: Main function to load remittance data using dailyTrips as source
 export const loadRemittanceData = async (selectedDate) => {
   if (!selectedDate) {
@@ -409,6 +488,19 @@ export const formatTime = (timestamp) => {
     minute: '2-digit',
     hour12: true
   });
+};
+
+// Utility function to format ticket type
+export const formatTicketType = (ticketType, source) => {
+  const type = ticketType || source || '';
+  
+  if (type === 'preTicket' || type === 'pre-ticket' || type === 'pre-ticketing') {
+    return 'Pre-Ticket';
+  } else if (type === 'preBooking' || type === 'pre-booking' || type === 'pre-book') {
+    return 'Pre-Booking';
+  } else {
+    return 'Conductor Ticket';
+  }
 };
 
 // Function to validate remittance data integrity

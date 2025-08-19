@@ -22,7 +22,6 @@ import UserManagement from './pages/UserManagement/UserManagement.jsx';
 import DailyRevenue from './pages/reports/DailyRevenue/DailyRevenue.jsx';
 import RoutePerformance from './pages/reports/RoutePerformance/RoutePerformance.jsx';
 import ConductorPerformance from './pages/reports/ConductorPerformance/ConductorPerformance.jsx';
-import SummaryDashboard from './pages/reports/SummaryDashboard';
 
 // 💳 PayMongo components
 import PaymentPage from '/src/paymongo/PaymentPage/PaymentPage.jsx';
@@ -79,7 +78,6 @@ createRoot(document.getElementById('root')).render(
           <Route path="reports/daily-revenue" element={<PageTransitionWrapper><DailyRevenue /></PageTransitionWrapper>} />
           <Route path="reports/route-performance" element={<PageTransitionWrapper><RoutePerformance /></PageTransitionWrapper>} />
           <Route path="reports/conductor-performance" element={<PageTransitionWrapper><ConductorPerformance /></PageTransitionWrapper>} />
-          <Route path="reports/summary-dashboard" element={<PageTransitionWrapper><SummaryDashboard /></PageTransitionWrapper>} />
 
           <Route path="payments" element={<PageTransitionWrapper><PaymentTransactions /></PageTransitionWrapper>} />
           <Route path="settings" element={<PageTransitionWrapper><Settings /></PageTransitionWrapper>} />

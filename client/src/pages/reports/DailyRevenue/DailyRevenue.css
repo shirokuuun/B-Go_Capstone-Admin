@@ -968,41 +968,92 @@ html, body {
   border: 1px solid #dee2e6;
 }
 
-/* FIXED: Updated column widths for 6-column layout - Daily Revenue Detailed Breakdown */
-.revenue-revenue-table th:nth-child(1),
-.revenue-revenue-table td:nth-child(1) {
-  width: 12%; /* Trip ID */
+/* =========================
+   REMITTANCE TABLE COLUMN WIDTHS (7-column layout with Bus #)
+   ========================= */
+.revenue-remittance-breakdown-table th:nth-child(1),
+.revenue-remittance-breakdown-table td:nth-child(1) {
+  width: 15%; /* Conductor ID */
   min-width: 80px;
 }
 
-.revenue-revenue-table th:nth-child(2),
-.revenue-revenue-table td:nth-child(2) {
-  width: 20%; /* Date & Time */
-  min-width: 140px;
+.revenue-remittance-breakdown-table th:nth-child(2),
+.revenue-remittance-breakdown-table td:nth-child(2) {
+  width: 8%; /* Bus # */
+  min-width: 60px;
+  text-align: center;
 }
 
-.revenue-revenue-table th:nth-child(3),
-.revenue-revenue-table td:nth-child(3) {
-  width: 25%; /* Route */
-  min-width: 180px;
-}
-
-.revenue-revenue-table th:nth-child(4),
-.revenue-revenue-table td:nth-child(4) {
-  width: 23%; /* Trip Direction */
-  min-width: 160px;
-}
-
-.revenue-revenue-table th:nth-child(5),
-.revenue-revenue-table td:nth-child(5) {
-  width: 10%; /* Passengers */
+.revenue-remittance-breakdown-table th:nth-child(3),
+.revenue-remittance-breakdown-table td:nth-child(3) {
+  width: 10%; /* Trip # */
   min-width: 80px;
   text-align: center;
 }
 
-.revenue-revenue-table th:nth-child(6),
-.revenue-revenue-table td:nth-child(6) {
-  width: 10%; /* Fare */
+.revenue-remittance-breakdown-table th:nth-child(4),
+.revenue-remittance-breakdown-table td:nth-child(4) {
+  width: 20%; /* Date & Time */
+  min-width: 140px;
+}
+
+.revenue-remittance-breakdown-table th:nth-child(5),
+.revenue-remittance-breakdown-table td:nth-child(5) {
+  width: 25%; /* Trip Direction */
+  min-width: 160px;
+}
+
+.revenue-remittance-breakdown-table th:nth-child(6),
+.revenue-remittance-breakdown-table td:nth-child(6) {
+  width: 10%; /* Tickets */
+  min-width: 70px;
+  text-align: center;
+}
+
+.revenue-remittance-breakdown-table th:nth-child(7),
+.revenue-remittance-breakdown-table td:nth-child(7) {
+  width: 12%; /* Revenue */
+  min-width: 90px;
+  text-align: right;
+}
+
+/* =========================
+   DAILY REVENUE DETAILED BREAKDOWN TABLE COLUMN WIDTHS (6-column layout)
+   ========================= */
+.revenue-detailed-breakdown-table th:nth-child(1),
+.revenue-detailed-breakdown-table td:nth-child(1) {
+  width: 7%; /* Trip ID */
+  min-width: 30px;
+}
+
+.revenue-detailed-breakdown-table th:nth-child(2),
+.revenue-detailed-breakdown-table td:nth-child(2) {
+  width: 13%; /* Date & Time */
+  min-width: 140px;
+}
+
+.revenue-detailed-breakdown-table th:nth-child(3),
+.revenue-detailed-breakdown-table td:nth-child(3) {
+  width: 25%; /* Route */
+  min-width: 180px;
+}
+
+.revenue-detailed-breakdown-table th:nth-child(4),
+.revenue-detailed-breakdown-table td:nth-child(4) {
+  width: 15%; /* Trip Direction */
+  min-width: 160px;
+}
+
+.revenue-detailed-breakdown-table th:nth-child(5),
+.revenue-detailed-breakdown-table td:nth-child(5) {
+  width: 9%; /* Passengers */
+  min-width: 80px;
+  text-align: center;
+}
+
+.revenue-detailed-breakdown-table th:nth-child(6),
+.revenue-detailed-breakdown-table td:nth-child(6) {
+  width: 7%; /* Fare */
   min-width: 90px;
   text-align: right;
 }
@@ -1412,7 +1463,7 @@ html, body {
     font-size: 7pt !important;
   }
 
-  /* FIXED: Print column widths for 6-column layout */
+  /* UPDATED: Print column widths for 7-column layout - Remittance with Bus # */
   .revenue-daily-container .revenue-revenue-table th:nth-child(1),
   .revenue-daily-container .revenue-revenue-table td:nth-child(1) {
     width: 15% !important; /* Conductor ID */
@@ -1420,26 +1471,31 @@ html, body {
 
   .revenue-daily-container .revenue-revenue-table th:nth-child(2),
   .revenue-daily-container .revenue-revenue-table td:nth-child(2) {
-    width: 10% !important; /* Trip Number */
+    width: 8% !important; /* Bus # */
   }
 
   .revenue-daily-container .revenue-revenue-table th:nth-child(3),
   .revenue-daily-container .revenue-revenue-table td:nth-child(3) {
-    width: 25% !important; /* Date & Time */
+    width: 10% !important; /* Trip # */
   }
 
   .revenue-daily-container .revenue-revenue-table th:nth-child(4),
   .revenue-daily-container .revenue-revenue-table td:nth-child(4) {
-    width: 25% !important; /* Trip Direction */
+    width: 22% !important; /* Date & Time */
   }
 
   .revenue-daily-container .revenue-revenue-table th:nth-child(5),
   .revenue-daily-container .revenue-revenue-table td:nth-child(5) {
-    width: 10% !important; /* Tickets */
+    width: 25% !important; /* Trip Direction */
   }
 
   .revenue-daily-container .revenue-revenue-table th:nth-child(6),
   .revenue-daily-container .revenue-revenue-table td:nth-child(6) {
+    width: 10% !important; /* Tickets */
+  }
+
+  .revenue-daily-container .revenue-revenue-table th:nth-child(7),
+  .revenue-daily-container .revenue-revenue-table td:nth-child(7) {
     width: 10% !important; /* Revenue */
   }
 
