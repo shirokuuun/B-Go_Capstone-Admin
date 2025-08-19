@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import {
   getAvailableRemittanceDates,
   loadRemittanceData,
@@ -12,7 +13,7 @@ import {
 import './DailyRevenue.css';
 
 const RemittanceReport = () => {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState('');
   const [selectedTicketType, setSelectedTicketType] = useState('');
   const [selectedTripDirection, setSelectedTripDirection] = useState('');
   const [loading, setLoading] = useState(false);
@@ -38,10 +39,8 @@ const RemittanceReport = () => {
         const dates = await getAvailableRemittanceDates();
         setAvailableDates(dates);
         
-        // Set the most recent date as default if available and no date selected
-        if (dates.length > 0 && !selectedDate) {
-          setSelectedDate(dates[0]);
-        }
+        // Load remittance data for all dates on initial load
+        handleLoadRemittanceDataWithDates(dates, selectedDate);
       } catch (error) {
         console.error('Error loading available dates:', error);
       }
@@ -50,9 +49,11 @@ const RemittanceReport = () => {
     loadDates();
   }, []);
 
-  // Load remittance data when date changes
+  // Load remittance data when date changes (skip initial load)
   useEffect(() => {
-    handleLoadRemittanceData();
+    if (availableDates.length > 0) {
+      handleLoadRemittanceData();
+    }
   }, [selectedDate]);
 
   // Apply filters when filter values or data changes
@@ -108,20 +109,20 @@ const RemittanceReport = () => {
     setGroupedData(filteredGrouped);
   };
 
-  // Function to load remittance data
-  const handleLoadRemittanceData = async () => {
+  // Function to load remittance data with provided dates array
+  const handleLoadRemittanceDataWithDates = async (dates, selectedDateValue) => {
     setLoading(true);
     try {
-      console.log('🚀 Loading remittance data for date:', selectedDate || 'All dates');
+      console.log('🚀 Loading remittance data for date:', selectedDateValue || 'All dates');
       
       let data;
-      if (selectedDate) {
+      if (selectedDateValue) {
         // Load data for specific date
-        data = await loadRemittanceData(selectedDate);
+        data = await loadRemittanceData(selectedDateValue);
       } else {
         // Load data for all available dates
         const allData = [];
-        for (const date of availableDates) {
+        for (const date of dates) {
           const dateData = await loadRemittanceData(date);
           allData.push(...dateData);
         }
@@ -162,8 +163,426 @@ const RemittanceReport = () => {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  // Function to load remittance data
+  const handleLoadRemittanceData = async () => {
+    return handleLoadRemittanceDataWithDates(availableDates, selectedDate);
+  };
+
+  const handleExportToExcel = () => {
+    try {
+      // Create a new workbook
+      const workbook = XLSX.utils.book_new();
+
+      // Create summary data
+      const summaryData = [
+        ['B-Go Bus Transportation - Daily Trips Remittance Report'],
+        [''],
+        ['Report Date:', selectedDate ? formatDate(selectedDate) : 'All Dates'],
+        ['Trip Direction:', selectedTripDirection || 'All Directions'],
+        ['Ticket Type:', selectedTicketType || 'All Types'],
+        ['Generated:', new Date().toLocaleString()],
+        [''],
+        ['SUMMARY'],
+        ['Metric', 'Value'],
+        ['Total Trips', summary.totalTrips],
+        ['Total Revenue', `₱${summary.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+        ['Total Tickets', summary.totalPassengers],
+        ['Average Fare', `₱${summary.averageFare.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+        ['']
+      ];
+
+      // Create the summary worksheet
+      const summaryWS = XLSX.utils.aoa_to_sheet(summaryData);
+      
+      // Apply formatting to summary sheet
+      // Main title formatting
+      summaryWS['A1'] = { 
+        v: 'B-Go Bus Transportation - Daily Trips Remittance Report', 
+        t: 's',
+        s: {
+          font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
+          fill: { fgColor: { rgb: "007C91" } },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: {
+            top: { style: "thick", color: { rgb: "000000" } },
+            bottom: { style: "thick", color: { rgb: "000000" } },
+            left: { style: "thick", color: { rgb: "000000" } },
+            right: { style: "thick", color: { rgb: "000000" } }
+          }
+        }
+      };
+
+      // Summary headers formatting
+      summaryWS['A9'] = { 
+        v: 'Metric', 
+        t: 's',
+        s: {
+          font: { bold: true, sz: 12, color: { rgb: "FFFFFF" } },
+          fill: { fgColor: { rgb: "17A2B8" } },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: {
+            top: { style: "medium", color: { rgb: "000000" } },
+            bottom: { style: "medium", color: { rgb: "000000" } },
+            left: { style: "medium", color: { rgb: "000000" } },
+            right: { style: "medium", color: { rgb: "000000" } }
+          }
+        }
+      };
+
+      summaryWS['B9'] = { 
+        v: 'Value', 
+        t: 's',
+        s: {
+          font: { bold: true, sz: 12, color: { rgb: "FFFFFF" } },
+          fill: { fgColor: { rgb: "17A2B8" } },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: {
+            top: { style: "medium", color: { rgb: "000000" } },
+            bottom: { style: "medium", color: { rgb: "000000" } },
+            left: { style: "medium", color: { rgb: "000000" } },
+            right: { style: "medium", color: { rgb: "000000" } }
+          }
+        }
+      };
+
+      // Apply borders and formatting to data rows
+      for (let row = 10; row <= 13; row++) {
+        ['A', 'B'].forEach(col => {
+          const cellRef = col + row;
+          if (!summaryWS[cellRef]) summaryWS[cellRef] = { v: '', t: 's' };
+          summaryWS[cellRef].s = {
+            border: {
+              top: { style: "thin", color: { rgb: "000000" } },
+              bottom: { style: "thin", color: { rgb: "000000" } },
+              left: { style: "thin", color: { rgb: "000000" } },
+              right: { style: "thin", color: { rgb: "000000" } }
+            },
+            alignment: { horizontal: col === 'A' ? "left" : "right", vertical: "center" }
+          };
+        });
+      }
+
+      // Set column widths
+      summaryWS['!cols'] = [
+        { wch: 25 }, // Column A
+        { wch: 20 }  // Column B
+      ];
+
+      // Merge cells for title
+      summaryWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 1, r: 0 } }];
+
+      XLSX.utils.book_append_sheet(workbook, summaryWS, 'Summary');
+
+      // Create main remittance data
+      if (filteredRemittanceData.length > 0) {
+        const mainTableData = [
+          ['Daily Trips Remittance Summary'],
+          [''],
+          ['Conductor ID', 'Trip Number', 'Date & Time', 'Trip Direction', 'Tickets', 'Revenue']
+        ];
+
+        filteredRemittanceData.forEach(trip => {
+          const dateTime = (() => {
+            try {
+              const dateStr = trip.date ? formatDate(trip.date) : 'N/A';
+              const timeStr = trip.startTime ? formatTime(trip.startTime) : 'N/A';
+              return `${dateStr} ${timeStr}`;
+            } catch (error) {
+              return `${trip.date || 'N/A'} ${trip.startTime ? formatTime(trip.startTime) : 'N/A'}`;
+            }
+          })();
+
+          mainTableData.push([
+            trip.conductorId,
+            trip.tripNumber,
+            dateTime,
+            trip.tripDirection,
+            trip.ticketCount,
+            `₱${trip.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          ]);
+        });
+
+        // Add total row
+        const totalRevenue = filteredRemittanceData.reduce((sum, trip) => sum + trip.totalRevenue, 0);
+        mainTableData.push([
+          '', '', '', `TOTAL (${filteredRemittanceData.length} trips):`,
+          filteredRemittanceData.reduce((sum, trip) => sum + trip.ticketCount, 0),
+          `₱${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        ]);
+
+        const mainWS = XLSX.utils.aoa_to_sheet(mainTableData);
+
+        // Apply formatting to main report
+        // Title formatting
+        mainWS['A1'] = { 
+          v: 'Daily Trips Remittance Summary', 
+          t: 's',
+          s: {
+            font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
+            fill: { fgColor: { rgb: "007C91" } },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: {
+              top: { style: "thick", color: { rgb: "000000" } },
+              bottom: { style: "thick", color: { rgb: "000000" } },
+              left: { style: "thick", color: { rgb: "000000" } },
+              right: { style: "thick", color: { rgb: "000000" } }
+            }
+          }
+        };
+
+        // Header row formatting
+        const headerCols = ['A', 'B', 'C', 'D', 'E', 'F'];
+        headerCols.forEach(col => {
+          const cellRef = col + '3';
+          if (mainWS[cellRef]) {
+            mainWS[cellRef].s = {
+              font: { bold: true, sz: 12, color: { rgb: "FFFFFF" } },
+              fill: { fgColor: { rgb: "28A745" } },
+              alignment: { horizontal: "center", vertical: "center" },
+              border: {
+                top: { style: "medium", color: { rgb: "000000" } },
+                bottom: { style: "medium", color: { rgb: "000000" } },
+                left: { style: "medium", color: { rgb: "000000" } },
+                right: { style: "medium", color: { rgb: "000000" } }
+              }
+            };
+          }
+        });
+
+        // Data rows formatting
+        const dataStartRow = 4;
+        const dataEndRow = dataStartRow + filteredRemittanceData.length - 1;
+        for (let row = dataStartRow; row <= dataEndRow; row++) {
+          headerCols.forEach((col, index) => {
+            const cellRef = col + row;
+            if (!mainWS[cellRef]) mainWS[cellRef] = { v: '', t: 's' };
+            mainWS[cellRef].s = {
+              border: {
+                top: { style: "thin", color: { rgb: "000000" } },
+                bottom: { style: "thin", color: { rgb: "000000" } },
+                left: { style: "thin", color: { rgb: "000000" } },
+                right: { style: "thin", color: { rgb: "000000" } }
+              },
+              alignment: { 
+                horizontal: index === 4 || index === 5 ? "right" : "center", 
+                vertical: "center" 
+              }
+            };
+          });
+        }
+
+        // Total row formatting
+        const totalRow = dataEndRow + 1;
+        headerCols.forEach((col, index) => {
+          const cellRef = col + totalRow;
+          if (!mainWS[cellRef]) mainWS[cellRef] = { v: '', t: 's' };
+          mainWS[cellRef].s = {
+            font: { bold: true, sz: 11 },
+            fill: { fgColor: { rgb: "F8F9FA" } },
+            border: {
+              top: { style: "medium", color: { rgb: "000000" } },
+              bottom: { style: "medium", color: { rgb: "000000" } },
+              left: { style: "medium", color: { rgb: "000000" } },
+              right: { style: "medium", color: { rgb: "000000" } }
+            },
+            alignment: { 
+              horizontal: index === 4 || index === 5 ? "right" : "center", 
+              vertical: "center" 
+            }
+          };
+        });
+
+        // Set column widths
+        mainWS['!cols'] = [
+          { wch: 15 }, // Conductor ID
+          { wch: 12 }, // Trip Number
+          { wch: 20 }, // Date & Time
+          { wch: 25 }, // Trip Direction
+          { wch: 10 }, // Tickets
+          { wch: 15 }  // Revenue
+        ];
+
+        // Merge cells for title
+        mainWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 5, r: 0 } }];
+
+        XLSX.utils.book_append_sheet(workbook, mainWS, 'Main Report');
+      }
+
+      // Create detailed breakdown by conductor
+      if (Object.keys(groupedData).length > 0) {
+        Object.entries(groupedData).forEach(([conductorId, trips]) => {
+          const conductorSummary = trips.conductorSummary || {
+            totalTrips: trips.length,
+            totalRevenue: trips.reduce((sum, trip) => sum + trip.totalRevenue, 0),
+            totalPassengers: trips.reduce((sum, trip) => sum + trip.totalPassengers, 0)
+          };
+
+          const conductorData = [
+            [`Conductor: ${conductorId}`],
+            [`${conductorSummary.totalTrips} trips, ₱${conductorSummary.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}, ${conductorSummary.totalPassengers} tickets`],
+            [''],
+            ['Trip #', 'Date & Time', 'Direction', 'Ticket Type', 'Passengers', 'Revenue']
+          ];
+
+          trips.filter(trip => trip.conductorId).forEach(trip => {
+            const dateTime = (() => {
+              try {
+                const dateStr = trip.date ? formatDate(trip.date) : 'N/A';
+                const timeStr = trip.startTime ? formatTime(trip.startTime) : 'N/A';
+                return `${dateStr} ${timeStr}`;
+              } catch (error) {
+                return `${trip.date || 'N/A'} ${trip.startTime ? formatTime(trip.startTime) : 'N/A'}`;
+              }
+            })();
+
+            conductorData.push([
+              trip.tripNumber,
+              dateTime,
+              trip.tripDirection,
+              trip.ticketType || trip.source || 'N/A',
+              trip.totalPassengers || 0,
+              `₱${trip.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            ]);
+          });
+
+          // Add conductor total
+          conductorData.push([
+            '', '', '', `Conductor ${conductorId} Total:`,
+            conductorSummary.totalPassengers,
+            `₱${conductorSummary.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          ]);
+
+          const conductorWS = XLSX.utils.aoa_to_sheet(conductorData);
+
+          // Apply formatting to conductor sheet
+          // Title formatting
+          conductorWS['A1'] = { 
+            v: `Conductor: ${conductorId}`, 
+            t: 's',
+            s: {
+              font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
+              fill: { fgColor: { rgb: "6F42C1" } },
+              alignment: { horizontal: "center", vertical: "center" },
+              border: {
+                top: { style: "thick", color: { rgb: "000000" } },
+                bottom: { style: "thick", color: { rgb: "000000" } },
+                left: { style: "thick", color: { rgb: "000000" } },
+                right: { style: "thick", color: { rgb: "000000" } }
+              }
+            }
+          };
+
+          // Summary row formatting
+          if (conductorWS['A2']) {
+            conductorWS['A2'].s = {
+              font: { bold: true, sz: 11, color: { rgb: "495057" } },
+              fill: { fgColor: { rgb: "E9ECEF" } },
+              alignment: { horizontal: "center", vertical: "center" },
+              border: {
+                top: { style: "thin", color: { rgb: "000000" } },
+                bottom: { style: "thin", color: { rgb: "000000" } },
+                left: { style: "thin", color: { rgb: "000000" } },
+                right: { style: "thin", color: { rgb: "000000" } }
+              }
+            };
+          }
+
+          // Header row formatting
+          const conductorHeaderCols = ['A', 'B', 'C', 'D', 'E', 'F'];
+          conductorHeaderCols.forEach(col => {
+            const cellRef = col + '4';
+            if (conductorWS[cellRef]) {
+              conductorWS[cellRef].s = {
+                font: { bold: true, sz: 12, color: { rgb: "FFFFFF" } },
+                fill: { fgColor: { rgb: "FD7E14" } },
+                alignment: { horizontal: "center", vertical: "center" },
+                border: {
+                  top: { style: "medium", color: { rgb: "000000" } },
+                  bottom: { style: "medium", color: { rgb: "000000" } },
+                  left: { style: "medium", color: { rgb: "000000" } },
+                  right: { style: "medium", color: { rgb: "000000" } }
+                }
+              };
+            }
+          });
+
+          // Data rows formatting
+          const conductorDataStartRow = 5;
+          const conductorTrips = trips.filter(trip => trip.conductorId);
+          const conductorDataEndRow = conductorDataStartRow + conductorTrips.length - 1;
+          
+          for (let row = conductorDataStartRow; row <= conductorDataEndRow; row++) {
+            conductorHeaderCols.forEach((col, index) => {
+              const cellRef = col + row;
+              if (!conductorWS[cellRef]) conductorWS[cellRef] = { v: '', t: 's' };
+              conductorWS[cellRef].s = {
+                border: {
+                  top: { style: "thin", color: { rgb: "000000" } },
+                  bottom: { style: "thin", color: { rgb: "000000" } },
+                  left: { style: "thin", color: { rgb: "000000" } },
+                  right: { style: "thin", color: { rgb: "000000" } }
+                },
+                alignment: { 
+                  horizontal: index === 4 || index === 5 ? "right" : "center", 
+                  vertical: "center" 
+                }
+              };
+            });
+          }
+
+          // Total row formatting
+          const conductorTotalRow = conductorDataEndRow + 1;
+          conductorHeaderCols.forEach((col, index) => {
+            const cellRef = col + conductorTotalRow;
+            if (!conductorWS[cellRef]) conductorWS[cellRef] = { v: '', t: 's' };
+            conductorWS[cellRef].s = {
+              font: { bold: true, sz: 11 },
+              fill: { fgColor: { rgb: "E8F4F8" } },
+              border: {
+                top: { style: "medium", color: { rgb: "17A2B8" } },
+                bottom: { style: "medium", color: { rgb: "17A2B8" } },
+                left: { style: "medium", color: { rgb: "17A2B8" } },
+                right: { style: "medium", color: { rgb: "17A2B8" } }
+              },
+              alignment: { 
+                horizontal: index === 4 || index === 5 ? "right" : "center", 
+                vertical: "center" 
+              }
+            };
+          });
+
+          // Set column widths
+          conductorWS['!cols'] = [
+            { wch: 12 }, // Trip #
+            { wch: 20 }, // Date & Time
+            { wch: 25 }, // Direction
+            { wch: 15 }, // Ticket Type
+            { wch: 12 }, // Passengers
+            { wch: 15 }  // Revenue
+          ];
+
+          // Merge cells for title and summary
+          conductorWS['!merges'] = [
+            { s: { c: 0, r: 0 }, e: { c: 5, r: 0 } }, // Title
+            { s: { c: 0, r: 1 }, e: { c: 5, r: 1 } }  // Summary
+          ];
+
+          XLSX.utils.book_append_sheet(workbook, conductorWS, `Conductor ${conductorId}`);
+        });
+      }
+
+      // Generate filename
+      const dateStr = selectedDate ? formatDate(selectedDate) : 'All_Dates';
+      const filename = `Remittance_Report_${dateStr.replace(/\//g, '-')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+      // Save the file
+      XLSX.writeFile(workbook, filename);
+
+      console.log('Excel file exported successfully');
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      alert('Failed to export to Excel. Please try again.');
+    }
   };
 
   const handleDateChange = (e) => {
@@ -199,7 +618,7 @@ const RemittanceReport = () => {
   }
 
   return (
-    <div className="revenue-container">
+    <div className="revenue-container revenue-remittance-print-container">
       {/* Print Header */}
       <div className="revenue-print-header">
         <div className="revenue-company-info">
@@ -271,21 +690,34 @@ const RemittanceReport = () => {
           <div className="revenue-daily-summary-card-container">
             <div className="revenue-daily-header-pattern"></div>
             <div className="revenue-summary-cards">
-              <div className="revenue-summary-card">
-                <h3 className="revenue-card-title">Total Trips</h3>
-                <p className="revenue-card-value">{summary.totalTrips}</p>
-              </div>
-              <div className="revenue-summary-card">
+               <div className="revenue-summary-card">
                 <h3 className="revenue-card-title">Total Revenue</h3>
                 <p className="revenue-card-value">{formatCurrency(summary.totalRevenue)}</p>
               </div>
               <div className="revenue-summary-card">
-                <h3 className="revenue-card-title">Total Tickets</h3>
+                <h3 className="revenue-card-title">Total Trips</h3>
+                <p className="revenue-card-value">
+                  {(() => {
+                    // Count unique trips by combining conductorId and tripNumber
+                    const uniqueTrips = new Set();
+                    
+                    filteredRemittanceData.forEach(trip => {
+                      if (trip.conductorId && trip.tripNumber) {
+                        uniqueTrips.add(`${trip.conductorId}-${trip.tripNumber}`);
+                      }
+                    });
+                    
+                    return uniqueTrips.size;
+                  })()}
+                </p>
+              </div>
+              <div className="revenue-summary-card">
+                <h3 className="revenue-card-title">Total Passengers</h3>
                 <p className="revenue-card-value">{summary.totalPassengers}</p>
               </div>
               <div className="revenue-summary-card">
-                <h3 className="revenue-card-title">Average Fare</h3>
-                <p className="revenue-card-value">{formatCurrency(summary.averageFare)}</p>
+                <h3 className="revenue-card-title">Total Tickets</h3>
+                <p className="revenue-card-value">{summary.totalTickets}</p>
               </div>
             </div>
           </div>
@@ -300,11 +732,11 @@ const RemittanceReport = () => {
               {loading ? 'Loading...' : 'Refresh'}
             </button>
             <button
-              onClick={handlePrint}
-              className="revenue-print-btn"
+              onClick={handleExportToExcel}
+              className="revenue-export-btn"
               disabled={loading || filteredRemittanceData.length === 0}
             >
-              🖨️ Print Report
+              📊 Export to Excel
             </button>
           </div>
 
@@ -343,7 +775,6 @@ const RemittanceReport = () => {
                       <th>Trip Number</th>
                       <th>Date & Time</th>
                       <th>Trip Direction</th>
-                      <th>Ticket Type</th>
                       <th style={{ width: '40px', fontSize: '12px' }}>Tickets</th>
                       <th style={{ width: '70px', fontSize: '12px' }}>Revenue</th>
                     </tr>
@@ -367,14 +798,13 @@ const RemittanceReport = () => {
                           })()}
                         </td>
                         <td className="revenue-trip-direction">{trip.tripDirection}</td>
-                        <td>{trip.ticketType || trip.source || 'N/A'}</td>
                         <td style={{ textAlign: 'center', width: '40px', fontSize: '12px', padding: '8px 4px' }}>{trip.ticketCount}</td>
                         <td className="revenue-fare-amount" style={{ width: '70px', fontSize: '12px', padding: '8px 4px' }}>{formatCurrency(trip.totalRevenue)}</td>
                       </tr>
                     ))}
                     {/* Total Row */}
                     <tr style={{ backgroundColor: '#f8f9fa', fontWeight: 'bold', borderTop: '2px solid #dee2e6' }}>
-                      <td colSpan="5" style={{ textAlign: 'right', padding: '12px', fontSize: '14px' }}>
+                      <td colSpan="4" style={{ textAlign: 'right', padding: '12px', fontSize: '14px' }}>
                         <strong>TOTAL ({filteredRemittanceData.length} trips):</strong>
                       </td>
                       <td style={{ textAlign: 'center', width: '40px', fontSize: '12px', padding: '12px 4px' }}>
@@ -434,7 +864,7 @@ const RemittanceReport = () => {
                             <th>Date & Time</th>
                             <th>Direction</th>
                             <th>Ticket Type</th>
-                            <th style={{ width: '100px' }}>Passengers</th>
+                            <th style={{ width: '120px' }}>Passengers</th>
                             <th style={{ width: '100px' }}>Revenue</th>
                           </tr>
                         </thead>
@@ -463,7 +893,7 @@ const RemittanceReport = () => {
                               <td>
                                 {trip.ticketType || trip.source || 'N/A'}
                               </td>
-                              <td style={{ textAlign: 'center', width: '100px' }}>
+                              <td style={{ textAlign: 'center', width: '120px' }}>
                                 {trip.totalPassengers || 0}
                               </td>
                               <td className="revenue-fare-amount" style={{ width: '100px' }}>
@@ -476,7 +906,7 @@ const RemittanceReport = () => {
                             <td colSpan="4" style={{ textAlign: 'right', padding: '12px', fontSize: '14px' }}>
                               <strong>Conductor {conductorId} Total:</strong>
                             </td>
-                            <td style={{ textAlign: 'center', width: '100px', padding: '12px' }}>
+                            <td style={{ textAlign: 'center', width: '120px', padding: '12px' }}>
                               <strong>{conductorSummary.totalPassengers}</strong>
                             </td>
                             <td className="revenue-fare-amount" style={{ width: '100px', padding: '12px' }}>

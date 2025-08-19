@@ -302,19 +302,28 @@ export const loadRemittanceData = async (selectedDate) => {
 
 // Function to calculate remittance summary
 export const calculateRemittanceSummary = (remittanceData) => {
-  const summary = remittanceData.reduce((acc, trip) => ({
-    totalTrips: acc.totalTrips + 1,
-    totalRevenue: acc.totalRevenue + trip.totalRevenue,
-    totalPassengers: acc.totalPassengers + trip.totalPassengers,
-    totalTickets: acc.totalTickets + trip.ticketCount
-  }), { 
-    totalTrips: 0, 
+  // Count unique trips by combining conductorId and tripNumber (same logic as Daily Revenue)
+  const uniqueTrips = new Set();
+  
+  const summary = remittanceData.reduce((acc, trip) => {
+    // Add to unique trips set
+    if (trip.conductorId && trip.tripNumber) {
+      uniqueTrips.add(`${trip.conductorId}-${trip.tripNumber}`);
+    }
+    
+    return {
+      totalRevenue: acc.totalRevenue + trip.totalRevenue,
+      totalPassengers: acc.totalPassengers + trip.totalPassengers,
+      totalTickets: acc.totalTickets + trip.ticketCount
+    };
+  }, { 
     totalRevenue: 0, 
     totalPassengers: 0, 
-    totalTickets: 0,
-    averageFare: 0 
+    totalTickets: 0
   });
 
+  // Set totalTrips to the count of unique trips
+  summary.totalTrips = uniqueTrips.size;
   summary.averageFare = summary.totalPassengers > 0 ? summary.totalRevenue / summary.totalPassengers : 0;
   
   console.log('📊 Remittance summary calculated:', summary);

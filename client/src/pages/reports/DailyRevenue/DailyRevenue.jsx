@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, BarChart, Bar, ResponsiveContainer } from 'recharts';
 import { 
   loadRevenueData, 
@@ -22,7 +23,7 @@ import RemittanceReport from './Remittance.jsx';
 const Revenue = () => {
   const [currentView, setCurrentView] = useState('');
   const [isMenuExpanded, setIsMenuExpanded] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState('');
   const [selectedTicketType, setSelectedTicketType] = useState('');
   const [selectedRoute, setSelectedRoute] = useState('');
   const [loading, setLoading] = useState(false);
@@ -51,11 +52,45 @@ const Revenue = () => {
     preTicketingRevenue: 0
   });
 
-  // Load revenue data for summary cards (always load) and detailed view
-  const handleLoadRevenueData = async () => {
+  // Function to load revenue data with provided dates array
+  const handleLoadRevenueDataWithDates = async (dates, selectedDateValue) => {
     setLoading(true);
     try {
-      const data = await loadRevenueData(selectedDate, selectedRoute);
+      let data;
+      if (selectedDateValue) {
+        // Load data for specific date
+        data = await loadRevenueData(selectedDateValue, selectedRoute);
+      } else {
+        // Load data for all available dates
+        const allData = {
+          conductorTrips: [],
+          preBookingTrips: [],
+          preTicketing: [],
+          totalRevenue: 0,
+          totalPassengers: 0,
+          averageFare: 0,
+          conductorRevenue: 0,
+          preBookingRevenue: 0,
+          preTicketingRevenue: 0
+        };
+        
+        for (const date of dates) {
+          const dateData = await loadRevenueData(date, selectedRoute);
+          allData.conductorTrips.push(...(dateData.conductorTrips || []));
+          allData.preBookingTrips.push(...(dateData.preBookingTrips || []));
+          allData.preTicketing.push(...(dateData.preTicketing || []));
+          allData.totalRevenue += dateData.totalRevenue || 0;
+          allData.totalPassengers += dateData.totalPassengers || 0;
+          allData.conductorRevenue += dateData.conductorRevenue || 0;
+          allData.preBookingRevenue += dateData.preBookingRevenue || 0;
+          allData.preTicketingRevenue += dateData.preTicketingRevenue || 0;
+        }
+        
+        // Recalculate average fare
+        allData.averageFare = allData.totalPassengers > 0 ? allData.totalRevenue / allData.totalPassengers : 0;
+        
+        data = allData;
+      }
       
       // Apply ticket type filtering
       const filteredData = applyTicketTypeFilter(data, selectedTicketType);
@@ -65,6 +100,11 @@ const Revenue = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Load revenue data for summary cards (always load) and detailed view
+  const handleLoadRevenueData = async () => {
+    return handleLoadRevenueDataWithDates(availableDates, selectedDate);
   };
 
   //Monthly Revenue Data load
@@ -141,9 +181,10 @@ const Revenue = () => {
     try {
       const dates = await getAvailableDates();
       setAvailableDates(dates);
-      // Set the most recent date as default if available
-      if (dates.length > 0 && !selectedDate) {
-        setSelectedDate(dates[0]);
+      
+      // Load revenue data for all dates on initial load (when selectedDate is empty)
+      if (dates.length > 0) {
+        await handleLoadRevenueDataWithDates(dates, selectedDate);
       }
     } catch (error) {
       console.error('Error loading available dates:', error);
@@ -166,19 +207,11 @@ const Revenue = () => {
   }, []);
 
   useEffect(() => {
-    handleLoadRevenueData();
+    if (availableDates.length > 0) {
+      handleLoadRevenueData();
+    }
   }, [selectedDate, selectedTicketType, selectedRoute]);
 
-  // Enhanced print functionality for daily revenue
-  const handlePrint = async () => {
-    if (loading || revenueData.totalRevenue === 0) {
-      await handleLoadRevenueData();
-    }
-    
-    setTimeout(() => {
-      window.print();
-    }, 100);
-  };
 
   const toggleMenu = () => {
     setIsMenuExpanded(!isMenuExpanded);
@@ -208,34 +241,238 @@ const Revenue = () => {
     });
   };
 
+  // Excel export function
+  const handleExportToExcel = () => {
+    try {
+      // Create a new workbook
+      const workbook = XLSX.utils.book_new();
+
+      // Calculate unique trips count
+      const uniqueTrips = new Set();
+      revenueData.conductorTrips?.forEach(trip => {
+        if (trip.conductorId && trip.tripId) {
+          uniqueTrips.add(`${trip.conductorId}-${trip.tripId}`);
+        }
+      });
+      revenueData.preBookingTrips?.forEach(trip => {
+        if (trip.conductorId && trip.tripId) {
+          uniqueTrips.add(`${trip.conductorId}-${trip.tripId}`);
+        }
+      });
+      revenueData.preTicketing?.forEach(trip => {
+        if (trip.conductorId && trip.tripId) {
+          uniqueTrips.add(`${trip.conductorId}-${trip.tripId}`);
+        }
+      });
+
+      // Create summary data
+      const summaryData = [
+        ['B-Go Bus Transportation - Daily Revenue Report'],
+        [''],
+        ['Report Date:', selectedDate ? formatDate(selectedDate) : 'All Dates'],
+        ['Route Filter:', selectedRoute || 'All Routes'],
+        ['Ticket Type Filter:', selectedTicketType || 'All Types'],
+        ['Generated:', new Date().toLocaleString()],
+        [''],
+        ['SUMMARY'],
+        ['Metric', 'Value'],
+        ['Total Revenue', `₱${revenueData.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+        ['Total Trips', uniqueTrips.size],
+        ['Total Passengers', revenueData.totalPassengers],
+        ['Total Tickets', (revenueData.conductorTrips?.length || 0) + (revenueData.preBookingTrips?.length || 0) + (revenueData.preTicketing?.length || 0)],
+        ['Average Fare', `₱${revenueData.averageFare.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+        ['Conductor Revenue', `₱${revenueData.conductorRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+        ['Pre-booking Revenue', `₱${revenueData.preBookingRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+        ['Pre-ticketing Revenue', `₱${revenueData.preTicketingRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+        ['']
+      ];
+
+      // Create the summary worksheet with formatting
+      const summaryWS = XLSX.utils.aoa_to_sheet(summaryData);
+      
+      // Apply basic formatting to summary sheet
+      summaryWS['A1'] = { 
+        v: 'B-Go Bus Transportation - Daily Revenue Report', 
+        t: 's'
+      };
+
+      // Set column widths
+      summaryWS['!cols'] = [
+        { wch: 25 }, // Column A
+        { wch: 25 }  // Column B
+      ];
+
+      // Merge cells for title
+      summaryWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 1, r: 0 } }];
+
+      XLSX.utils.book_append_sheet(workbook, summaryWS, 'Summary');
+
+      // Create conductor trips sheet
+      if (revenueData.conductorTrips && revenueData.conductorTrips.length > 0) {
+        const conductorData = [
+          ['Conductor Trips - Detailed Breakdown'],
+          [''],
+          ['Trip ID', 'Date & Time', 'Route', 'Trip Direction', 'Passengers', 'Revenue']
+        ];
+
+        revenueData.conductorTrips.forEach(trip => {
+          const dateTime = (() => {
+            try {
+              const dateStr = trip.date ? new Date(trip.date).toLocaleDateString() : new Date().toLocaleDateString();
+              const timeStr = trip.timestamp ? formatTime(trip.timestamp) : 'N/A';
+              return `${dateStr} ${timeStr}`;
+            } catch (error) {
+              return `${trip.date || 'N/A'} ${formatTime(trip.timestamp)}`;
+            }
+          })();
+
+          conductorData.push([
+            trip.tripId || 'N/A',
+            dateTime,
+            `${trip.from} → ${trip.to}`,
+            trip.tripDirection || 'N/A',
+            trip.quantity,
+            `₱${trip.totalFare.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          ]);
+        });
+
+        // Add total row
+        conductorData.push([
+          '', '', '', `Conductor Total (${revenueData.conductorTrips.length} tickets):`,
+          revenueData.conductorTrips.reduce((sum, trip) => sum + (trip.quantity || 0), 0),
+          `₱${revenueData.conductorRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        ]);
+
+        const conductorWS = XLSX.utils.aoa_to_sheet(conductorData);
+
+        // Set column widths
+        conductorWS['!cols'] = [
+          { wch: 12 }, // Trip ID
+          { wch: 20 }, // Date & Time
+          { wch: 25 }, // Route
+          { wch: 25 }, // Trip Direction
+          { wch: 12 }, // Passengers
+          { wch: 15 }  // Revenue
+        ];
+
+        // Merge title
+        conductorWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 5, r: 0 } }];
+
+        XLSX.utils.book_append_sheet(workbook, conductorWS, 'Conductor Trips');
+      }
+
+      // Create pre-booking sheet
+      if (revenueData.preBookingTrips && revenueData.preBookingTrips.length > 0) {
+        const preBookingData = [
+          ['Pre-booking - Detailed Breakdown'],
+          [''],
+          ['Trip ID', 'Date & Time', 'Route', 'Trip Direction', 'Passengers', 'Revenue']
+        ];
+
+        revenueData.preBookingTrips.forEach(trip => {
+          const dateTime = (() => {
+            try {
+              const dateStr = trip.date ? new Date(trip.date).toLocaleDateString() : new Date().toLocaleDateString();
+              const timeStr = trip.timestamp ? formatTime(trip.timestamp) : 'N/A';
+              return `${dateStr} ${timeStr}`;
+            } catch (error) {
+              return `${trip.date || 'N/A'} ${formatTime(trip.timestamp)}`;
+            }
+          })();
+
+          preBookingData.push([
+            trip.tripId || 'N/A',
+            dateTime,
+            `${trip.from} → ${trip.to}`,
+            trip.tripDirection || 'N/A',
+            trip.quantity,
+            `₱${trip.totalFare.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          ]);
+        });
+
+        // Add total row
+        preBookingData.push([
+          '', '', '', `Pre-booking Total (${revenueData.preBookingTrips.length} tickets):`,
+          revenueData.preBookingTrips.reduce((sum, trip) => sum + (trip.quantity || 0), 0),
+          `₱${revenueData.preBookingRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        ]);
+
+        const preBookingWS = XLSX.utils.aoa_to_sheet(preBookingData);
+
+        preBookingWS['!cols'] = [
+          { wch: 12 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 12 }, { wch: 15 }
+        ];
+
+        preBookingWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 5, r: 0 } }];
+
+        XLSX.utils.book_append_sheet(workbook, preBookingWS, 'Pre-booking');
+      }
+
+      // Create pre-ticketing sheet
+      if (revenueData.preTicketing && revenueData.preTicketing.length > 0) {
+        const preTicketingData = [
+          ['Pre-ticketing - Detailed Breakdown'],
+          [''],
+          ['Trip ID', 'Date & Time', 'Route', 'Trip Direction', 'Passengers', 'Revenue']
+        ];
+
+        revenueData.preTicketing.forEach(trip => {
+          const dateTime = (() => {
+            try {
+              const dateStr = trip.date ? new Date(trip.date).toLocaleDateString() : new Date().toLocaleDateString();
+              const timeStr = trip.timestamp ? formatTime(trip.timestamp) : 'N/A';
+              return `${dateStr} ${timeStr}`;
+            } catch (error) {
+              return `${trip.date || 'N/A'} ${formatTime(trip.timestamp)}`;
+            }
+          })();
+
+          preTicketingData.push([
+            trip.tripId || 'N/A',
+            dateTime,
+            `${trip.from} → ${trip.to}`,
+            trip.tripDirection || 'N/A',
+            trip.quantity,
+            `₱${trip.totalFare.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          ]);
+        });
+
+        // Add total row
+        preTicketingData.push([
+          '', '', '', `Pre-ticketing Total (${revenueData.preTicketing.length} tickets):`,
+          revenueData.preTicketing.reduce((sum, trip) => sum + (trip.quantity || 0), 0),
+          `₱${revenueData.preTicketingRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        ]);
+
+        const preTicketingWS = XLSX.utils.aoa_to_sheet(preTicketingData);
+
+        preTicketingWS['!cols'] = [
+          { wch: 12 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 12 }, { wch: 15 }
+        ];
+
+        preTicketingWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 5, r: 0 } }];
+
+        XLSX.utils.book_append_sheet(workbook, preTicketingWS, 'Pre-ticketing');
+      }
+
+      // Generate filename
+      const dateStr = selectedDate ? formatDate(selectedDate) : 'All_Dates';
+      const filename = `Daily_Revenue_Report_${dateStr.replace(/\s+/g, '_').replace(/,/g, '')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+      // Save the file
+      XLSX.writeFile(workbook, filename);
+
+      console.log('Excel file exported successfully');
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      alert('Failed to export to Excel. Please try again.');
+    }
+  };
+
   // Prepare chart data for daily revenue
   const pieChartData = preparePieChartData(revenueData.conductorRevenue, revenueData.preBookingRevenue, revenueData.preTicketingRevenue);
   const routeChartData = prepareRouteRevenueData(revenueData.conductorTrips, revenueData.preBookingTrips, revenueData.preTicketing);
 
-  // Prepare data for summary tables
-  const revenueBreakdownData = [
-    {
-      source: 'Conductor Trips',
-      amount: revenueData.conductorRevenue,
-      trips: revenueData.conductorTrips.length
-    },
-    {
-      source: 'Pre-booking',
-      amount: revenueData.preBookingRevenue,
-      trips: revenueData.preBookingTrips?.length || 0
-    },
-    {
-      source: 'Pre-ticketing',
-      amount: revenueData.preTicketingRevenue,
-      trips: revenueData.preTicketing.length
-    }
-  ].filter(item => !selectedTicketType || 
-    (selectedTicketType === 'conductor' && item.source === 'Conductor Trips') ||
-    (selectedTicketType === 'pre-book' && item.source === 'Pre-booking') ||
-    (selectedTicketType === 'pre-ticket' && item.source === 'Pre-ticketing')
-  );
-
-  const topRoutesData = routeChartData.slice(0, 5);
 
   const renderViewContent = () => {
     switch(currentView) {
@@ -282,7 +519,6 @@ const Revenue = () => {
         availableMonths={availableMonths}
         availableRoutes={availableRoutes}
         formatCurrency={formatCurrency}
-        handlePrint={handlePrint}
         onMonthChange={handleMonthChange}
         onRouteChange={handleMonthlyRouteChange}
         onTicketTypeChange={handleMonthlyTicketTypeChange}
@@ -308,18 +544,6 @@ const Revenue = () => {
 
     return (
       <div className="revenue-daily-container">
-        {/* Print Header - Only visible when printing */}
-        <div className="revenue-print-header">
-          <div className="revenue-company-info">
-            <h1>B-Go Bus Transportation</h1>
-            <p>Daily Revenue Report</p>
-          </div>
-          <div className="revenue-report-info">
-            <p><strong>Report Date:</strong> {formatDate(selectedDate)}</p>
-            {selectedRoute && <p><strong>Trip Direction:</strong> {selectedRoute}</p>}
-            <p><strong>Generated:</strong> {new Date().toLocaleString()}</p>
-          </div>
-        </div>
 
         {/* Summary Cards */}
         <div className="revenue-daily-summary-card-container">
@@ -332,21 +556,61 @@ const Revenue = () => {
               </p>
             </div>
             <div className="revenue-summary-card">
+              <h3 className="revenue-card-title">Total Trips</h3>
+              <p className="revenue-card-value revenue-card-trips">
+                {(() => {
+                  // Count unique trips by combining conductorId and tripId
+                  const uniqueTrips = new Set();
+                  
+                  // Add trips from conductor trips
+                  revenueData.conductorTrips?.forEach(trip => {
+                    if (trip.conductorId && trip.tripId) {
+                      uniqueTrips.add(`${trip.conductorId}-${trip.tripId}`);
+                    }
+                  });
+                  
+                  // Add trips from pre-booking trips
+                  revenueData.preBookingTrips?.forEach(trip => {
+                    if (trip.conductorId && trip.tripId) {
+                      uniqueTrips.add(`${trip.conductorId}-${trip.tripId}`);
+                    }
+                  });
+                  
+                  // Add trips from pre-ticketing
+                  revenueData.preTicketing?.forEach(trip => {
+                    if (trip.conductorId && trip.tripId) {
+                      uniqueTrips.add(`${trip.conductorId}-${trip.tripId}`);
+                    }
+                  });
+                  
+                  return uniqueTrips.size;
+                })()}
+              </p>
+            </div>
+            <div className="revenue-summary-card">
               <h3 className="revenue-card-title">Total Passengers</h3>
               <p className="revenue-card-value revenue-card-passengers">
                 {revenueData.totalPassengers}
               </p>
             </div>
             <div className="revenue-summary-card">
-              <h3 className="revenue-card-title">Average Fare</h3>
-              <p className="revenue-card-value revenue-card-average">
-                {formatCurrency(revenueData.averageFare)}
-              </p>
-            </div>
-            <div className="revenue-summary-card">
-              <h3 className="revenue-card-title">Total Trips</h3>
-              <p className="revenue-card-value revenue-card-trips">
-                {revenueData.conductorTrips.length + (revenueData.preBookingTrips?.length || 0) + revenueData.preTicketing.length}
+              <h3 className="revenue-card-title">Total Tickets</h3>
+              <p className="revenue-card-value revenue-card-tickets">
+                {(() => {
+                  // Count total tickets from all trip types
+                  let totalTickets = 0;
+                  
+                  // Count tickets from conductor trips
+                  totalTickets += revenueData.conductorTrips?.length || 0;
+                  
+                  // Count tickets from pre-booking trips  
+                  totalTickets += revenueData.preBookingTrips?.length || 0;
+                  
+                  // Count tickets from pre-ticketing
+                  totalTickets += revenueData.preTicketing?.length || 0;
+                  
+                  return totalTickets;
+                })()}
               </p>
             </div>
           </div>
@@ -362,77 +626,18 @@ const Revenue = () => {
             {loading ? 'Loading...' : 'Refresh'}
           </button>
           <button
-            onClick={handlePrint}
-            className="revenue-print-btn"
-            disabled={loading}
+            onClick={handleExportToExcel}
+            className="revenue-export-btn"
+            disabled={loading || revenueData.totalRevenue === 0}
           >
-            🖨️ Print Report
+            📊 Export to Excel
           </button>
         </div>
 
-        {/* Summary Tables Section - Only visible when printing daily revenue */}
-        <div className="revenue-summary-tables-section revenue-daily-print-only revenue-daily-print-tables">
-          {/* Revenue Breakdown Summary Table */}
-          <div className="revenue-summary-table-container">
-            <h3 className="revenue-summary-table-title">Revenue Breakdown Summary</h3>
-            <table className="revenue-summary-table">
-              <thead>
-                <tr>
-                  <th>Source</th>
-                  <th>Trips</th>
-                  <th>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {revenueBreakdownData.map((item, index) => (
-                  <tr key={index}>
-                    <td>{item.source}</td>
-                    <td className="revenue-count">{item.trips}</td>
-                    <td className="revenue-amount">{formatCurrency(item.amount)}</td>
-                  </tr>
-                ))}
-                <tr style={{ borderTop: '2px solid #dee2e6', fontWeight: 'bold' }}>
-                  <td><strong>Total</strong></td>
-                  <td className="revenue-count">
-                    <strong>
-                      {revenueBreakdownData.reduce((sum, item) => sum + item.trips, 0)}
-                    </strong>
-                  </td>
-                  <td className="revenue-amount">
-                    <strong>{formatCurrency(revenueData.totalRevenue)}</strong>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* Top 5 Routes Table */}
-          <div className="revenue-summary-table-container">
-            <h3 className="revenue-summary-table-title">Top 5 Routes by Revenue</h3>
-            <table className="revenue-summary-table">
-              <thead>
-                <tr>
-                  <th>Route</th>
-                  <th>Passengers</th>
-                  <th>Revenue</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topRoutesData.map((route, index) => (
-                  <tr key={index}>
-                    <td>{route.route}</td>
-                    <td className="revenue-count">{route.passengers}</td>
-                    <td className="revenue-amount">{formatCurrency(route.revenue)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
 
 
 
-        {/* Charts Section - Hidden when printing */}
+        {/* Charts Section */}
         <div className="revenue-charts-section">
           {/* Revenue Source Breakdown */}
           <div className="revenue-chart-container">
@@ -489,11 +694,11 @@ const Revenue = () => {
                     <thead>
                       <tr>
                         <th>Trip ID</th>
+                        <th>Date & Time</th>
                         <th>Route</th>
                         <th>Trip Direction</th>
                         <th>Passengers</th>
                         <th>Fare</th>
-                        <th>Time</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -501,6 +706,17 @@ const Revenue = () => {
                         <tr key={index}>
                           <td className="revenue-trip-id">
                             {trip.tripId || 'N/A'}
+                          </td>
+                          <td>
+                            {(() => {
+                              try {
+                                const dateStr = trip.date ? new Date(trip.date).toLocaleDateString() : new Date().toLocaleDateString();
+                                const timeStr = trip.timestamp ? formatTime(trip.timestamp) : 'N/A';
+                                return `${dateStr} ${timeStr}`;
+                              } catch (error) {
+                                return `${trip.date || 'N/A'} ${formatTime(trip.timestamp)}`;
+                              }
+                            })()}
                           </td>
                           <td className="revenue-route-text">
                             {trip.from} → {trip.to}
@@ -510,9 +726,20 @@ const Revenue = () => {
                           </td>
                           <td>{trip.quantity}</td>
                           <td className="revenue-fare-amount">{formatCurrency(trip.totalFare)}</td>
-                          <td>{formatTime(trip.timestamp)}</td>
                         </tr>
                       ))}
+                      {/* Conductor Total Row */}
+                      <tr style={{ backgroundColor: '#f8f9fa', fontWeight: 'bold', borderTop: '2px solid #dee2e6' }}>
+                        <td colSpan="4" style={{ textAlign: 'right', padding: '12px', fontSize: '14px' }}>
+                          <strong>Conductor Total ({revenueData.conductorTrips.length} tickets):</strong>
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '12px' }}>
+                          <strong>{revenueData.conductorTrips.reduce((sum, trip) => sum + (trip.quantity || 0), 0)}</strong>
+                        </td>
+                        <td className="revenue-fare-amount" style={{ padding: '12px', color: '#28a745', fontWeight: 'bold' }}>
+                          <strong>{formatCurrency(revenueData.conductorRevenue || 0)}</strong>
+                        </td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
@@ -537,11 +764,11 @@ const Revenue = () => {
                     <thead>
                       <tr>
                         <th>Trip ID</th>
+                        <th>Date & Time</th>
                         <th>Route</th>
                         <th>Trip Direction</th>
                         <th>Passengers</th>
                         <th>Fare</th>
-                        <th>Time</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -549,6 +776,17 @@ const Revenue = () => {
                         <tr key={index}>
                           <td className="revenue-trip-id">
                             {trip.tripId || 'N/A'}
+                          </td>
+                          <td>
+                            {(() => {
+                              try {
+                                const dateStr = trip.date ? new Date(trip.date).toLocaleDateString() : new Date().toLocaleDateString();
+                                const timeStr = trip.timestamp ? formatTime(trip.timestamp) : 'N/A';
+                                return `${dateStr} ${timeStr}`;
+                              } catch (error) {
+                                return `${trip.date || 'N/A'} ${formatTime(trip.timestamp)}`;
+                              }
+                            })()}
                           </td>
                           <td className="revenue-route-text">
                             {trip.from} → {trip.to}
@@ -558,9 +796,20 @@ const Revenue = () => {
                           </td>
                           <td>{trip.quantity}</td>
                           <td className="revenue-fare-amount">{formatCurrency(trip.totalFare)}</td>
-                          <td>{formatTime(trip.timestamp)}</td>
                         </tr>
                       ))}
+                      {/* Pre-booking Total Row */}
+                      <tr style={{ backgroundColor: '#f8f9fa', fontWeight: 'bold', borderTop: '2px solid #dee2e6' }}>
+                        <td colSpan="4" style={{ textAlign: 'right', padding: '12px', fontSize: '14px' }}>
+                          <strong>Pre-booking Total ({revenueData.preBookingTrips?.length || 0} tickets):</strong>
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '12px' }}>
+                          <strong>{revenueData.preBookingTrips?.reduce((sum, trip) => sum + (trip.quantity || 0), 0) || 0}</strong>
+                        </td>
+                        <td className="revenue-fare-amount" style={{ padding: '12px', color: '#28a745', fontWeight: 'bold' }}>
+                          <strong>{formatCurrency(revenueData.preBookingRevenue || 0)}</strong>
+                        </td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
@@ -585,11 +834,11 @@ const Revenue = () => {
                     <thead>
                       <tr>
                         <th>Trip ID</th>
+                        <th>Date & Time</th>
                         <th>Route</th>
                         <th>Trip Direction</th>
                         <th>Passengers</th>
                         <th>Fare</th>
-                        <th>Time</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -597,6 +846,17 @@ const Revenue = () => {
                         <tr key={index}>
                           <td className="revenue-trip-id">
                             {trip.tripId || 'N/A'}
+                          </td>
+                          <td>
+                            {(() => {
+                              try {
+                                const dateStr = trip.date ? new Date(trip.date).toLocaleDateString() : new Date().toLocaleDateString();
+                                const timeStr = trip.timestamp ? formatTime(trip.timestamp) : 'N/A';
+                                return `${dateStr} ${timeStr}`;
+                              } catch (error) {
+                                return `${trip.date || 'N/A'} ${formatTime(trip.timestamp)}`;
+                              }
+                            })()}
                           </td>
                           <td className="revenue-route-text">
                             {trip.from} → {trip.to}
@@ -606,9 +866,20 @@ const Revenue = () => {
                           </td>
                           <td>{trip.quantity}</td>
                           <td className="revenue-fare-amount">{formatCurrency(trip.totalFare)}</td>
-                          <td>{formatTime(trip.timestamp)}</td>
                         </tr>
                       ))}
+                      {/* Pre-ticketing Total Row */}
+                      <tr style={{ backgroundColor: '#f8f9fa', fontWeight: 'bold', borderTop: '2px solid #dee2e6' }}>
+                        <td colSpan="4" style={{ textAlign: 'right', padding: '12px', fontSize: '14px' }}>
+                          <strong>Pre-ticketing Total ({revenueData.preTicketing.length} tickets):</strong>
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '12px' }}>
+                          <strong>{revenueData.preTicketing.reduce((sum, trip) => sum + (trip.quantity || 0), 0)}</strong>
+                        </td>
+                        <td className="revenue-fare-amount" style={{ padding: '12px', color: '#28a745', fontWeight: 'bold' }}>
+                          <strong>{formatCurrency(revenueData.preTicketingRevenue || 0)}</strong>
+                        </td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
@@ -622,15 +893,6 @@ const Revenue = () => {
           )}
         </div>
 
-        {/* Print Footer */}
-        <div className="revenue-print-footer">
-          <div className="revenue-footer-left">
-            <p>This report was generated automatically by the B-Go Bus Transportation System</p>
-          </div>
-          <div className="revenue-footer-right">
-            <p>Page 1 of 1</p>
-          </div>
-        </div>
       </div>
     );
   };
@@ -680,7 +942,7 @@ const Revenue = () => {
             onChange={(e) => setSelectedDate(e.target.value)}
             className="revenue-filter-select"
           >
-            <option value="">Select a date...</option>
+            <option value="">All Dates</option>
             {availableDates.map((date) => (
               <option key={date} value={date}>
                 {new Date(date).toLocaleDateString('en-US', { 
