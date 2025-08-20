@@ -107,11 +107,6 @@ export const getAvailableRoutes = async () => {
     const conductorsSnapshot = await getDocs(conductorsRef);
     const availableRoutes = new Set();
 
-    // Define trip directions to exclude
-    const excludedDirections = [
-      'Lipa Palengke - Mataas na Kahoy',
-      'Mataas na Kahoy - Lipa Palengke'
-    ];
 
     console.log('🚏 Fetching available routes from database...');
 
@@ -140,12 +135,6 @@ export const getAvailableRoutes = async () => {
               if (value.direction && typeof value.direction === 'string') {
                 const direction = value.direction.trim();
                 if (direction.length > 0) {
-                  // Check if this direction should be excluded
-                  if (excludedDirections.includes(direction)) {
-                    console.log(`⏭️ Excluding direction: "${direction}" (not a valid trip direction)`);
-                    continue;
-                  }
-                  
                   availableRoutes.add(direction);
                   console.log(`✅ Added route from ${key}: "${direction}"`);
                 } else {

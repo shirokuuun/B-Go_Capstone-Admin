@@ -21,7 +21,7 @@ import UserManagement from './pages/UserManagement/UserManagement.jsx';
 // Reports components
 import DailyRevenue from './pages/reports/DailyRevenue/DailyRevenue.jsx';
 import RoutePerformance from './pages/reports/RoutePerformance/RoutePerformance.jsx';
-import ConductorPerformance from './pages/reports/ConductorPerformance/ConductorPerformance.jsx';
+import TicketReport from './pages/reports/TicketReport/TicketReport.jsx';
 
 // 💳 PayMongo components
 import PaymentPage from '/src/paymongo/PaymentPage/PaymentPage.jsx';
@@ -77,7 +77,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="reports" element={<Navigate to="/admin/reports/daily-revenue" replace />} />
           <Route path="reports/daily-revenue" element={<PageTransitionWrapper><DailyRevenue /></PageTransitionWrapper>} />
           <Route path="reports/route-performance" element={<PageTransitionWrapper><RoutePerformance /></PageTransitionWrapper>} />
-          <Route path="reports/conductor-performance" element={<PageTransitionWrapper><ConductorPerformance /></PageTransitionWrapper>} />
+          <Route path="reports/ticket-report" element={<PageTransitionWrapper><TicketReport /></PageTransitionWrapper>} />
 
           <Route path="payments" element={<PageTransitionWrapper><PaymentTransactions /></PageTransitionWrapper>} />
           <Route path="settings" element={<PageTransitionWrapper><Settings /></PageTransitionWrapper>} />

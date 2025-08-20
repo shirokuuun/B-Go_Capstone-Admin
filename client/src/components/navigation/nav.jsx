@@ -49,15 +49,10 @@ const Nav = ({ collapsed, setCollapsed }) => {
       to: "/admin/reports/route-performance"
     },
     {
-      title: "Conductor Performance",
+      title: "Ticket Analytics",
       Icon: FaUserTie,
-      to: "/admin/reports/conductor-performance"
+      to: "/admin/reports/ticket-report"
     },
-    {
-      title: "Summary Dashboard",
-      Icon: FaCalendarAlt,
-      to: "/admin/reports/summary-dashboard"
-    }
   ];
 
   return (

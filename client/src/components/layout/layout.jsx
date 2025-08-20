@@ -37,8 +37,8 @@ const Layout = () => {
         return 'Daily Revenue Report';
       case '/admin/reports/route-performance':
         return 'Route Performance Report';
-      case '/admin/reports/conductor-performance':
-        return 'Conductor Performance Report';
+      case '/admin/reports/ticket-report':
+        return 'Ticket Analytics Report';
       case '/admin/reports/summary-dashboard':
         return 'Summary Dashboard';
       case '/admin/payments':

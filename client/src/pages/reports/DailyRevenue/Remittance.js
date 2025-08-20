@@ -381,13 +381,14 @@ export const loadRemittanceData = async (selectedDate) => {
 
 // Function to calculate remittance summary
 export const calculateRemittanceSummary = (remittanceData) => {
-  // Count unique trips by combining conductorId and tripNumber (same logic as Daily Revenue)
+  // Count unique trips by combining conductorId, date, and tripNumber
   const uniqueTrips = new Set();
   
   const summary = remittanceData.reduce((acc, trip) => {
-    // Add to unique trips set
+    // Add to unique trips set with date to distinguish trips with same name on different days
     if (trip.conductorId && trip.tripNumber) {
-      uniqueTrips.add(`${trip.conductorId}-${trip.tripNumber}`);
+      const tripDate = trip.date || trip.createdAt || 'unknown-date';
+      uniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripNumber}`);
     }
     
     return {

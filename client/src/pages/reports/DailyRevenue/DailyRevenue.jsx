@@ -251,17 +251,20 @@ const Revenue = () => {
       const uniqueTrips = new Set();
       revenueData.conductorTrips?.forEach(trip => {
         if (trip.conductorId && trip.tripId) {
-          uniqueTrips.add(`${trip.conductorId}-${trip.tripId}`);
+          const tripDate = trip.date || trip.createdAt || selectedDate || 'unknown-date';
+          uniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripId}`);
         }
       });
       revenueData.preBookingTrips?.forEach(trip => {
         if (trip.conductorId && trip.tripId) {
-          uniqueTrips.add(`${trip.conductorId}-${trip.tripId}`);
+          const tripDate = trip.date || trip.createdAt || selectedDate || 'unknown-date';
+          uniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripId}`);
         }
       });
       revenueData.preTicketing?.forEach(trip => {
         if (trip.conductorId && trip.tripId) {
-          uniqueTrips.add(`${trip.conductorId}-${trip.tripId}`);
+          const tripDate = trip.date || trip.createdAt || selectedDate || 'unknown-date';
+          uniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripId}`);
         }
       });
 
@@ -559,27 +562,30 @@ const Revenue = () => {
               <h3 className="revenue-card-title">Total Trips</h3>
               <p className="revenue-card-value revenue-card-trips">
                 {(() => {
-                  // Count unique trips by combining conductorId and tripId
+                  // Count unique trips by combining conductorId, date, and tripId
                   const uniqueTrips = new Set();
                   
                   // Add trips from conductor trips
                   revenueData.conductorTrips?.forEach(trip => {
                     if (trip.conductorId && trip.tripId) {
-                      uniqueTrips.add(`${trip.conductorId}-${trip.tripId}`);
+                      const tripDate = trip.date || trip.createdAt || selectedDate || 'unknown-date';
+                      uniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripId}`);
                     }
                   });
                   
                   // Add trips from pre-booking trips
                   revenueData.preBookingTrips?.forEach(trip => {
                     if (trip.conductorId && trip.tripId) {
-                      uniqueTrips.add(`${trip.conductorId}-${trip.tripId}`);
+                      const tripDate = trip.date || trip.createdAt || selectedDate || 'unknown-date';
+                      uniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripId}`);
                     }
                   });
                   
                   // Add trips from pre-ticketing
                   revenueData.preTicketing?.forEach(trip => {
                     if (trip.conductorId && trip.tripId) {
-                      uniqueTrips.add(`${trip.conductorId}-${trip.tripId}`);
+                      const tripDate = trip.date || trip.createdAt || selectedDate || 'unknown-date';
+                      uniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripId}`);
                     }
                   });
                   

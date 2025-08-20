@@ -754,12 +754,13 @@ const RemittanceReport = () => {
                 <h3 className="revenue-card-title">Total Trips</h3>
                 <p className="revenue-card-value">
                   {(() => {
-                    // Count unique trips by combining conductorId and tripNumber
+                    // Count unique trips by combining conductorId, date, and tripNumber
                     const uniqueTrips = new Set();
                     
                     filteredRemittanceData.forEach(trip => {
                       if (trip.conductorId && trip.tripNumber) {
-                        uniqueTrips.add(`${trip.conductorId}-${trip.tripNumber}`);
+                        const tripDate = trip.date || trip.createdAt || 'unknown-date';
+                        uniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripNumber}`);
                       }
                     });
                     
