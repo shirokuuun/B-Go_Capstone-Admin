@@ -11,8 +11,10 @@
   },
   "dependencies": {
     "axios": "^1.11.0",
+    "firebase": "^12.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "recharts": "^3.1.2",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

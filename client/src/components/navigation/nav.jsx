@@ -44,9 +44,9 @@ const Nav = ({ collapsed, setCollapsed }) => {
       to: "/admin/reports/daily-revenue"
     },
     {
-      title: "Route Performance",
-      Icon: FaRoute,
-      to: "/admin/reports/route-performance"
+      title: "SOS Analytics",
+      Icon: MdSos,
+      to: "/admin/reports/sos-analytics"
     },
     {
       title: "Ticket Analytics",
