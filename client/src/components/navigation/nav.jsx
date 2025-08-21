@@ -7,7 +7,6 @@ import DropdownNavIcon from '/src/components/dropdownNav/dropdownNavIcon.jsx';
 import { MdDashboard } from "react-icons/md";
 import { MdDomainVerification } from "react-icons/md";
 import { GrSchedules } from "react-icons/gr";
-import { MdBookmarkAdd } from "react-icons/md";
 import { MdSos } from "react-icons/md";
 import { MdPayment } from "react-icons/md";
 import { IoMdSettings } from "react-icons/io";
@@ -20,21 +19,9 @@ import { FaChartLine, FaBus, FaUserTie, FaCalendarAlt } from "react-icons/fa";
 import { PiTestTube } from "react-icons/pi";
 import { FaRoute } from "react-icons/fa";
 import { FaRegUser } from "react-icons/fa";
+import { BsFillTicketDetailedFill } from "react-icons/bs";
 
 const Nav = ({ collapsed, setCollapsed }) => {
-  // Ticketing dropdown items
-  const ticketingDropdownItems = [
-    {
-      title: "Pre-ticketing",
-      Icon: MdConfirmationNumber,
-      to: "/admin/ticketing/pre-ticketing"
-    },
-    {
-      title: "Pre-booking",
-      Icon: MdEventSeat,
-      to: "/admin/ticketing/pre-booking"
-    }
-  ];
 
   // Reports dropdown items
   const reportsDropdownItems = [
@@ -79,14 +66,7 @@ const Nav = ({ collapsed, setCollapsed }) => {
         <NavIcon title="ID Verification" Icon={MdDomainVerification} to="/admin/verification" collapsed={collapsed} />
         <NavIcon title="Trip Schedules" Icon={GrSchedules} to="/admin/schedules" collapsed={collapsed} />
         <NavIcon title="User Management" Icon={FaRegUser} to="/admin/user" collapsed={collapsed} />
-
-        {/* Ticketing Dropdown */}
-        <DropdownNavIcon
-          title="Ticketing"
-          Icon={MdBookmarkAdd}
-          dropdownItems={ticketingDropdownItems}
-          collapsed={collapsed}
-        />
+        <NavIcon title="Ticketing" Icon={BsFillTicketDetailedFill} to="/admin/ticketing" collapsed={collapsed} />
 
         <NavIcon title="SOS Requests" Icon={MdSos} to="/admin/sos" collapsed={collapsed} />
         

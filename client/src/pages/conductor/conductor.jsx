@@ -17,11 +17,6 @@ const Conductor = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState('name');
-  const [showTripsModal, setShowTripsModal] = useState(false);
-  const [selectedConductorTrips, setSelectedConductorTrips] = useState(null);
-  const [selectedDate, setSelectedDate] = useState('all');
-  const [trips, setTrips] = useState([]);
-  const [availableDates, setAvailableDates] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -94,62 +89,7 @@ const Conductor = () => {
     }
   };
 
-  const handleViewTrips = async (conductor) => {
-    try {
-      setDetailsLoading(true);
-      const { allTrips, availableDates } = await conductorService.getConductorTripsSimple(conductor.id);
-      setTrips(allTrips);
-      setAvailableDates(availableDates);
-      setSelectedDate('all');
 
-      setSelectedConductorTrips({
-        ...conductor,
-        trips: allTrips,
-      });
-
-      setShowTripsModal(true);
-    } catch (error) {
-      console.error('Error fetching trips:', error);
-    } finally {
-      setDetailsLoading(false);
-    }
-  };
-
-  // NEW: Handle delete trip function
-  const handleDeleteTrip = async (conductorId, date, ticketNumber) => {
-    if (!window.confirm("Are you sure you want to delete this trip? This action cannot be undone.")) {
-      return;
-    }
-
-    try {
-      setDetailsLoading(true);
-      
-      // Call the delete trip service
-      const result = await conductorService.deleteTrip(conductorId, date, ticketNumber);
-      
-      if (result.success) {
-        // Refresh the trips data
-        const { allTrips, availableDates } = await conductorService.getConductorTrips(conductorId);
-        setTrips(allTrips);
-        setAvailableDates(availableDates);
-        
-        // Update the selected conductor trips
-        setSelectedConductorTrips(prev => ({
-          ...prev,
-          trips: allTrips,
-        }));
-
-        alert('Trip deleted successfully');
-      } else {
-        alert(`Error deleting trip: ${result.error}`);
-      }
-    } catch (error) {
-      console.error('Error deleting trip:', error);
-      alert('Failed to delete trip. Please try again.');
-    } finally {
-      setDetailsLoading(false);
-    }
-  };
 
   // NEW: Handle sync all trip counts
   const handleSyncTripCounts = async () => {
@@ -389,15 +329,6 @@ const Conductor = () => {
 
                 <div className="conductor-actions">
                   <button
-                    className="action-btn view-trips"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleViewTrips(conductor);
-                    }}
-                  >
-                    View Trips
-                  </button>
-                  <button
                     className="action-btn delete-conductor"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -446,22 +377,6 @@ const Conductor = () => {
         />
       )}
 
-      {/* Trips Modal */}
-      {showTripsModal && selectedConductorTrips && (
-        <TripsModal
-          conductor={selectedConductorTrips}
-          onClose={() => {
-            setShowTripsModal(false);
-            setSelectedConductorTrips(null);
-          }}
-          trips={trips}
-          availableDates={availableDates}
-          selectedDate={selectedDate}
-          setSelectedDate={setSelectedDate}
-          onDeleteTrip={handleDeleteTrip} // Pass the delete function
-          isDeleting={detailsLoading} // Pass loading state
-        />
-      )}
     </div>
   );
 };
@@ -761,152 +676,5 @@ const ConductorDetails = ({ conductor }) => {
   );
 };
 
-// UPDATED: TripsModal with delete functionality
-const TripsModal = ({ 
-  conductor, 
-  onClose, 
-  trips, 
-  availableDates = [], 
-  selectedDate, 
-  setSelectedDate, 
-  onDeleteTrip, 
-  isDeleting 
-}) => {
-  const [sortOrder, setSortOrder] = useState('desc');
-
-  const filteredTrips = (
-    selectedDate === 'all' 
-      ? (conductor.trips || []) 
-      : (conductor.trips || []).filter(trip => trip.date === selectedDate)
-  ).sort((a, b) => {
-    const dateA = new Date(a.timestamp?.seconds ? a.timestamp.seconds * 1000 : a.timestamp);
-    const dateB = new Date(b.timestamp?.seconds ? b.timestamp.seconds * 1000 : b.timestamp);
-
-    return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
-  });
-
-  const handleDeleteTrip = (trip) => {
-    onDeleteTrip(conductor.id, trip.date, trip.ticketNumber);
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>All Trips - {conductor.name}</h2>
-          <button className="close-btn" onClick={onClose}>×</button>
-        </div>
-        
-        <div className="modal-body">
-          {availableDates.length > 0 && (
-            <div className="date-filter">
-              <label htmlFor="date-select">Filter by Date: </label>
-              <select
-                id="date-select"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-              >
-                <option value="all">All Dates</option>
-                {availableDates.map((date) => (
-                  <option key={date} value={date}>{date}</option>
-                ))}
-              </select>
-            </div>
-          )}
-          
-          <div style={{ textAlign: 'right', marginBottom: '1rem' }}>
-            <button
-              className="sort-toggle"
-              onClick={() => setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'))}
-            >
-              Sort: {sortOrder === 'asc' ? 'Oldest First' : 'Newest First'}
-            </button>
-          </div>
-
-          {isDeleting && (
-            <div className="details-loading">
-              <div className="loading-spinner"></div>
-              <p>Processing...</p>
-            </div>
-          )}
-
-          {filteredTrips && filteredTrips.length > 0 ? (
-            <div className="trips-grid">
-              {filteredTrips.map((trip, index) => (
-                <div key={`${trip.date}-${trip.ticketNumber}`} className="trip-card">
-                  <div className="trip-header">
-                    <span className="trip-number">#{index + 1}</span>
-                    <span className="trip-ticket">{trip.ticketNumber}</span>
-                    <span className="trip-date">{trip.date}</span>
-                    {/* DELETE BUTTON */}
-                    <button
-                      className="delete-trip-btn"
-                      onClick={() => handleDeleteTrip(trip)}
-                      disabled={isDeleting}
-                      title="Delete this trip"
-                    >
-                      <FaTrash />
-                    </button>
-                  </div>
-                  <div className="trip-details">
-                    {[
-                      'from',
-                      'startKm',
-                      'to',
-                      'endKm',
-                      'farePerPassenger',
-                      'discountBreakdown',
-                      'quantity',
-                      'totalFare',
-                      'timestamp',
-                      'isActive'
-                    ].map((key) => {
-                      const value = trip[key];
-                      if (value === undefined) return null;
-
-                      const formatLabel = (label) => {
-                        return label
-                          .replace(/([A-Z])/g, ' $1')
-                          .replace(/^./, (s) => s.toUpperCase());
-                      };
-
-                      return (
-                        <div key={key} className="trip-detail">
-                          <span className="trip-label">{formatLabel(key)}:</span>
-                          <span className="trip-value">
-                            {key === 'timestamp'
-                              ? conductorService.formatTimestamp(value)
-                              : key === 'discountBreakdown' && typeof value === 'object'
-                              ? (
-                                <ul style={{ margin: 0, paddingLeft: '1rem' }}>
-                                  {Object.entries(value).map(([passenger, discount], idx) => {
-                                    const amount = Number(discount);
-                                    return (
-                                      <li key={idx}>
-                                        {isNaN(amount)
-                                          ? discount
-                                          : `Passenger ${idx + 1}: ₱${amount.toFixed(2)} discount`}
-                                      </li>
-                                    );
-                                  })}
-                                </ul>
-                              )
-                              : String(value)}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p>No trips found for this date.</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export default Conductor;

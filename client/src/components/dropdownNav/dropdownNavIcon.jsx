@@ -11,8 +11,7 @@ const DropdownNavIcon = ({ title, Icon, dropdownItems, collapsed }) => {
   const tooltipRef = useRef(null);
 
   const isAnyChildActive =
-    (dropdownItems && dropdownItems.some(item => location.pathname === item.to)) ||
-    location.pathname.startsWith('/admin/ticketing');
+    dropdownItems && dropdownItems.some(item => location.pathname === item.to);
 
   const toggleDropdown = (e) => {
     e.preventDefault();

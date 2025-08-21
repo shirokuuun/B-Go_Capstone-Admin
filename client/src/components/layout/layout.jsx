@@ -25,10 +25,6 @@ const Layout = () => {
         return 'User Management';
       case '/admin/ticketing':
         return 'Ticketing';
-      case '/admin/ticketing/pre-booking':
-        return 'Pre-booking';
-      case '/admin/ticketing/pre-ticketing':
-        return 'Pre-ticketing';
       case '/admin/sos':
         return 'SOS Requests';
       case '/admin/reports':
