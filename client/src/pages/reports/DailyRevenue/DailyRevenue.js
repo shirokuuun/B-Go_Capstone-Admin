@@ -1,5 +1,5 @@
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db } from '../../../firebase/firebase';
+import { db } from '/src/firebase/firebase.js';
 
 // Alternative helper function to get trip names by checking for tickets
 const getAllTripNamesFromTickets = async (conductorId, dateId) => {

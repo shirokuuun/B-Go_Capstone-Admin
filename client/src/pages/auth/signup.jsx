@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { signupAdmin } from "/src/pages/auth/authService.js";
 import "./signup.css";
+import signupVisual from "/src/assets/signup-visual.jpg";
 
 function Signup() {
   const [name, setName] = useState("");
@@ -33,7 +34,7 @@ function Signup() {
         {/* Left side - image */}
         <div className="signup-box left">
           <img
-            src="/signup-image.jpg"
+            src={signupVisual}
             alt="Signup Visual"
             className="signup-image"
           />
@@ -83,7 +84,7 @@ function Signup() {
           </form>
 
           <div className="signup-footer">
-            <p>Already have an Admin account? <a href="/login">Login here</a></p>
+            <p>Already have an Admin account? <Link to="/login">Login here</Link></p>
           </div>
         </div>
       </div>

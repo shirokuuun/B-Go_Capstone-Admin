@@ -1,5 +1,5 @@
 import { collection, query, orderBy, onSnapshot, where, getDocs, Timestamp } from "firebase/firestore";
-import { db } from "/src/firebase/firebase";
+import { db } from "/src/firebase/firebase.js";
 
 // Cache for performance optimization
 let cachedData = null;

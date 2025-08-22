@@ -1,5 +1,5 @@
 import { getDocs, collectionGroup, collection  } from 'firebase/firestore';
-import { db } from '../../firebase/firebase'; // Updated path
+import { db } from '/src/firebase/firebase.js';
 
 class DashboardService {
   async getTripSummary(filter = 'today', customDate = null) {

@@ -1,4 +1,4 @@
-import { db } from '../../firebase/firebase.js';
+import { db } from '/src/firebase/firebase.js';
 import {
   collection,
   onSnapshot,

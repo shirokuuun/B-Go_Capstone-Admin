@@ -1,5 +1,5 @@
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from "firebase/firestore";
-import { db } from "/src/firebase/firebase";
+import { db } from "/src/firebase/firebase.js";
 
 export const listenToSOSRequests = (callback) => {
   const q = query(collection(db, "sosRequests"), orderBy("timestamp", "desc"));

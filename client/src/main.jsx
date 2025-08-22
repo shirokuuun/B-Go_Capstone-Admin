@@ -5,22 +5,22 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from '/src/components/layout/layout.jsx'; 
 import Dashboard from '/src/pages/dashboard/dashboard.jsx';
 import BusReservation from '/src/pages/BusReservation/BusReservation.jsx';
-import IDVerification from '/src/pages/verification/IDverification.jsx';
-import TripSchedules from './pages/schedules/TripSchedules';
+import IDVerification from '/src/pages/verification/IDVerification.jsx';
+import TripSchedules from '/src/pages/schedules/TripSchedules.jsx';
 import SOSRequest from '/src/pages/SOS/SOSRequest.jsx';
 import PaymentTransactions from '/src/pages/payments/PaymentTransactions.jsx';
-import Settings from '/src/pages/settings/settings';
+import Settings from '/src/pages/settings/settings.jsx';
 import PageTransitionWrapper from '/src/components/PageTransition/PageTransition.jsx';
 import Login from '/src/pages/auth/login.jsx'; 
 import Signup from '/src/pages/auth/signup.jsx'; 
 import Conductor from '/src/pages/conductor/conductor.jsx';
-import UserManagement from './pages/UserManagement/UserManagement.jsx';
-import Ticketing from './pages/ticketing/ticketing.jsx';
+import UserManagement from '/src/pages/UserManagement/UserManagement.jsx';
+import Ticketing from '/src/pages/ticketing/ticketing.jsx';
 
 // Reports components
-import DailyRevenue from './pages/reports/DailyRevenue/DailyRevenue.jsx';
-import SOSReport from './pages/reports/SOSReport/SOSReport.jsx';
-import TicketReport from './pages/reports/TicketReport/TicketReport.jsx';
+import DailyRevenue from '/src/pages/reports/DailyRevenue/DailyRevenue.jsx';
+import SOSReport from '/src/pages/reports/SOSReport/SOSReport.jsx';
+import TicketReport from '/src/pages/reports/TicketReport/TicketReport.jsx';
 
 // 💳 PayMongo components
 import PaymentPage from '/src/paymongo/PaymentPage/PaymentPage.jsx';

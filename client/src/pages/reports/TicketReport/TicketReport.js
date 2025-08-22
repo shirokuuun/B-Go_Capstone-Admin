@@ -1,6 +1,6 @@
 // API functions and utility functions for Ticket Analytics Dashboard
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db } from '../../../firebase/firebase';
+import { db } from '/src/firebase/firebase.js';
 
 // Import useful functions from DailyRevenue.js
 import { 

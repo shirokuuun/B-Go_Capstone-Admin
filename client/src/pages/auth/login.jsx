@@ -1,9 +1,8 @@
 import React, { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "/src/firebase/firebase.js";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { loginAdmin } from "/src/pages/auth/authService.js";
 import "./login.css";
+import loginVisual from "/src/assets/login-visual.jpg";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -29,7 +28,7 @@ function Login() {
         <div className="login-box left">
           <div className="login-logo">
             {/* You would put your logo image here */}
-            {/* Example: <img src="/path/to/your/logo.png" alt="Company Logo" /> */}
+            {/* Example: <img src= alt="Login Vusial" /> */}
           </div>
           <div className="login-title">
             <h2>Welcome Back</h2>
@@ -53,12 +52,12 @@ function Login() {
             <p className="error">{error || "\u00A0"}</p>
           </form>
           <div className="login-footer">
-            <p>Don't have an Admin account? <a href="/signup">Register here</a></p>
+            <p>Don't have an Admin account? <Link to="/signup">Register here</Link></p>
           </div>
         </div>
         <div className="login-box right">
           <img
-            src="/login-photo.jpg"
+            src={loginVisual}
             alt="Login Visual"
             className="login-image"
           />

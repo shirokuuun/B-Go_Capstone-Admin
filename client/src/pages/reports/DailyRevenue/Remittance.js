@@ -1,5 +1,5 @@
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db } from '../../../firebase/firebase';
+import { db } from '/src/firebase/firebase.js';
 
 // Function to get available dates from remittance collection
 export const getAvailableRemittanceDates = async () => {
