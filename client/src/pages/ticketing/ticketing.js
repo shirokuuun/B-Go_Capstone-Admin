@@ -1,5 +1,6 @@
 // Firebase imports
 import { getFirestore, collection, getDocs, doc, getDoc, query, orderBy, limit as limitQuery, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { auth } from '/src/firebase/firebase.js';
 
 const db = getFirestore();
 
@@ -53,7 +54,7 @@ const getAllTripNames = async (conductorId, dateId) => {
     const dateDocSnapshot = await getDoc(dateDocRef);
     
     if (!dateDocSnapshot.exists()) {
-      console.log(`L Date document ${dateId} does not exist`);
+      console.log(`❌ Date document ${dateId} does not exist`);
       return [];
     }
     
@@ -67,7 +68,7 @@ const getAllTripNames = async (conductorId, dateId) => {
       }
     }
     
-    console.log(`=� Found ${tripNames.length} trip maps in ${conductorId}/${dateId}: ${tripNames.join(', ')}`);
+    console.log(`✅ Found ${tripNames.length} trip maps in ${conductorId}/${dateId}: ${tripNames.join(', ')}`);
     return tripNames;
   } catch (error) {
     console.error(`Error getting trip names for ${conductorId}/${dateId}:`, error);
@@ -561,23 +562,35 @@ export const updateTicketStatus = async (conductorId, ticketId, newStatus) => {
  */
 export const deletePreTicket = async (conductorId, ticketId) => {
   try {
-    console.log('🗑️ Starting delete process for ticket:', ticketId, 'conductor:', conductorId);
+    // Check if current user is superadmin before attempting delete
+    if (!auth.currentUser) {
+      throw new Error('User not authenticated');
+    }
+
+    const adminDocRef = doc(db, 'Admin', auth.currentUser.uid);
+    const adminDoc = await getDoc(adminDocRef);
     
-    // We need to find the ticket first to get its location
+    if (!adminDoc.exists()) {
+      throw new Error('Access denied: Admin document not found');
+    }
+
+    const adminData = adminDoc.data();
+    
+    // Check if user is superadmin
+    if (adminData.role !== 'superadmin' || adminData.isSuperAdmin !== true) {
+      throw new Error('Access denied: Only superadmin users can delete tickets. You are logged in as a regular admin.');
+    }
+    
+    // Find the ticket first to get its location
     const ticket = await getPreTicketById(conductorId, ticketId);
-    console.log('📍 Found ticket location:', ticket);
-    
-    const ticketPath = `conductors/${conductorId}/dailyTrips/${ticket.date}/${ticket.tripId}/tickets/tickets/${ticketId}`;
-    console.log('🎯 Deleting ticket at path:', ticketPath);
     
     const ticketRef = doc(db, 'conductors', conductorId, 'dailyTrips', ticket.date, ticket.tripId, 'tickets', 'tickets', ticketId);
+    
     await deleteDoc(ticketRef);
     
-    console.log('✅ Ticket deleted successfully');
     return true;
   } catch (error) {
-    console.error('❌ Error deleting ticket:', error);
-    console.error('Error details:', error.message);
+    console.error('Error deleting ticket:', error);
     throw error;
   }
 };
