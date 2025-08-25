@@ -274,90 +274,58 @@ export const getDemandPatternsData = async (timeRange, route, ticketType = '') =
       passengers: 0
     }));
 
-    // Process trips to extract time patterns
+    // Process individual tickets to extract time patterns (not trip-level data)
     let processedCount = 0;
-    let timeFieldsFound = { startTime: 0, createdAt: 0, date: 0, none: 0 };
+    let timeFieldsFound = { timestamp: 0, fallback: 0, none: 0 };
     
     allTrips.forEach(trip => {
       try {
-        let startTime;
-        let timeSource = 'none';
+        let ticketTime;
         
-        // Try multiple ways to get time information
-        if (trip.startTime) {
-          timeSource = 'startTime';
-          timeFieldsFound.startTime++;
-          if (trip.startTime.toDate) {
-            startTime = trip.startTime.toDate();
-          } else if (typeof trip.startTime === 'string') {
-            startTime = new Date(trip.startTime);
-          } else {
-            startTime = trip.startTime;
-          }
+        // For ticket analytics, use the ticket timestamp if available
+        if (trip.timestamp) {
+          timeFieldsFound.timestamp++;
+          ticketTime = trip.timestamp.toDate ? trip.timestamp.toDate() : new Date(trip.timestamp);
         } else if (trip.createdAt) {
-          timeSource = 'createdAt';
-          timeFieldsFound.createdAt++;
-          startTime = trip.createdAt.toDate ? trip.createdAt.toDate() : new Date(trip.createdAt);
-        } else if (trip.date) {
-          timeSource = 'date';
-          timeFieldsFound.date++;
-          // Since we only have date, create a realistic time distribution
-          // Use trip properties to create pseudo-random but consistent hours
-          const tripHash = (trip.id || '').length + (trip.conductorId || '').length + (trip.tripId || '').length;
-          const businessHours = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
-          const hourIndex = tripHash % businessHours.length;
-          const selectedHour = businessHours[hourIndex];
-          
-          const baseDate = new Date(trip.date);
-          startTime = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), selectedHour, 0, 0);
-        }
-
-        if (startTime && !isNaN(startTime.getTime())) {
-          const hour = startTime.getHours();
-          hourlyDemand[hour].ticketsCount++;
-          hourlyDemand[hour].passengers += Number(trip.quantity) || 1;
-          processedCount++;
+          timeFieldsFound.fallback++;
+          ticketTime = trip.createdAt.toDate ? trip.createdAt.toDate() : new Date(trip.createdAt);
         } else {
           timeFieldsFound.none++;
-          // If no time info available, distribute evenly across business hours (6 AM to 10 PM)
-          const businessHours = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
-          const randomHour = businessHours[Math.floor(Math.random() * businessHours.length)];
-          hourlyDemand[randomHour].ticketsCount++;
-          hourlyDemand[randomHour].passengers += Number(trip.quantity) || 1;
+          // Skip tickets without timestamps - don't guess
+          return;
+        }
+
+        if (ticketTime && !isNaN(ticketTime.getTime())) {
+          const hour = ticketTime.getHours();
+          hourlyDemand[hour].ticketsCount++; // Count this individual ticket
+          hourlyDemand[hour].passengers += Number(trip.quantity) || 1;
           processedCount++;
         }
       } catch (error) {
-        console.error('Error processing trip time:', error, trip);
+        console.error('Error processing ticket time:', error, trip);
         timeFieldsFound.none++;
       }
     });
-
-    console.log('🕐 Peak Hours Analysis Debug:');
-    console.log('  - Total trips processed:', allTrips.length);
-    console.log('  - Successfully processed:', processedCount);
-    console.log('  - Time fields found:', timeFieldsFound);
-    console.log('  - Sample trip data:', allTrips.slice(0, 2));
 
     // Calculate peak hours with demand percentages
     const maxTickets = Math.max(...hourlyDemand.map(h => h.ticketsCount));
     const hoursWithData = hourlyDemand.filter(h => h.ticketsCount > 0);
     
-    console.log('  - Max tickets in any hour:', maxTickets);
-    console.log('  - Hours with data:', hoursWithData.length);
-    console.log('  - Hours with tickets:', hoursWithData.map(h => `${h.timeSlot}: ${h.ticketsCount} tickets`));
-    
     const peakHours = hourlyDemand
       .filter(h => h.ticketsCount > 0)
-      .map(h => ({
-        timeSlot: h.timeSlot,
-        demandPercentage: maxTickets > 0 ? Math.round((h.ticketsCount / maxTickets) * 100) : 0,
-        ticketsCount: h.ticketsCount,
-        passengers: h.passengers
-      }))
+      .map(h => {
+        const rawPercentage = maxTickets > 0 ? Math.round((h.ticketsCount / maxTickets) * 100) : 0;
+        const safePercentage = Math.min(rawPercentage, 100);
+        
+        return {
+          timeSlot: h.timeSlot,
+          demandPercentage: safePercentage,
+          ticketsCount: h.ticketsCount,
+          passengers: h.passengers
+        };
+      })
       .sort((a, b) => b.demandPercentage - a.demandPercentage)
       .slice(0, 8); // Top 8 peak hours
-
-    console.log('  - Final peak hours:', peakHours.length, peakHours);
 
     // Analyze seasonal trends based on dates
     const datePatterns = {};
@@ -373,36 +341,27 @@ export const getDemandPatternsData = async (timeRange, route, ticketType = '') =
         if (tripDate && !isNaN(tripDate.getTime())) {
           const dayOfWeek = tripDate.toLocaleDateString('en-US', { weekday: 'long' });
           if (!datePatterns[dayOfWeek]) {
-            datePatterns[dayOfWeek] = { count: 0, passengers: 0 };
+            datePatterns[dayOfWeek] = { tickets: 0, passengers: 0 };
           }
-          datePatterns[dayOfWeek].count++;
-          datePatterns[dayOfWeek].passengers += Number(trip.quantity) || 1;
+          datePatterns[dayOfWeek].tickets++; // Count each ticket record
+          datePatterns[dayOfWeek].passengers += Number(trip.quantity) || 1; // Keep passenger count for reference
         }
       } catch (error) {
         console.error('Error processing trip date:', error);
       }
     });
 
-    // Create seasonal trends
-    console.log('📈 Seasonal Trends Debug:', datePatterns);
-    const avgForWeek = Object.values(datePatterns).reduce((sum, d) => sum + d.count, 0) / Object.keys(datePatterns).length;
-    console.log('📊 Average trips per day:', avgForWeek);
+    const totalTickets = Object.values(datePatterns).reduce((sum, data) => sum + data.tickets, 0);
     
     const seasonalTrends = Object.entries(datePatterns)
-      .map(([day, data]) => {
-        const changeRaw = avgForWeek > 0 ? ((data.count - avgForWeek) / avgForWeek) * 100 : 0;
-        const changeRounded = Math.round(changeRaw);
-        
-        console.log(`${day}: ${data.count} trips, change: ${changeRaw.toFixed(1)}% -> ${changeRounded}%`);
-        
-        return {
-          period: day,
-          change: Math.abs(changeRounded), // Display absolute value
-          indicator: changeRounded >= 0 ? 'up' : 'down', // Use signed value for indicator
-          reason: changeRounded >= 10 ? 'High demand day' : changeRounded <= -10 ? 'Low demand day' : 'Average demand'
-        };
-      })
-      .sort((a, b) => b.change - a.change);
+      .map(([day, data]) => ({
+        period: day,
+        change: data.tickets, // Show ticket count, not passengers
+        indicator: 'up',
+        reason: `${data.tickets} tickets, ${data.passengers} passengers`
+      }))
+      .sort((a, b) => b.change - a.change)
+      .slice(0, 3);
 
     // Analyze demand drivers based on route and ticket type distribution
     const routeDistribution = {};
@@ -420,19 +379,19 @@ export const getDemandPatternsData = async (timeRange, route, ticketType = '') =
       else if (trip.source === 'Pre-ticketing') ticketTypeDistribution.preTicketing++;
     });
 
-    const totalPassengers = allTrips.reduce((sum, trip) => sum + (Number(trip.quantity) || 1), 0);
+    const totalPassengersForDrivers = allTrips.reduce((sum, trip) => sum + (Number(trip.quantity) || 1), 0);
     const demandDrivers = [
       {
         factor: 'Walk-in Passengers',
-        impact: totalPassengers > 0 ? Math.round((ticketTypeDistribution.conductor / totalPassengers) * 100) : 0
+        impact: totalPassengersForDrivers > 0 ? Math.round((ticketTypeDistribution.conductor / totalPassengersForDrivers) * 100) : 0
       },
       {
         factor: 'Advance Bookings',
-        impact: totalPassengers > 0 ? Math.round((ticketTypeDistribution.preBooking / totalPassengers) * 100) : 0
+        impact: totalPassengersForDrivers > 0 ? Math.round((ticketTypeDistribution.preBooking / totalPassengersForDrivers) * 100) : 0
       },
       {
         factor: 'Digital Tickets',
-        impact: totalPassengers > 0 ? Math.round((ticketTypeDistribution.preTicketing / totalPassengers) * 100) : 0
+        impact: totalPassengersForDrivers > 0 ? Math.round((ticketTypeDistribution.preTicketing / totalPassengersForDrivers) * 100) : 0
       }
     ].filter(driver => driver.impact > 0)
      .sort((a, b) => b.impact - a.impact);
@@ -532,7 +491,14 @@ export const getRoutePerformanceData = async (timeRange, route, ticketType = '')
         const allTrips = [...rawData.conductorTrips, ...rawData.preBookingTrips, ...rawData.preTicketing];
         const routeTrips = allTrips.filter(trip => trip.tripDirection === routeData.route);
         
-        if (routeTrips.length === 0) return 50; // Default fallback
+        if (routeTrips.length === 0) {
+          // More intelligent fallback based on common route patterns
+          const routeName = routeData.route.toLowerCase();
+          if (routeName.includes('cebu') && routeName.includes('talisay')) return 35;
+          if (routeName.includes('cebu') && routeName.includes('minglanilla')) return 25;
+          if (routeName.includes('talisay') && routeName.includes('minglanilla')) return 15;
+          return 30; // Default for unknown routes
+        }
         
         // Use totalKm from tickets if available
         const tripsWithDistance = routeTrips.filter(trip => trip.totalKm && trip.totalKm > 0);
@@ -598,45 +564,58 @@ export const getTicketTypeData = async (timeRange, route, ticketType = '') => {
     // Use DailyRevenue's preparePieChartData for ticket type breakdown
     const pieChartData = preparePieChartData(conductorRevenue, preBookingRevenue, preTicketingRevenue);
     
+    // Helper function to determine margin level based on performance
+    const getMarginLevel = (marketShare, volume) => {
+      if (marketShare >= 70 || volume >= 30) return 'High';
+      if (marketShare >= 20 || volume >= 10) return 'Standard';
+      return 'Low';
+    };
+
     // Convert to ticket analytics format
-    const ticketTypes = [
+    const ticketTypesData = [
       {
         type: 'Regular/Conductor',
-        marketShare: totalRevenue > 0 ? Math.round((conductorRevenue / totalRevenue) * 100 * 100) / 100 : 0,
+        marketShare: totalRevenue > 0 ? Math.round((conductorRevenue / totalRevenue) * 100) : 0,
         growth: growthRates.conductorGrowth,
-        marginLevel: 'Standard',
-        averagePrice: rawData.conductorTrips.length > 0 
-          ? Math.round((conductorRevenue / rawData.conductorTrips.reduce((sum, trip) => sum + (trip.quantity || 1), 0)) * 100) / 100 
-          : 0,
-        volume: rawData.conductorTrips.reduce((sum, trip) => sum + (trip.quantity || 1), 0),
+        averagePrice: (() => {
+          const totalPassengers = rawData.conductorTrips.reduce((sum, trip) => sum + (trip.quantity || 1), 0);
+          return totalPassengers > 0 ? Math.round((conductorRevenue / totalPassengers) * 100) / 100 : 0;
+        })(),
+        volume: rawData.conductorTrips.length,
         revenue: conductorRevenue,
         customerSegment: 'Walk-in Passengers'
       },
       {
         type: 'Pre-booking',
-        marketShare: totalRevenue > 0 ? Math.round((preBookingRevenue / totalRevenue) * 100 * 100) / 100 : 0,
+        marketShare: totalRevenue > 0 ? Math.round((preBookingRevenue / totalRevenue) * 100) : 0,
         growth: growthRates.preBookingGrowth,
-        marginLevel: 'High',
-        averagePrice: rawData.preBookingTrips.length > 0 
-          ? Math.round((preBookingRevenue / rawData.preBookingTrips.reduce((sum, trip) => sum + (trip.quantity || 1), 0)) * 100) / 100 
-          : 0,
-        volume: rawData.preBookingTrips.reduce((sum, trip) => sum + (trip.quantity || 1), 0),
+        averagePrice: (() => {
+          const totalPassengers = rawData.preBookingTrips.reduce((sum, trip) => sum + (trip.quantity || 1), 0);
+          return totalPassengers > 0 ? Math.round((preBookingRevenue / totalPassengers) * 100) / 100 : 0;
+        })(),
+        volume: rawData.preBookingTrips.length,
         revenue: preBookingRevenue,
         customerSegment: 'Advance Planners'
       },
       {
         type: 'Pre-ticketing',
-        marketShare: totalRevenue > 0 ? Math.round((preTicketingRevenue / totalRevenue) * 100 * 100) / 100 : 0,
+        marketShare: totalRevenue > 0 ? Math.round((preTicketingRevenue / totalRevenue) * 100) : 0,
         growth: growthRates.preTicketingGrowth,
-        marginLevel: 'High',
-        averagePrice: rawData.preTicketing.length > 0 
-          ? Math.round((preTicketingRevenue / rawData.preTicketing.reduce((sum, trip) => sum + (trip.quantity || 1), 0)) * 100) / 100 
-          : 0,
-        volume: rawData.preTicketing.reduce((sum, trip) => sum + (trip.quantity || 1), 0),
+        averagePrice: (() => {
+          const totalPassengers = rawData.preTicketing.reduce((sum, trip) => sum + (trip.quantity || 1), 0);
+          return totalPassengers > 0 ? Math.round((preTicketingRevenue / totalPassengers) * 100) / 100 : 0;
+        })(),
+        volume: rawData.preTicketing.length,
         revenue: preTicketingRevenue,
         customerSegment: 'Digital Users'
       }
     ].filter(type => type.volume > 0); // Only include types with actual data
+    
+    // Add margin level to each ticket type based on its performance
+    const ticketTypes = ticketTypesData.map(type => ({
+      ...type,
+      marginLevel: getMarginLevel(type.marketShare, type.volume)
+    }));
 
     return ticketTypes;
     

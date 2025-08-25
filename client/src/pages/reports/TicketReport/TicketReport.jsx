@@ -52,9 +52,6 @@ const TicketReport = () => {
       
       setAvailableTimeRanges(timeRanges);
       setAvailableRoutes(routes);
-      
-      if (timeRanges.length > 0) setSelectedTimeRange(timeRanges[0].value);
-      if (routes.length > 0) setSelectedRoute(routes[0].value);
     } catch (error) {
       console.error('Error initializing data:', error);
     }
@@ -74,6 +71,7 @@ const TicketReport = () => {
         routePerformance: routes,
         ticketTypes: tickets
       });
+
     } catch (error) {
       console.error('Error loading analytics data:', error);
     } finally {
@@ -352,6 +350,47 @@ const TicketReport = () => {
             <option value="pre-ticket">Pre Ticket</option>
           </select>
         </div>
+
+        {/* Clear Filters Button */}
+        <div className="ticket-filter-group">
+          <label className="ticket-filter-label">&nbsp;</label>
+          <button 
+            onClick={() => {
+              setSelectedTimeRange(availableTimeRanges.length > 0 ? availableTimeRanges[0].value : 'last_30_days');
+              setSelectedRoute(availableRoutes.length > 0 ? availableRoutes[0].value : 'all');
+              setSelectedTicketType('');
+            }}
+            className="revenue-filter-btn"
+            style={{ height: '42px' }}
+          >
+            Clear Filters
+          </button>
+        </div>
+        
+        {/* Results Count */}
+        <div className="ticket-filter-group">
+          <label className="ticket-filter-label">&nbsp;</label>
+          <div className="ticket-results-count" style={{ 
+            background: '#f8f9fa', 
+            padding: '10px 12px', 
+            borderRadius: '8px', 
+            border: '2px solid #e1e8ed',
+            fontSize: '14px',
+            color: '#2c3e50',
+            fontWeight: '600'
+          }}>
+            {(() => {
+              if (loading) return 'Loading...';
+              
+              // Count total data points from analytics
+              let totalRoutes = analyticsData.routePerformance?.length || 0;
+              let totalTicketTypes = analyticsData.ticketTypes?.length || 0;
+              let totalPeakHours = analyticsData.demandPatterns?.peakHours?.length || 0;
+              
+              return `${totalRoutes} routes • ${totalTicketTypes} ticket types`;
+            })()}
+          </div>
+        </div>
       </div>
 
       {/* Export Controls */}
@@ -408,32 +447,24 @@ const TicketReport = () => {
               </div>
 
               <div className="ticket-patterns-section">
-                <h4>Seasonal Trends</h4>
+                <h4>Top 3 Days by Ticket Count</h4>
                 <div className="ticket-seasonal-trends">
                   {analyticsData.demandPatterns.seasonalTrends?.length > 0 ? (
                     analyticsData.demandPatterns.seasonalTrends.map((trend, index) => (
                       <div key={index} className="ticket-trend-item">
                         <div className="ticket-trend-period">{trend.period}</div>
                         <div className="ticket-trend-change">
-                          <TrendIndicator 
-                            value={trend.change} 
-                            isPositive={trend.indicator === 'up'} 
-                          />
-                        </div>
-                        <div className="ticket-trend-indicator">
-                          {trend.indicator === 'up' ? (
-                            <span className="text-success">📈</span>
-                          ) : (
-                            <span className="text-danger">📉</span>
-                          )}
+                          <span className={`ticket-trend-indicator positive`}>
+                            {trend.change}
+                          </span>
                         </div>
                       </div>
                     ))
                   ) : (
                     <div className="ticket-empty-state">
                       <div className="ticket-empty-icon">📈</div>
-                      <h3>No Seasonal Trends</h3>
-                      <p>No seasonal trends data available for the selected filters.</p>
+                      <h3>No Ticket Data</h3>
+                      <p>No daily ticket data available for the selected filters.</p>
                     </div>
                   )}
                 </div>
@@ -539,8 +570,8 @@ const TicketReport = () => {
                         </div>
                         
                         <div className="ticket-type-metrics">
-                          <div className="ticket-type-growth">
-                            <TrendIndicator value={type.growth} isPositive={type.growth > 0} />
+                          <div className="ticket-type-volume">
+                            <span className="ticket-volume-count">{type.volume} tickets</span>
                           </div>
                           <StatusBadge status={type.marginLevel?.toLowerCase()}>
                             {type.marginLevel} Margin

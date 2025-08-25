@@ -77,7 +77,7 @@ const getAllTripNames = async (conductorId, dateId) => {
 };
 
 /**
- * Get all conductors who have tickets in dailyTrips
+ * Get all conductors who have tickets in dailyTrips (all ticket types)
  * @returns {Promise<Array>} Array of conductor objects with ticket counts
  */
 export const getConductorsWithPreTickets = async () => {
@@ -101,7 +101,9 @@ export const getConductorsWithPreTickets = async () => {
       
       console.log(`📅 Found ${dailyTripsSnapshot.docs.length} daily trip documents for ${conductorId}`);
       
-      let totalTicketCount = 0;
+      let preTicketCount = 0; // Count pre-tickets
+      let preBookingCount = 0; // Count pre-bookings  
+      let conductorTicketCount = 0; // Count conductor tickets
       let allTicketCount = 0; // Count all tickets regardless of type
       
       // Count tickets across all dates and trips
@@ -125,11 +127,19 @@ export const getConductorsWithPreTickets = async () => {
               const ticketData = ticketDoc.data();
               allTicketCount++;
               
-              console.log(`🎫 Ticket ${ticketDoc.id}: type="${ticketData.ticketType}", from="${ticketData.from}", to="${ticketData.to}"`);
+              // Check both ticketType and documentType for consistency with DailyRevenue
+              const ticketTypeField = ticketData.ticketType || ticketData.documentType || '';
               
-              // Count tickets that are preTicket type OR if no ticketType is specified, count all
-              if (ticketData.ticketType === 'preTicket' || !ticketData.ticketType) {
-                totalTicketCount++;
+              console.log(`🎫 Ticket ${ticketDoc.id}: type="${ticketData.ticketType}", documentType="${ticketData.documentType}", effectiveType="${ticketTypeField}", from="${ticketData.from}", to="${ticketData.to}"`);
+              
+              // Count tickets by type (same logic as getPreTicketingStats)
+              if (ticketTypeField === 'preTicket') {
+                preTicketCount++;
+              } else if (ticketTypeField === 'preBooking') {
+                preBookingCount++;
+              } else {
+                // All other tickets (including undefined, null, '', or any other value) are conductor tickets
+                conductorTicketCount++;
               }
             });
           } catch (error) {
@@ -139,15 +149,27 @@ export const getConductorsWithPreTickets = async () => {
         }
       }
       
-      console.log(`📊 ${conductorId} summary: ${totalTicketCount} preTickets, ${allTicketCount} total tickets`);
+      // Calculate total tickets
+      allTicketCount = preTicketCount + preBookingCount + conductorTicketCount;
       
-      // Include conductor if they have any tickets (be more permissive)
+      console.log(`📊 ${conductorId} summary: ${preTicketCount} preTickets, ${preBookingCount} preBookings, ${conductorTicketCount} conductorTickets, ${allTicketCount} total`);
+      
+      // Include conductor if they have any tickets
       if (allTicketCount > 0) {
         console.log(`✅ Adding conductor ${conductorId} to list`);
         conductorsWithTickets.push({
           id: conductorId,
           ...conductorData,
-          preTicketsCount: totalTicketCount > 0 ? totalTicketCount : allTicketCount
+          // Fix for ticket count display: UI uses preTicketsCount to show total tickets
+          preTicketsCount: allTicketCount, // UI expects this field - now shows ALL tickets (conductor + pre-tickets + pre-bookings)
+          totalTicketsCount: allTicketCount, // Total ticket count (same as above)
+          preTicketsOnly: preTicketCount, // Actual pre-tickets count for statistics
+          stats: {
+            preTickets: preTicketCount,
+            preBookings: preBookingCount,
+            conductorTickets: conductorTicketCount,
+            totalTickets: allTicketCount
+          }
         });
       } else {
         console.log(`❌ Skipping conductor ${conductorId} (no tickets found)`);
@@ -155,7 +177,12 @@ export const getConductorsWithPreTickets = async () => {
     }
     
     console.log(`\n🎯 Final result: ${conductorsWithTickets.length} conductors with tickets`);
-    console.log('👥 Conductors found:', conductorsWithTickets.map(c => ({ id: c.id, name: c.name, tickets: c.preTicketsCount })));
+    console.log('👥 Conductors found:', conductorsWithTickets.map(c => ({ 
+      id: c.id, 
+      name: c.name, 
+      displayCount: c.preTicketsCount, // What UI will show (total tickets)
+      breakdown: c.stats // Detailed breakdown
+    })));
     
     return conductorsWithTickets;
   } catch (error) {
@@ -189,7 +216,7 @@ export const getConductorById = async (conductorId) => {
 };
 
 /**
- * Get tickets for a specific conductor from dailyTrips
+ * Get all tickets for a specific conductor from dailyTrips (all ticket types)
  * @param {string} conductorId - Conductor ID
  * @param {number} limit - Number of tickets to fetch
  * @returns {Promise<Array>} Array of ticket objects
@@ -221,8 +248,12 @@ export const getPreTicketsByConductor = async (conductorId, limit = 50) => {
               const ticketData = ticketDoc.data();
               const ticketId = ticketDoc.id;
               
-              // Include preTicket type tickets OR tickets without a ticketType (be more permissive)
-              if (ticketData.ticketType === 'preTicket' || !ticketData.ticketType || ticketData.ticketType === 'preBooking') {
+              // Check both ticketType and documentType for consistency with DailyRevenue
+              const ticketTypeField = ticketData.ticketType || ticketData.documentType || '';
+              
+              // Include ALL tickets (preTicket, preBooking, and conductor tickets)
+              // This allows viewing all tickets when clicking on a conductor
+              if (true) { // Show all tickets
                 allTickets.push({
                   id: ticketId,
                   conductorId: conductorId,
@@ -239,7 +270,8 @@ export const getPreTicketsByConductor = async (conductorId, limit = 50) => {
                   timestamp: ticketData.timestamp,
                   discountBreakdown: ticketData.discountBreakdown || [],
                   status: ticketData.active ? 'active' : 'inactive',
-                  ticketType: ticketData.ticketType,
+                  ticketType: ticketData.ticketType || ticketData.documentType,
+                  documentType: ticketData.documentType || ticketData.ticketType, // Add for consistency
                   scannedAt: ticketData.timestamp,
                   time: ticketData.timestamp ? new Date(ticketData.timestamp.seconds * 1000).toLocaleTimeString() : '',
                   dateFormatted: ticketData.timestamp ? new Date(ticketData.timestamp.seconds * 1000).toLocaleDateString() : dateId
@@ -312,12 +344,15 @@ export const getPreTicketingStats = async () => {
             ticketsSnapshot.forEach(ticketDoc => {
               const ticketData = ticketDoc.data();
               
-              // Count tickets by type
-              if (ticketData.ticketType === 'preTicket') {
+              // Check both ticketType and documentType for consistency with DailyRevenue
+              const ticketTypeField = ticketData.ticketType || ticketData.documentType || '';
+              
+              // Count tickets by type (using both fields)
+              if (ticketTypeField === 'preTicket') {
                 preTickets++;
                 totalTickets++;
                 conductorHasTickets = true;
-              } else if (ticketData.ticketType === 'preBooking') {
+              } else if (ticketTypeField === 'preBooking') {
                 preBookings++;
                 totalTickets++;
                 conductorHasTickets = true;
@@ -356,7 +391,7 @@ export const getPreTicketingStats = async () => {
 };
 
 /**
- * Get all recent tickets (across all conductors) from dailyTrips
+ * Get all recent tickets (across all conductors) from dailyTrips (all ticket types)
  * @param {number} limit - Number of tickets to fetch
  * @returns {Promise<Array>} Array of ticket objects with conductor info
  */
@@ -394,8 +429,12 @@ export const getAllRecentPreTickets = async (limitParam = 50) => {
                 const ticketData = ticketDoc.data();
                 const ticketId = ticketDoc.id;
                 
-                // Include preTicket type tickets OR tickets without a ticketType (be more permissive)
-                if (ticketData.ticketType === 'preTicket' || !ticketData.ticketType || ticketData.ticketType === 'preBooking') {
+                // Check both ticketType and documentType for consistency with DailyRevenue
+                const ticketTypeField = ticketData.ticketType || ticketData.documentType || '';
+                
+                // Include ALL tickets (preTicket, preBooking, and conductor tickets)
+                // This allows viewing all recent tickets across all conductors
+                if (true) { // Show all tickets
                   allTickets.push({
                     id: ticketId,
                     conductorId: conductorId,
@@ -413,7 +452,8 @@ export const getAllRecentPreTickets = async (limitParam = 50) => {
                     timestamp: ticketData.timestamp,
                     discountBreakdown: ticketData.discountBreakdown || [],
                     status: ticketData.active ? 'active' : 'inactive',
-                    ticketType: ticketData.ticketType,
+                    ticketType: ticketData.ticketType || ticketData.documentType,
+                    documentType: ticketData.documentType || ticketData.ticketType, // Add for consistency
                     scannedAt: ticketData.timestamp,
                     time: ticketData.timestamp ? new Date(ticketData.timestamp.seconds * 1000).toLocaleTimeString() : '',
                     dateFormatted: ticketData.timestamp ? new Date(ticketData.timestamp.seconds * 1000).toLocaleDateString() : dateId
@@ -499,7 +539,8 @@ export const getPreTicketById = async (conductorId, ticketId) => {
               timestamp: ticketData.timestamp,
               discountBreakdown: ticketData.discountBreakdown || [],
               status: ticketData.active ? 'active' : 'inactive',
-              ticketType: ticketData.ticketType,
+              ticketType: ticketData.ticketType || ticketData.documentType,
+              documentType: ticketData.documentType || ticketData.ticketType, // Add for consistency
               scannedAt: ticketData.timestamp,
               time: ticketData.timestamp ? new Date(ticketData.timestamp.seconds * 1000).toLocaleTimeString() : '',
               dateFormatted: ticketData.timestamp ? new Date(ticketData.timestamp.seconds * 1000).toLocaleDateString() : dateId

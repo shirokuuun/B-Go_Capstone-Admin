@@ -386,6 +386,18 @@ html, body {
   width: 100%;
 }
 
+.revenue-filter-btn{
+  padding: 8px 16px;
+  background-color: white;
+  color: black;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+.revenue-filter-btn:hover{
+  border: 1px solid rgb(68, 66, 66);
+}
+
 .revenue-refresh-btn, .revenue-print-btn, .revenue-export-btn {
   padding: 8px 16px;
   background-color: #007bff;

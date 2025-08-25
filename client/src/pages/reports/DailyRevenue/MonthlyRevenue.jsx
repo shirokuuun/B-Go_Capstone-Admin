@@ -106,6 +106,45 @@ const MonthlyRevenue = ({
             <option value="conductor">Conductor Ticket</option>
           </select>
         </div>
+
+        {/* Clear Filters Button */}
+        <div className="revenue-filter-group">
+          <label className="revenue-filter-label">&nbsp;</label>
+          <button 
+            onClick={() => {
+              onMonthChange('');
+              onRouteChange('');
+              onTicketTypeChange('');
+            }}
+            className="revenue-filter-btn"
+            style={{ height: '42px' }}
+          >
+            Clear Filters
+          </button>
+        </div>
+        
+        {/* Results Count */}
+        <div className="revenue-filter-group">
+          <label className="revenue-filter-label">&nbsp;</label>
+          <div className="revenue-results-count" style={{ 
+            background: '#f8f9fa', 
+            padding: '10px 12px', 
+            borderRadius: '8px', 
+            border: '2px solid #e1e8ed',
+            fontSize: '14px',
+            color: '#2c3e50',
+            fontWeight: '600'
+          }}>
+            {(() => {
+              if (monthlyData && monthlyData.dailyBreakdown) {
+                const totalDays = monthlyData.dailyBreakdown.length;
+                const totalPassengers = monthlyData.totalMonthlyPassengers || 0;
+                return `${totalDays} days • ${totalPassengers} passengers`;
+              }
+              return 'Loading...';
+            })()}
+          </div>
+        </div>
       </div>
 
       {/* Monthly Summary Cards */}
