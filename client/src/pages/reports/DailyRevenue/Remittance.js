@@ -72,6 +72,28 @@ export const getTripDataFromDailyTrips = async (conductorId, date) => {
         console.log(`  👥 Trip Passengers: ${ticketDetails.totalPassengers}`);
         console.log(`  🎫 Trip Tickets: ${ticketDetails.tickets.length}`);
 
+        // Determine trip documentType based on tickets
+        const tripDocumentType = (() => {
+          if (ticketDetails.tickets.length === 0) return 'Regular';
+          
+          // Check if all tickets have the same documentType
+          const documentTypes = [...new Set(ticketDetails.tickets.map(ticket => ticket.documentType))];
+          
+          if (documentTypes.length === 1) {
+            // All tickets have the same type
+            return documentTypes[0];
+          } else if (documentTypes.includes('preTicket')) {
+            // Mixed types, prioritize preTicket
+            return 'preTicket';
+          } else if (documentTypes.includes('preBooking')) {
+            // Mixed types, prioritize preBooking
+            return 'preBooking';
+          } else {
+            // Default to Regular
+            return 'Regular';
+          }
+        })();
+
         trips.push({
           tripNumber: key,
           tripDirection: value.direction || 'Unknown Direction',
@@ -83,6 +105,7 @@ export const getTripDataFromDailyTrips = async (conductorId, date) => {
           totalPassengers: ticketDetails.totalPassengers,
           ticketCount: ticketDetails.tickets.length,
           tickets: ticketDetails.tickets,
+          documentType: tripDocumentType, // Trip-level documentType
           data: value // Original trip data from dailyTrips
         });
 
@@ -124,7 +147,7 @@ export const getTicketDetailsFromDailyTrips = async (conductorId, date, tripNumb
         quantity: ticketData.quantity,
         from: ticketData.from,
         to: ticketData.to,
-        ticketType: ticketData.ticketType
+        documentType: ticketData.documentType
       });
       
       if (ticketData.totalFare && ticketData.quantity) {
@@ -141,7 +164,7 @@ export const getTicketDetailsFromDailyTrips = async (conductorId, date, tripNumb
           fare: fare,
           passengers: passengers,
           timestamp: ticketData.timestamp,
-          ticketType: ticketData.ticketType || 'Regular',
+          documentType: ticketData.documentType || 'Regular',
           discountAmount: ticketData.discountAmount || 0,
           startKm: ticketData.startKm,
           endKm: ticketData.endKm,
@@ -195,6 +218,7 @@ export const getRemittanceSummaryData = async (conductorId, date) => {
 };
 
 // Function to get conductor details including bus number from subcollection
+// Fixed version of getConductorDetails function
 export const getConductorDetails = async (conductorId) => {
   try {
     console.log(`📋 Fetching conductor details for: ${conductorId}`);
@@ -211,36 +235,65 @@ export const getConductorDetails = async (conductorId) => {
     
     if (conductorDoc.exists()) {
       const data = conductorDoc.data();
+      console.log(`📄 Conductor document data:`, data); // Debug log
+      
       conductorData = {
         id: conductorId,
         name: data.name || conductorId,
         busNumber: 'N/A',
         ...data
       };
+      
+      // ✅ FIX: Check if bus number is in the main document
+      if (data.busNumber) {
+        conductorData.busNumber = data.busNumber.toString(); // Convert to string to be safe
+        console.log(`✅ Found bus number in main document for ${conductorId}: ${conductorData.busNumber}`);
+        return conductorData; // Return early since we found it
+      }
+      
+      // Also check alternative field names just in case
+      if (data.bus) {
+        conductorData.busNumber = data.bus.toString();
+        console.log(`✅ Found bus number (as 'bus') in main document for ${conductorId}: ${conductorData.busNumber}`);
+        return conductorData;
+      }
+      
+      if (data.number) {
+        conductorData.busNumber = data.number.toString();
+        console.log(`✅ Found bus number (as 'number') in main document for ${conductorId}: ${conductorData.busNumber}`);
+        return conductorData;
+      }
+    } else {
+      console.log(`❌ Conductor document does not exist for ${conductorId}`);
     }
     
-    // Get bus number from subcollection
+    // Only try subcollection if not found in main document
+    console.log(`🔍 Bus number not found in main document, trying subcollection...`);
+    
     try {
       const busNumberRef = collection(db, `conductors/${conductorId}/busNumber`);
       const busNumberSnapshot = await getDocs(busNumberRef);
       
-      console.log(`🚌 Found ${busNumberSnapshot.docs.length} bus number documents for conductor ${conductorId}`);
+      console.log(`🚌 Found ${busNumberSnapshot.docs.length} bus number documents in subcollection for conductor ${conductorId}`);
       
       if (!busNumberSnapshot.empty) {
-        // Get the most recent bus number document (or first one if multiple exist)
         const busDoc = busNumberSnapshot.docs[0];
         const busData = busDoc.data();
         
         // Try different possible field names for bus number
         const busNumber = busData.busNumber || busData.number || busData.bus || busDoc.id || 'N/A';
-        conductorData.busNumber = busNumber;
+        conductorData.busNumber = busNumber.toString();
         
-        console.log(`✅ Found bus number for conductor ${conductorId}: ${busNumber}`);
+        console.log(`✅ Found bus number in subcollection for ${conductorId}: ${busNumber}`);
       } else {
-        console.log(`⚠️ No bus number found for conductor ${conductorId}`);
+        console.log(`⚠️ No bus number documents found in subcollection for conductor ${conductorId}`);
       }
     } catch (busError) {
-      console.error(`Error fetching bus number for conductor ${conductorId}:`, busError);
+      if (busError.code === 'permission-denied') {
+        console.log(`⚠️ No permission to access bus number subcollection for conductor ${conductorId}`);
+      } else {
+        console.error(`Error fetching bus number from subcollection for conductor ${conductorId}:`, busError);
+      }
     }
     
     return conductorData;
@@ -323,6 +376,7 @@ export const loadRemittanceData = async (selectedDate) => {
             totalPassengers: trip.totalPassengers, // Passengers from dailyTrips tickets
             ticketCount: trip.ticketCount, // Ticket count from dailyTrips
             tickets: trip.tickets, // Tickets array from dailyTrips
+            documentType: trip.documentType, // ADD THIS LINE - Trip-level documentType
             isComplete: trip.isComplete, // Status from dailyTrips
             startTime: trip.startTime, // Time from dailyTrips
             endTime: trip.endTime, // Time from dailyTrips
@@ -425,11 +479,13 @@ export const groupRemittanceByconductor = (remittanceData) => {
     const trips = grouped[conductorId];
     const conductorTotal = trips.reduce((sum, trip) => sum + trip.totalRevenue, 0);
     const conductorPassengers = trips.reduce((sum, trip) => sum + trip.totalPassengers, 0);
+    const conductorTickets = trips.reduce((sum, trip) => sum + (trip.ticketCount || 0), 0);
     
     grouped[conductorId].conductorSummary = {
       totalTrips: trips.length,
       totalRevenue: conductorTotal,
       totalPassengers: conductorPassengers,
+      totalTickets: conductorTickets,
       averageFare: conductorPassengers > 0 ? conductorTotal / conductorPassengers : 0
     };
   });
@@ -492,12 +548,10 @@ export const formatTime = (timestamp) => {
 };
 
 // Utility function to format ticket type
-export const formatTicketType = (ticketType, source) => {
-  const type = ticketType || source || '';
-  
-  if (type === 'preTicket' || type === 'pre-ticket' || type === 'pre-ticketing') {
+export const formatTicketType = (documentType) => {
+  if (documentType === 'preTicket') {
     return 'Pre-Ticket';
-  } else if (type === 'preBooking' || type === 'pre-booking' || type === 'pre-book') {
+  } else if (documentType === 'preBooking') {
     return 'Pre-Booking';
   } else {
     return 'Conductor Ticket';

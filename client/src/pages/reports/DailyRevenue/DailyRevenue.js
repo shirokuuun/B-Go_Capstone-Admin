@@ -375,6 +375,7 @@ const processTripsForDate = async (conductorId, dateId, conductorTrips, preBooki
               totalFare: ticketData.totalFare,
               quantity: ticketData.quantity,
               ticketType: ticketData.ticketType,
+              documentType: ticketData.documentType,
               timestamp: ticketData.timestamp,
               tripDirection: tripDirection
             });
@@ -403,7 +404,8 @@ const processTripsForDate = async (conductorId, dateId, conductorTrips, preBooki
                 to: ticketData.to,
                 timestamp: ticketData.timestamp,
                 discountAmount: parseFloat(ticketData.discountAmount || 0),
-                ticketType: ticketData.ticketType || null,
+                ticketType: ticketData.ticketType || ticketData.documentType || null,
+                documentType: ticketData.documentType || ticketData.ticketType || null, // Add documentType for consistency
                 date: dateId,
                 startKm: ticketData.startKm,
                 endKm: ticketData.endKm,
@@ -416,20 +418,23 @@ const processTripsForDate = async (conductorId, dateId, conductorTrips, preBooki
                 ...ticketData
               };
 
-              // Categorize based on ticketType
-              if (ticketData.ticketType === 'preBooking') {
-                console.log(`✅ Adding to Pre-booking: ${ticketId} (Route: ${tripDirection})`);
+              // Categorize based on ticketType or documentType (fallback for consistency between DailyRevenue and Remittance)
+              // Some tickets may use 'ticketType' while others use 'documentType'
+              const ticketTypeField = ticketData.ticketType || ticketData.documentType || '';
+              
+              if (ticketTypeField === 'preBooking') {
+                console.log(`✅ Adding to Pre-booking: ${ticketId} (Route: ${tripDirection}, Type: ${ticketTypeField})`);
                 preBookingTrips.push({
                   ...processedTicket,
                   source: 'Pre-booking'
                 });
-              } else if (ticketData.ticketType === 'preTicket') {
-                console.log(`✅ Adding to Pre-ticketing: ${ticketId} (Route: ${tripDirection})`);
+              } else if (ticketTypeField === 'preTicket') {
+                console.log(`✅ Adding to Pre-ticketing: ${ticketId} (Route: ${tripDirection}, Type: ${ticketTypeField})`);
                 // Note: Pre-ticketing will be handled separately in fetchPreTicketing function
                 // This is here for completeness but won't be used in the current flow
               } else {
-                // conductorTicket or no ticketType = Conductor trips
-                console.log(`✅ Adding to Conductor trips: ${ticketId} (Route: ${tripDirection})`);
+                // conductorTicket or no ticketType/documentType = Conductor trips
+                console.log(`✅ Adding to Conductor trips: ${ticketId} (Route: ${tripDirection}, Type: ${ticketTypeField || 'conductor'})`);
                 conductorTrips.push({
                   ...processedTicket,
                   source: 'Conductor Trips'
@@ -544,14 +549,17 @@ const processPreTicketsForDate = async (conductorId, dateId, allPreTickets, filt
             const ticketData = ticketDoc.data();
             const ticketId = ticketDoc.id;
             
-            // Only process tickets with ticketType === 'preTicket'
-            if (ticketData.ticketType === 'preTicket') {
+            // Process tickets with ticketType or documentType === 'preTicket' (for consistency)
+            const ticketTypeField = ticketData.ticketType || ticketData.documentType || '';
+            if (ticketTypeField === 'preTicket') {
               console.log(`📝 Processing pre-ticket: ${ticketId}`, {
                 from: ticketData.from,
                 to: ticketData.to,
                 totalFare: ticketData.totalFare,
                 quantity: ticketData.quantity,
                 ticketType: ticketData.ticketType,
+                documentType: ticketData.documentType,
+                effectiveType: ticketTypeField,
                 timestamp: ticketData.timestamp,
                 tripDirection: tripDirection
               });
@@ -569,7 +577,7 @@ const processPreTicketsForDate = async (conductorId, dateId, allPreTickets, filt
               
               // Process valid pre-tickets
               if (ticketData.totalFare && ticketData.quantity) {
-                console.log(`✅ Including pre-ticket ${ticketId} (Route: ${tripDirection})`);
+                console.log(`✅ Including pre-ticket ${ticketId} (Route: ${tripDirection}, Type: ${ticketTypeField})`);
                 allPreTickets.push({
                   id: ticketId,
                   conductorId: conductorId,
@@ -590,7 +598,8 @@ const processPreTicketsForDate = async (conductorId, dateId, allPreTickets, filt
                   discountList: ticketData.discountList || [],
                   active: ticketData.active,
                   source: 'Pre-ticketing',
-                  ticketType: ticketData.ticketType
+                  ticketType: ticketData.ticketType || ticketData.documentType,
+                  documentType: ticketData.documentType || ticketData.ticketType // Add for consistency
                 });
               } else {
                 console.log(`❌ Filtering out pre-ticket ${ticketId}: missing totalFare or quantity`);

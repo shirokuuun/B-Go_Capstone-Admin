@@ -95,17 +95,16 @@ const RemittanceReport = () => {
     // Apply ticket type filter
     if (selectedTicketType) {
       filtered = filtered.filter(trip => {
-        const type = trip.ticketType || trip.source || '';
+        const type = trip.documentType || '';
         
         switch (selectedTicketType) {
           case 'conductor':
             // Conductor ticket is the default/fallback - anything that's not pre-ticket or pre-booking
-            return !(type === 'preTicket' || type === 'pre-ticket' || type === 'pre-ticketing' ||
-                    type === 'preBooking' || type === 'pre-booking' || type === 'pre-book');
+            return !(type === 'preTicket' || type === 'preBooking');
           case 'pre-book':
-            return type === 'preBooking' || type === 'pre-booking' || type === 'pre-book';
+            return type === 'preBooking';
           case 'pre-ticket':
-            return type === 'preTicket' || type === 'pre-ticket' || type === 'pre-ticketing';
+            return type === 'preTicket';
           default:
             return true;
         }
@@ -449,12 +448,13 @@ const RemittanceReport = () => {
           const conductorSummary = trips.conductorSummary || {
             totalTrips: trips.length,
             totalRevenue: trips.reduce((sum, trip) => sum + trip.totalRevenue, 0),
-            totalPassengers: trips.reduce((sum, trip) => sum + trip.totalPassengers, 0)
+            totalPassengers: trips.reduce((sum, trip) => sum + trip.totalPassengers, 0),
+            totalTickets: trips.reduce((sum, trip) => sum + (trip.ticketCount || 0), 0)
           };
 
           const conductorSheetData = [
             [`Conductor: ${conductorId} - Bus #${conductorData[conductorId]?.busNumber || 'N/A'}`],
-            [`${conductorSummary.totalTrips} trips, ₱${conductorSummary.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}, ${conductorSummary.totalPassengers} tickets`],
+            [`${conductorSummary.totalTrips} trips, ₱${conductorSummary.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}, ${conductorSummary.totalTickets} tickets`],
             [''],
             ['Trip #', 'Date & Time', 'Direction', 'Ticket Type', 'Passengers', 'Revenue']
           ];
@@ -474,7 +474,7 @@ const RemittanceReport = () => {
               trip.tripNumber,
               dateTime,
               trip.tripDirection,
-              formatTicketType(trip.ticketType, trip.source),
+              formatTicketType(trip.documentType),
               trip.totalPassengers || 0,
               `₱${trip.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
             ]);
@@ -908,7 +908,8 @@ const RemittanceReport = () => {
                 const conductorSummary = trips.conductorSummary || {
                   totalTrips: trips.length,
                   totalRevenue: trips.reduce((sum, trip) => sum + trip.totalRevenue, 0),
-                  totalPassengers: trips.reduce((sum, trip) => sum + trip.totalPassengers, 0)
+                  totalPassengers: trips.reduce((sum, trip) => sum + trip.totalPassengers, 0),
+                  totalTickets: trips.reduce((sum, trip) => sum + (trip.ticketCount || 0), 0)
                 };
 
                 return (
@@ -916,7 +917,7 @@ const RemittanceReport = () => {
                     <h4 className="revenue-section-title revenue-section-conductor">
                       Conductor: {conductorId} - Bus #{conductorData[conductorId]?.busNumber || 'N/A'}
                       <span style={{ marginLeft: '10px', fontSize: '14px', fontWeight: 'normal' }}>
-                        ({conductorSummary.totalTrips} trips, {formatCurrency(conductorSummary.totalRevenue)}, {conductorSummary.totalPassengers} tickets)
+                        ({conductorSummary.totalTrips} trips, {formatCurrency(conductorSummary.totalRevenue)}, {conductorSummary.totalTickets} tickets)
                       </span>
                     </h4>
                     
@@ -955,7 +956,7 @@ const RemittanceReport = () => {
                                 {trip.tripDirection}
                               </td>
                               <td>
-                                {formatTicketType(trip.ticketType, trip.source)}
+                                {formatTicketType(trip.documentType)}
                               </td>
                               <td style={{ textAlign: 'center', width: '120px' }}>
                                 {trip.totalPassengers || 0}
@@ -994,13 +995,14 @@ const RemittanceReport = () => {
                 const conductorSummary = trips.conductorSummary || {
                   totalTrips: trips.length,
                   totalRevenue: trips.reduce((sum, trip) => sum + trip.totalRevenue, 0),
-                  totalPassengers: trips.reduce((sum, trip) => sum + trip.totalPassengers, 0)
+                  totalPassengers: trips.reduce((sum, trip) => sum + trip.totalPassengers, 0),
+                  totalTickets: trips.reduce((sum, trip) => sum + (trip.ticketCount || 0), 0)
                 };
 
                 return (
                   <div key={conductorId} className="revenue-breakdown-item">
                     <span className="revenue-breakdown-label">
-                      {conductorId}: {conductorSummary.totalTrips} trips, {conductorSummary.totalPassengers} tickets
+                      {conductorId}: {conductorSummary.totalTrips} trips, {conductorSummary.totalTickets} tickets
                     </span>
                     <span className="revenue-breakdown-value">
                       {formatCurrency(conductorSummary.totalRevenue)}
