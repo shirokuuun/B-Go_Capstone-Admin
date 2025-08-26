@@ -5,6 +5,7 @@ import {
 } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { auth, db } from "/src/firebase/firebase.js";
+import { logActivity, ACTIVITY_TYPES } from "/src/pages/settings/auditService.js";
 
 /**
  * Signs up an admin user and stores additional data in Firestore.
@@ -53,8 +54,6 @@ export const signupAdmin = async ({ name, email, password }) => {
     createdBy: "system", // Track who created this admin
   });
 
-  console.log(`✅ Regular admin created: ${email}`);
-  console.log(`📝 Permissions granted:`, regularAdminPermissions);
 
   return user;
 };
@@ -83,7 +82,17 @@ export const loginAdmin = async (email, password) => {
       user.isSuperAdmin = userData.isSuperAdmin || false;
       user.permissions = userData.permissions || [];
       
-      console.log(`✅ Login successful as ${userData.role}:`, userData.email);
+      // Log successful login activity
+      await logActivity(
+        ACTIVITY_TYPES.LOGIN,
+        `User logged in successfully`,
+        { 
+          loginMethod: 'email_password',
+          userRole: userData.role,
+          isSuperAdmin: userData.isSuperAdmin || false
+        }
+      );
+      
       return user;
     } else {
       await signOut(auth);
@@ -201,6 +210,13 @@ export const getUserPermissionSummary = async (uid) => {
  * Logs out the current user from Firebase Authentication.
  * @returns {Promise<void>}
  */
-export const logoutUser = () => {
+export const logoutUser = async () => {
+  // Log logout activity before signing out
+  await logActivity(
+    ACTIVITY_TYPES.LOGOUT,
+    `User logged out`,
+    { logoutMethod: 'manual' }
+  );
+  
   return signOut(auth);
 };

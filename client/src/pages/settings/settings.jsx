@@ -1,5 +1,6 @@
 import '/src/pages/settings/settings.css';
 import Header from '/src/components/HeaderTemplate/header.jsx';
+import { MdDeleteForever } from "react-icons/md";
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '/src/firebase/firebase.js';
@@ -10,15 +11,17 @@ import {
   createImagePreview,
   isValidImageFile,
   getRoleDisplayName,
-  updateUsername
+  updateUsername,
+  deleteCurrentAccount
 } from './settings.js';
 import {
   getActivityLogs,
-  getErrorLogs,
   exportLogsToCSV,
   getLogStatistics,
   ACTIVITY_TYPES
 } from './auditService.js';
+import { onSnapshot, collection, query, orderBy, limit, where } from 'firebase/firestore';
+import { db } from '/src/firebase/firebase.js';
 
 function Settings() {
   const [collapsed, setCollapsed] = useState(false);
@@ -37,10 +40,8 @@ function Settings() {
   
   // System logs state
   const [activityLogs, setActivityLogs] = useState([]);
-  const [errorLogs, setErrorLogs] = useState([]);
   const [logStatistics, setLogStatistics] = useState(null);
   const [logsLoading, setLogsLoading] = useState(false);
-  const [activeLogTab, setActiveLogTab] = useState('activity');
   const [logFilters, setLogFilters] = useState({
     activityType: '',
     severity: '',
@@ -48,6 +49,9 @@ function Settings() {
     endDate: '',
     limit: 50
   });
+  
+  // Store unsubscribe function for cleanup
+  const [activityLogsUnsubscribe, setActivityLogsUnsubscribe] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -171,62 +175,130 @@ function Settings() {
     setMessage('');
   };
 
-  // System logs functions
-  const loadActivityLogs = async () => {
-    setLogsLoading(true);
+  const handleDeleteLog = async (logId) => {
+    const confirmed = window.confirm(
+      '⚠️ Are you sure you want to delete this log entry? This action cannot be undone.'
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    
     try {
-      const filters = { ...logFilters };
-      if (filters.startDate) filters.startDate = new Date(filters.startDate);
-      if (filters.endDate) filters.endDate = new Date(filters.endDate);
+      // Import the delete function
+      const { deleteDoc, doc } = await import('firebase/firestore');
+      const { db } = await import('/src/firebase/firebase.js');
       
-      const logs = await getActivityLogs(filters);
-      setActivityLogs(logs);
+      await deleteDoc(doc(db, 'AuditLogs', logId));
+      
+      // Note: No need to update local state since real-time listeners will handle this automatically
+      
+      setMessage('Activity log deleted successfully');
     } catch (err) {
-      setError('Failed to load activity logs: ' + err.message);
+      setError('Failed to delete log: ' + err.message);
     } finally {
+      setLoading(false);
+    }
+  };
+
+
+  // Real-time snapshot listeners for logs
+  const setupActivityLogsListener = () => {
+    // Cleanup existing listener
+    if (activityLogsUnsubscribe) {
+      activityLogsUnsubscribe();
+    }
+
+    setLogsLoading(true);
+    
+    try {
+      let q = collection(db, 'AuditLogs');
+      const constraints = [orderBy('timestamp', 'desc')];
+
+      // Apply filters
+      if (logFilters.activityType) {
+        constraints.push(where('activityType', '==', logFilters.activityType));
+      }
+      if (logFilters.severity) {
+        constraints.push(where('severity', '==', logFilters.severity));
+      }
+      if (logFilters.startDate) {
+        constraints.push(where('timestamp', '>=', new Date(logFilters.startDate)));
+      }
+      if (logFilters.endDate) {
+        constraints.push(where('timestamp', '<=', new Date(logFilters.endDate)));
+      }
+
+      constraints.push(limit(logFilters.limit || 50));
+      q = query(q, ...constraints);
+
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const logs = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          timestamp: doc.data().timestamp?.toDate() || new Date()
+        }));
+        
+        setActivityLogs(logs);
+        
+        // Calculate real-time statistics from current logs
+        const stats = calculateLogStatistics(logs);
+        setLogStatistics(stats);
+        
+        setLogsLoading(false);
+      }, (err) => {
+        setError('Failed to load activity logs: ' + err.message);
+        setLogsLoading(false);
+      });
+
+      setActivityLogsUnsubscribe(() => unsubscribe);
+    } catch (err) {
+      setError('Failed to setup activity logs listener: ' + err.message);
       setLogsLoading(false);
     }
   };
 
-  const loadErrorLogs = async () => {
-    setLogsLoading(true);
-    try {
-      const filters = {};
-      if (logFilters.startDate) filters.startDate = new Date(logFilters.startDate);
-      if (logFilters.endDate) filters.endDate = new Date(logFilters.endDate);
-      filters.limit = logFilters.limit;
-      
-      const logs = await getErrorLogs(filters);
-      setErrorLogs(logs);
-    } catch (err) {
-      setError('Failed to load error logs: ' + err.message);
-    } finally {
-      setLogsLoading(false);
-    }
-  };
 
-  const loadLogStatistics = async () => {
-    try {
-      const startDate = logFilters.startDate ? new Date(logFilters.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
-      const endDate = logFilters.endDate ? new Date(logFilters.endDate) : new Date();
+  // Real-time statistics calculation from current logs
+  const calculateLogStatistics = (logs) => {
+    const activityByType = {};
+    const activityByUser = {};
+    let totalErrors = 0;
+
+    logs.forEach(log => {
+      // Count by activity type
+      activityByType[log.activityType] = (activityByType[log.activityType] || 0) + 1;
       
-      const stats = await getLogStatistics(startDate, endDate);
-      setLogStatistics(stats);
-    } catch (err) {
-      console.error('Failed to load log statistics:', err);
-    }
+      // Count by user
+      const userName = log.userName || 'Unknown';
+      activityByUser[userName] = (activityByUser[userName] || 0) + 1;
+      
+      // Count errors
+      if (log.severity === 'error') {
+        totalErrors++;
+      }
+    });
+
+    return {
+      totalActivities: logs.length,
+      totalErrors: totalErrors,
+      activityByType,
+      activityByUser,
+      dateRange: {
+        startDate: logFilters.startDate ? new Date(logFilters.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        endDate: logFilters.endDate ? new Date(logFilters.endDate) : new Date()
+      }
+    };
   };
 
   const handleExportLogs = async () => {
     try {
       const currentDate = new Date().toISOString().split('T')[0];
-      if (activeLogTab === 'activity') {
-        exportLogsToCSV(activityLogs, `activity-logs-${currentDate}`, 'activity');
-        setMessage('Activity logs exported successfully');
-      } else if (activeLogTab === 'error') {
-        exportLogsToCSV(errorLogs, `error-logs-${currentDate}`, 'error');
-        setMessage('Error logs exported successfully');
-      }
+      exportLogsToCSV(activityLogs, `activity-logs-${currentDate}`, 'activity');
+      setMessage('Activity logs exported successfully');
     } catch (err) {
       setError('Failed to export logs: ' + err.message);
     }
@@ -237,20 +309,31 @@ function Settings() {
   };
 
   const applyFilters = () => {
-    if (activeLogTab === 'activity') {
-      loadActivityLogs();
-    } else if (activeLogTab === 'error') {
-      loadErrorLogs();
-    }
-    loadLogStatistics();
+    setupActivityLogsListener();
   };
 
-  // Load logs when component mounts or tab changes - only for superadmin
+  // Load logs when component mounts - for all admins
   useEffect(() => {
-    if (userData && userData.role === 'superadmin' && userData.isSuperAdmin === true) {
+    if (userData && (userData.role === 'admin' || userData.role === 'superadmin')) {
       applyFilters();
     }
-  }, [activeLogTab, userData]);
+  }, [userData]);
+
+  // Auto-apply filters when logFilters change
+  useEffect(() => {
+    if (userData && (userData.role === 'admin' || userData.role === 'superadmin')) {
+      applyFilters();
+    }
+  }, [logFilters]);
+
+  // Cleanup listeners on unmount
+  useEffect(() => {
+    return () => {
+      if (activityLogsUnsubscribe) {
+        activityLogsUnsubscribe();
+      }
+    };
+  }, []);
 
   if (authLoading || !userData) {
     return <div className="settings-loading-container">Loading...</div>;
@@ -323,6 +406,7 @@ function Settings() {
                 </span>
               </div>
             </div>
+
           </div>
         </div>
 
@@ -423,8 +507,8 @@ function Settings() {
           </div>
         </div>
 
-        {/* System Logs & Audit Section - Only for superadmin */}
-        {userData.role === 'superadmin' && userData.isSuperAdmin === true && (
+        {/* System Logs & Audit Section - Visible to all admins */}
+        {(userData.role === 'admin' || userData.role === 'superadmin') && (
         <div className="settings-card settings-full-width">
           <div className="settings-card-header">
             <div className="audit-logs-header-actions">
@@ -432,9 +516,9 @@ function Settings() {
               <button 
                 onClick={handleExportLogs} 
                 className="audit-export-btn"
-                disabled={logsLoading || (activeLogTab === 'activity' ? activityLogs.length === 0 : errorLogs.length === 0)}
+                disabled={logsLoading || activityLogs.length === 0}
               >
-                📊 Export {activeLogTab === 'activity' ? 'Activity' : 'Error'} Logs
+                📊 Export Activity Logs
               </button>
             </div>
           </div>
@@ -502,13 +586,9 @@ function Settings() {
                 </div>
               </div>
               <div className="audit-filter-actions">
-                <button onClick={applyFilters} className="audit-apply-filters-btn" disabled={logsLoading}>
-                  {logsLoading ? 'Loading...' : 'Apply Filters'}
-                </button>
                 <button 
                   onClick={() => {
                     setLogFilters({ activityType: '', severity: '', startDate: '', endDate: '', limit: 50 });
-                    setTimeout(applyFilters, 100);
                   }} 
                   className="audit-clear-filters-btn"
                 >
@@ -517,102 +597,60 @@ function Settings() {
               </div>
             </div>
 
-            {/* Log Tabs */}
-            <div className="settings-log-tabs">
-              <button 
-                className={`settings-tab ${activeLogTab === 'activity' ? 'active' : ''}`}
-                onClick={() => setActiveLogTab('activity')}
-              >
-                Activity Logs ({activityLogs.length})
-              </button>
-              <button 
-                className={`settings-tab ${activeLogTab === 'error' ? 'active' : ''}`}
-                onClick={() => setActiveLogTab('error')}
-              >
-                Error Reports ({errorLogs.length})
-              </button>
-            </div>
-
-            {/* Log Content */}
+            {/* Activity Logs Content */}
             <div className="settings-log-content">
               {logsLoading ? (
                 <div className="settings-log-loading">Loading logs...</div>
               ) : (
-                <>
-                  {activeLogTab === 'activity' && (
-                    <div className="settings-activity-logs">
-                      {activityLogs.length === 0 ? (
-                        <div className="settings-no-logs">No activity logs found</div>
-                      ) : (
-                        <div className="settings-log-table">
-                          <div className="settings-log-header">
-                            <span>Date/Time</span>
-                            <span>User</span>
-                            <span>Activity</span>
-                            <span>Description</span>
-                            <span>Severity</span>
-                          </div>
-                          {activityLogs.map(log => (
-                            <div key={log.id} className={`settings-log-row ${log.severity}`}>
-                              <span className="settings-log-date">
-                                {log.timestamp.toLocaleString()}
-                              </span>
-                              <span className="settings-log-user">
-                                {log.userName || 'Unknown'}
-                              </span>
-                              <span className="settings-log-activity">
-                                {log.activityType.replace(/_/g, ' ')}
-                              </span>
-                              <span className="settings-log-description">
-                                {log.description}
-                              </span>
-                              <span className={`settings-log-severity ${log.severity}`}>
-                                {log.severity}
-                              </span>
-                            </div>
-                          ))}
+                <div className="settings-activity-logs">
+                  {activityLogs.length === 0 ? (
+                    <div className="settings-no-logs">No activity logs found</div>
+                  ) : (
+                    <div className="settings-log-table">
+                      <div className="settings-log-header">
+                        <span>Date/Time</span>
+                        <span>User</span>
+                        <span>Activity</span>
+                        <span>Description</span>
+                        <span>Severity</span>
+                        {userData.role === 'superadmin' && userData.isSuperAdmin === true && (
+                          <span>Actions</span>
+                        )}
+                      </div>
+                      {activityLogs.map(log => (
+                        <div key={log.id} className={`settings-log-row ${log.severity}`}>
+                          <span className="settings-log-date">
+                            {log.timestamp.toLocaleString()}
+                          </span>
+                          <span className="settings-log-user">
+                            {log.userName || 'Unknown'}
+                          </span>
+                          <span className="settings-log-activity">
+                            {log.activityType.replace(/_/g, ' ')}
+                          </span>
+                          <span className="settings-log-description">
+                            {log.description}
+                          </span>
+                          <span className={`settings-log-severity ${log.severity}`}>
+                            {log.severity}
+                          </span>
+                          {userData.role === 'superadmin' && userData.isSuperAdmin === true && (
+                            <span className="settings-log-actions">
+                              <button
+                                onClick={() => handleDeleteLog(log.id)}
+                                className="settings-log-delete-btn"
+                                disabled={loading}
+                                title="Delete log entry"
+                              >
+                                <MdDeleteForever />
+                              </button>
+                            </span>
+                          )}
                         </div>
-                      )}
+                      ))}
                     </div>
                   )}
-
-                  {activeLogTab === 'error' && (
-                    <div className="settings-error-logs">
-                      {errorLogs.length === 0 ? (
-                        <div className="settings-no-logs">No error reports found</div>
-                      ) : (
-                        <div className="settings-log-table">
-                          <div className="settings-log-header">
-                            <span>Date/Time</span>
-                            <span>User</span>
-                            <span>Error</span>
-                            <span>Context</span>
-                            <span>URL</span>
-                          </div>
-                          {errorLogs.map(log => (
-                            <div key={log.id} className="settings-log-row error">
-                              <span className="settings-log-date">
-                                {log.timestamp.toLocaleString()}
-                              </span>
-                              <span className="settings-log-user">
-                                {log.userEmail || 'anonymous'}
-                              </span>
-                              <span className="settings-log-error">
-                                {log.errorMessage}
-                              </span>
-                              <span className="settings-log-context">
-                                {log.context}
-                              </span>
-                              <span className="settings-log-url">
-                                {log.url ? log.url.split('/').pop() : 'N/A'}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </>
+                </div>
               )}
             </div>
           </div>

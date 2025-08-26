@@ -1,8 +1,8 @@
-import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { updatePassword, EmailAuthProvider, reauthenticateWithCredential, deleteUser } from 'firebase/auth';
+import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { auth, db } from '/src/firebase/firebase.js';
-import { getCurrentAdminData } from '/src/pages/auth/authService.js';
+import { getCurrentAdminData, isSuperAdmin } from '/src/pages/auth/authService.js';
 import { logActivity, logSystemError, ACTIVITY_TYPES } from './auditService.js';
 
 /**
@@ -251,6 +251,91 @@ export const updateUsername = async (newUsername) => {
       attemptedUsername: newUsername,
       attemptedAction: 'updateUsername' 
     });
+    
+    throw error;
+  }
+};
+
+/**
+ * Deletes the current user's account (only for superadmin)
+ * @param {string} currentPassword - The current password for re-authentication
+ * @returns {Promise<string>} Success message
+ * @throws {Error} If deletion fails or user is not superadmin
+ */
+export const deleteCurrentAccount = async (currentPassword) => {
+  try {
+    if (!auth.currentUser) {
+      throw new Error('No authenticated user found');
+    }
+
+    // Check if current user is superadmin
+    const isCurrentUserSuperAdmin = await isSuperAdmin(auth.currentUser.uid);
+    if (!isCurrentUserSuperAdmin) {
+      throw new Error('Only superadmin users can delete accounts');
+    }
+
+    if (!currentPassword) {
+      throw new Error('Current password is required for account deletion');
+    }
+
+    // Get user data before deletion for logging
+    const userData = await getCurrentAdminData(auth.currentUser.uid);
+
+    // Re-authenticate the user with their current password
+    const credential = EmailAuthProvider.credential(
+      auth.currentUser.email,
+      currentPassword
+    );
+    
+    await reauthenticateWithCredential(auth.currentUser, credential);
+    
+    // Log the account deletion activity before deleting
+    await logActivity(
+      ACTIVITY_TYPES.USER_DELETE,
+      `Superadmin deleted their own account: ${userData?.email}`,
+      { 
+        deletedUserId: auth.currentUser.uid,
+        deletedUserEmail: userData?.email,
+        deletedUserRole: userData?.role,
+        deletionType: 'self_deletion'
+      }
+    );
+
+    // Delete profile image if it exists
+    if (userData?.profileImageUrl) {
+      try {
+        const storage = getStorage();
+        const imageRef = ref(storage, `profileImages/${auth.currentUser.uid}`);
+        await deleteObject(imageRef);
+      } catch (imageError) {
+        console.warn('Failed to delete profile image:', imageError);
+        // Continue with account deletion even if image deletion fails
+      }
+    }
+
+    // Delete Firestore document
+    const userDocRef = doc(db, 'Admin', auth.currentUser.uid);
+    await deleteDoc(userDocRef);
+    
+    // Delete the Firebase Auth user
+    await deleteUser(auth.currentUser);
+    
+    return 'Account deleted successfully';
+  } catch (error) {
+    console.error('Error deleting account:', error);
+    
+    // Log the error
+    await logSystemError(error, 'Account Deletion', { 
+      userId: auth.currentUser?.uid,
+      attemptedAction: 'deleteAccount' 
+    });
+    
+    // Provide more user-friendly error messages
+    if (error.code === 'auth/wrong-password') {
+      throw new Error('Current password is incorrect');
+    } else if (error.code === 'auth/requires-recent-login') {
+      throw new Error('Please log out and log back in before deleting your account');
+    }
     
     throw error;
   }

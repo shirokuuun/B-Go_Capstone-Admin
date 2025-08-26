@@ -592,32 +592,6 @@
   gap: 15px;
 }
 
-/* Apply Filters Button - Primary Action */
-.audit-apply-filters-btn {
-  padding: 10px 20px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.audit-apply-filters-btn:hover:not(:disabled) {
-  background-color: #0056b3;
-  transform: translateY(-1px);
-}
-
-.audit-apply-filters-btn:disabled {
-  background-color: #6c757d;
-  cursor: not-allowed;
-  transform: none;
-}
 
 /* Clear Filters Button - Secondary Action */
 .audit-clear-filters-btn {
@@ -697,7 +671,7 @@
 
 .settings-log-header {
   display: grid;
-  grid-template-columns: 180px 120px 140px 1fr 80px;
+  grid-template-columns: 180px 120px 140px 1fr 80px 70px;
   background: #f9fafb;
   padding: 16px;
   font-weight: 600;
@@ -708,7 +682,7 @@
 
 .settings-log-row {
   display: grid;
-  grid-template-columns: 180px 120px 140px 1fr 80px;
+  grid-template-columns: 180px 120px 140px 1fr 80px 70px;
   padding: 16px;
   border-bottom: 1px solid #f3f4f6;
   transition: background-color 0.2s;
@@ -727,24 +701,28 @@
   font-size: 0.875rem;
   color: #6b7280;
   font-family: monospace;
+  text-align: left;
 }
 
 .settings-log-user {
   font-weight: 500;
   color: #374151;
   font-size: 0.875rem;
+  text-align: left;
 }
 
 .settings-log-activity {
   font-size: 0.875rem;
   color: #4b5563;
   text-transform: capitalize;
+  text-align: left;
 }
 
 .settings-log-description {
   font-size: 0.875rem;
   color: #374151;
   line-height: 1.4;
+  text-align: left;
 }
 
 .settings-log-severity {
@@ -771,13 +749,6 @@
   color: #dc2626;
 }
 
-.settings-log-row.error {
-  border-left: 4px solid #ef4444;
-}
-
-.settings-log-row.warning {
-  border-left: 4px solid #f59e0b;
-}
 
 .settings-log-error,
 .settings-log-context,
@@ -789,11 +760,11 @@
 
 /* Error logs table layout */
 .settings-error-logs .settings-log-header {
-  grid-template-columns: 180px 120px 1fr 150px 100px;
+  grid-template-columns: 180px 120px 1fr 150px 100px 70px;
 }
 
 .settings-error-logs .settings-log-row {
-  grid-template-columns: 180px 120px 1fr 150px 100px;
+  grid-template-columns: 180px 120px 1fr 150px 100px 70px;
 }
 
 /* Responsive design for logs */
@@ -853,9 +824,198 @@
   }
   
   .audit-export-btn,
-  .audit-apply-filters-btn,
   .audit-clear-filters-btn {
     font-size: 12px;
     padding: 8px 16px;
+  }
+}
+
+/* Danger Zone Styles */
+.settings-danger-zone {
+  margin-top: 24px;
+  padding: 20px;
+  border: 2px solid #fecaca;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #fef2f2, #fff5f5);
+}
+
+.settings-danger-title {
+  color: #dc2626;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-danger-title::before {
+  content: "⚠️";
+  font-size: 1.2rem;
+}
+
+.settings-delete-btn {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-delete-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #b91c1c, #991b1b);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+  transform: translateY(-1px);
+}
+
+.settings-delete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.settings-delete-confirm {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.settings-delete-warning {
+  color: #dc2626;
+  font-weight: 500;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(220, 38, 38, 0.1);
+  border-radius: 6px;
+  border-left: 4px solid #dc2626;
+}
+
+.settings-delete-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-delete-password-input {
+  padding: 12px;
+  border: 2px solid #fca5a5;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.settings-delete-password-input:focus {
+  outline: none;
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.settings-delete-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.settings-delete-confirm-btn {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 1;
+  min-width: 200px;
+}
+
+.settings-delete-confirm-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #b91c1c, #991b1b);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+
+.settings-delete-confirm-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.settings-delete-cancel-btn {
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.settings-delete-cancel-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4b5563, #374151);
+  box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
+}
+
+.settings-delete-cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+/* Log Delete Button Styles */
+.settings-log-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.settings-log-delete-btn {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 28px;
+}
+
+.settings-log-delete-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #b91c1c, #991b1b);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+  transform: translateY(-1px);
+}
+
+.settings-log-delete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Mobile responsiveness for danger zone */
+@media (max-width: 768px) {
+  .settings-delete-actions {
+    flex-direction: column;
+  }
+  
+  .settings-delete-confirm-btn {
+    min-width: unset;
   }
 }
