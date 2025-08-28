@@ -31,7 +31,6 @@ export const calculateMonthlyGrowth = async (selectedMonth, selectedRoute, curre
     const prevDate = new Date(year, month - 2); // month - 2 because Date months are 0-indexed
     const prevMonth = `${prevDate.getFullYear()}-${(prevDate.getMonth() + 1).toString().padStart(2, '0')}`;
     
-    console.log(`📊 Calculating growth: Current month ${selectedMonth} vs Previous month ${prevMonth}`);
     
     // Load previous month's data
     const prevYear = prevDate.getFullYear();
@@ -68,7 +67,6 @@ export const calculateMonthlyGrowth = async (selectedMonth, selectedRoute, curre
       }
     });
     
-    console.log(`💰 Revenue comparison: Current ${currentMonthRevenue}, Previous ${prevMonthRevenue}`);
     
     // Calculate growth percentage
     if (prevMonthRevenue === 0) {
@@ -78,7 +76,6 @@ export const calculateMonthlyGrowth = async (selectedMonth, selectedRoute, curre
     }
     
     const growthPercentage = ((currentMonthRevenue - prevMonthRevenue) / prevMonthRevenue) * 100;
-    console.log(`📈 Growth calculated: ${growthPercentage.toFixed(1)}%`);
     
     return growthPercentage;
     
@@ -116,7 +113,6 @@ export const calculateSimpleGrowth = (currentMonthRevenue, dailyBreakdown = []) 
 export const loadMonthlyData = async (selectedMonth, selectedRoute, setMonthlyData, setMonthlyLoading, selectedTicketType = '') => {
   setMonthlyLoading(true);
   try {
-    console.log('🗓️ Loading monthly revenue data for:', selectedMonth, 'route:', selectedRoute, 'ticketType:', selectedTicketType);
     
     // Get all dates in the selected month
     const year = parseInt(selectedMonth.split('-')[0]);
@@ -133,7 +129,6 @@ export const loadMonthlyData = async (selectedMonth, selectedRoute, setMonthlyDa
     }
     
     const monthlyResults = await Promise.all(monthlyPromises);
-    console.log('📊 Monthly results received:', monthlyResults.length, 'days of data');
     
     // Aggregate monthly data
     let totalMonthlyRevenue = 0;
@@ -148,7 +143,6 @@ export const loadMonthlyData = async (selectedMonth, selectedRoute, setMonthlyDa
       const dateString = `${selectedMonth}-${day.toString().padStart(2, '0')}`;
       
       if (dayData && dayData.totalRevenue > 0) {
-        console.log(`📅 Processing day ${day} with revenue: ${dayData.totalRevenue}`);
         
         // Apply ticket type filtering to daily data
         let dayRevenue = 0;
@@ -197,22 +191,12 @@ export const loadMonthlyData = async (selectedMonth, selectedRoute, setMonthlyDa
             tripsToProcess = tripsToProcess.concat(dayData.preTicketing || []);
           }
           
-          console.log(`📊 Processing ${tripsToProcess.length} trips for route aggregation on day ${day}`);
           
           // Process each trip for route aggregation directly (don't use prepareRouteRevenueData)
           tripsToProcess.forEach((trip, tripIndex) => {
-            console.log(`🔍 Trip ${tripIndex + 1}:`, {
-              from: trip.from,
-              to: trip.to,
-              totalFare: trip.totalFare,
-              quantity: trip.quantity,
-              tripDirection: trip.tripDirection,
-              hasFromTo: !!(trip.from && trip.to)
-            });
             
             // Validate trip has required fields
             if (!trip.from || !trip.to) {
-              console.log(`❌ Skipping trip ${tripIndex + 1}: missing from (${trip.from}) or to (${trip.to})`);
               return;
             }
             
@@ -220,7 +204,6 @@ export const loadMonthlyData = async (selectedMonth, selectedRoute, setMonthlyDa
             const fareValue = Number(trip.totalFare) || 0;
             const quantityValue = Number(trip.quantity) || 0;
             
-            console.log(`🚌 Processing trip: ${route}, fare: ${fareValue}, passengers: ${quantityValue}`);
             
             if (fareValue > 0) { // Only process trips with actual revenue
               if (!routeAggregation[route]) {
@@ -230,15 +213,11 @@ export const loadMonthlyData = async (selectedMonth, selectedRoute, setMonthlyDa
                   passengers: 0,
                   tripDirection: trip.tripDirection || 'N/A'
                 };
-                console.log(`🆕 Created new route: ${route}`);
               }
               
               routeAggregation[route].revenue += fareValue;
               routeAggregation[route].passengers += quantityValue;
               
-              console.log(`📊 Route ${route} updated: revenue=${routeAggregation[route].revenue}, passengers=${routeAggregation[route].passengers}`);
-            } else {
-              console.log(`⚠️ Skipping trip with zero fare: ${route} (fare: ${fareValue})`);
             }
           });
           
@@ -260,11 +239,6 @@ export const loadMonthlyData = async (selectedMonth, selectedRoute, setMonthlyDa
       .filter(route => route.revenue > 0) // Only include routes with actual revenue
       .sort((a, b) => b.revenue - a.revenue);
     
-    console.log('🎯 Final route aggregation details:', routeMonthlyData.map(route => ({
-      route: route.route,
-      revenue: route.revenue,
-      passengers: route.passengers
-    })));
     
     const averageMonthlyFare = totalMonthlyPassengers > 0 ? totalMonthlyRevenue / totalMonthlyPassengers : 0;
     const averageDailyRevenue = dailyBreakdown.length > 0 ? totalMonthlyRevenue / dailyBreakdown.length : 0;
@@ -274,7 +248,6 @@ export const loadMonthlyData = async (selectedMonth, selectedRoute, setMonthlyDa
     try {
       monthlyGrowth = await calculateMonthlyGrowth(selectedMonth, selectedRoute, totalMonthlyRevenue, selectedTicketType);
     } catch (error) {
-      console.log('📈 Falling back to simple growth calculation');
       monthlyGrowth = calculateSimpleGrowth(totalMonthlyRevenue, dailyBreakdown);
     }
     
@@ -291,7 +264,6 @@ export const loadMonthlyData = async (selectedMonth, selectedRoute, setMonthlyDa
       averageDailyRevenue
     };
     
-    console.log('🎯 Final monthly data:', monthlyData);
     setMonthlyData(monthlyData);
     return monthlyData;
     

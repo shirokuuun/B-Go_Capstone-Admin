@@ -16,6 +16,7 @@ import {
   prepareExcelData,
   cleanup
 } from './FetchSOSReport.js';
+import { logActivity, ACTIVITY_TYPES } from "/src/pages/settings/auditService.js";
 import './SOSReport.css';
 
 const SOSReport = () => {
@@ -154,7 +155,7 @@ const SOSReport = () => {
   };
 
   // Export to Excel
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     try {
       const excelData = prepareExcelData(sosData, metrics, routeHotspots, emergencyTypes, monthlyTrends);
       
@@ -262,6 +263,35 @@ const SOSReport = () => {
       
       // Save file
       XLSX.writeFile(workbook, filename);
+      
+      // Log the export activity
+      try {
+        await logActivity(
+          ACTIVITY_TYPES.DATA_EXPORT,
+          `Exported SOS Analytics report to Excel`,
+          {
+            exportType: 'SOS Analytics Report',
+            filename: filename,
+            format: 'Excel (.xlsx)',
+            timeRange: `Last ${timeRange} days`,
+            routeFilter: routeFilter === 'all' ? 'All Routes' : routeFilter,
+            emergencyTypeFilter: emergencyTypeFilter === 'all' ? 'All Types' : emergencyTypeFilter,
+            totalIncidents: excelData.summary.totalIncidents,
+            resolutionRate: excelData.summary.resolutionRate,
+            criticalIncidents: excelData.summary.criticalIncidents,
+            sheetsIncluded: ['Summary', 'Response Times', 'Emergency Types', 'Route Analysis', 'Monthly Trends'],
+            dataPoints: {
+              sosRecords: sosData?.length || 0,
+              routeHotspots: routeHotspots?.length || 0,
+              emergencyTypes: emergencyTypes?.length || 0,
+              monthlyTrends: monthlyTrends?.length || 0
+            }
+          },
+          'info'
+        );
+      } catch (logError) {
+        console.error('Error logging SOS export activity:', logError);
+      }
       
     } catch (err) {
       console.error('Error exporting to Excel:', err);

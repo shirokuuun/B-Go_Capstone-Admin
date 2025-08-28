@@ -12,6 +12,7 @@ import {
   getAllConductorDetails,
   formatTicketType
 } from './Remittance.js';
+import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 import './DailyRevenue.css';
 
 const RemittanceReport = () => {
@@ -26,13 +27,7 @@ const RemittanceReport = () => {
   const [availableTripDirections, setAvailableTripDirections] = useState([]);
   const [availableConductors, setAvailableConductors] = useState([]);
   const [conductorData, setConductorData] = useState({});
-  const [summary, setSummary] = useState({
-    totalTrips: 0,
-    totalRevenue: 0,
-    totalPassengers: 0,
-    totalTickets: 0,
-    averageFare: 0
-  });
+  const [summary, setSummary] = useState(null);
   const [groupedData, setGroupedData] = useState({});
   const [validationResults, setValidationResults] = useState({ isValid: true, errors: [], warnings: [] });
   const [showValidation, setShowValidation] = useState(false);
@@ -135,7 +130,6 @@ const RemittanceReport = () => {
   const handleLoadRemittanceDataWithDates = async (dates, selectedDateValue) => {
     setLoading(true);
     try {
-      console.log('🚀 Loading remittance data for date:', selectedDateValue || 'All dates');
       
       let data;
       if (selectedDateValue) {
@@ -173,7 +167,6 @@ const RemittanceReport = () => {
       setGroupedData(grouped);
       setValidationResults(validation);
       
-      console.log('📊 Remittance data loaded successfully');
     } catch (error) {
       console.error('Error loading remittance data:', error);
       // Reset data on error
@@ -199,7 +192,7 @@ const RemittanceReport = () => {
     return handleLoadRemittanceDataWithDates(availableDates, selectedDate);
   };
 
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
     try {
       // Create a new workbook
       const workbook = XLSX.utils.book_new();
@@ -613,7 +606,36 @@ const RemittanceReport = () => {
       // Save the file
       XLSX.writeFile(workbook, filename);
 
-      console.log('Excel file exported successfully');
+      // Log the export activity (don't let logging errors break the export)
+      try {
+        await logActivity(
+          ACTIVITY_TYPES.DATA_EXPORT,
+          `Exported Daily Trips Remittance report to Excel`,
+          {
+            filename,
+            reportType: 'Daily Trips Remittance',
+            dateFilter: selectedDate || 'All Dates',
+            tripDirectionFilter: selectedTripDirection || 'All Directions',
+            ticketTypeFilter: selectedTicketType || 'All Types',
+            conductorFilter: selectedConductor || 'All Conductors',
+            totalTrips: summary?.totalTrips || 0,
+            totalRevenue: summary?.totalRevenue || 0,
+            totalPassengers: summary?.totalPassengers || 0,
+            totalTickets: summary?.totalTickets || 0,
+            uniqueTrips: filteredRemittanceData.length,
+            conductorsCount: Object.keys(groupedData).length,
+            sheetsCreated: {
+              summary: true,
+              mainReport: filteredRemittanceData.length > 0,
+              conductorBreakdowns: Object.keys(groupedData).length
+            }
+          },
+          'info'
+        );
+      } catch (logError) {
+        console.warn('Failed to log export activity:', logError);
+      }
+
     } catch (error) {
       console.error('Error exporting to Excel:', error);
       alert('Failed to export to Excel. Please try again.');
@@ -644,7 +666,7 @@ const RemittanceReport = () => {
     handleLoadRemittanceData();
   };
 
-  if (loading) {
+  if (loading || summary === null) {
     return (
       <div className="revenue-container">
         <div className="revenue-content-area">
@@ -768,12 +790,15 @@ const RemittanceReport = () => {
             fontWeight: '600'
           }}>
             {(() => {
+              if (loading || summary === null) {
+                return 'Loading...';
+              }
               if (filteredRemittanceData && filteredRemittanceData.length > 0) {
                 const totalTrips = filteredRemittanceData.length;
                 const totalPassengers = filteredRemittanceData.reduce((sum, trip) => sum + (trip.totalPassengers || 0), 0);
                 return `${totalTrips} trips • ${totalPassengers} passengers`;
               }
-              return filteredRemittanceData && filteredRemittanceData.length === 0 ? '0 trips • 0 passengers' : 'Loading...';
+              return '0 trips • 0 passengers';
             })()}
           </div>
         </div>
@@ -788,7 +813,7 @@ const RemittanceReport = () => {
             <div className="revenue-summary-cards">
                <div className="revenue-summary-card">
                 <h3 className="revenue-card-title">Total Revenue</h3>
-                <p className="revenue-card-value">{formatCurrency(summary.totalRevenue)}</p>
+                <p className="revenue-card-value">{formatCurrency(summary?.totalRevenue || 0)}</p>
               </div>
               <div className="revenue-summary-card">
                 <h3 className="revenue-card-title">Total Trips</h3>
@@ -810,11 +835,11 @@ const RemittanceReport = () => {
               </div>
               <div className="revenue-summary-card">
                 <h3 className="revenue-card-title">Total Passengers</h3>
-                <p className="revenue-card-value">{summary.totalPassengers}</p>
+                <p className="revenue-card-value">{summary?.totalPassengers || 0}</p>
               </div>
               <div className="revenue-summary-card">
                 <h3 className="revenue-card-title">Total Tickets</h3>
-                <p className="revenue-card-value">{summary.totalTickets}</p>
+                <p className="revenue-card-value">{summary?.totalTickets || 0}</p>
               </div>
             </div>
           </div>
@@ -896,7 +921,6 @@ const RemittanceReport = () => {
                               const timeStr = trip.startTime ? formatTime(trip.startTime) : 'N/A';
                               return `${dateStr} ${timeStr}`;
                             } catch (error) {
-                              console.error('Date formatting error:', error, 'Trip data:', trip);
                               return `${trip.date || 'N/A'} ${trip.startTime ? formatTime(trip.startTime) : 'N/A'}`;
                             }
                           })()}
@@ -987,7 +1011,6 @@ const RemittanceReport = () => {
                                     const timeStr = trip.startTime ? formatTime(trip.startTime) : 'N/A';
                                     return `${dateStr} ${timeStr}`;
                                   } catch (error) {
-                                    console.error('Date formatting error:', error, 'Trip data:', trip);
                                     return `${trip.date || 'N/A'} ${trip.startTime ? formatTime(trip.startTime) : 'N/A'}`;
                                   }
                                 })()}

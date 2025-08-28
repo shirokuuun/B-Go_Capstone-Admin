@@ -9,6 +9,7 @@ import {
   getAvailableTimeRanges,
   getAvailableRoutes
 } from './TicketReport.js';
+import { logActivity, ACTIVITY_TYPES } from "/src/pages/settings/auditService.js";
 import './TicketReport.css';
 
 const COLORS = {
@@ -285,7 +286,44 @@ const TicketReport = () => {
       // Save the file
       XLSX.writeFile(workbook, filename);
 
-      console.log('Excel file exported successfully');
+      // Log the export activity
+      try {
+        await logActivity(
+          ACTIVITY_TYPES.DATA_EXPORT,
+          `Exported Ticket Analytics report to Excel`,
+          {
+            exportType: 'Ticket Analytics Report',
+            filename: filename,
+            format: 'Excel (.xlsx)',
+            timeRange: availableTimeRanges.find(t => t.value === selectedTimeRange)?.label || selectedTimeRange,
+            routeFilter: availableRoutes.find(r => r.value === selectedRoute)?.label || selectedRoute,
+            ticketTypeFilter: selectedTicketType || 'All Types',
+            totalTicketsSold: mainAnalyticsData.totalTicketsSold,
+            totalRevenue: mainAnalyticsData.totalRevenue,
+            averageTicketPrice: mainAnalyticsData.averageTicketPrice,
+            marketShare: mainAnalyticsData.marketShare,
+            customerSatisfactionScore: mainAnalyticsData.customerSatisfactionScore,
+            onTimePerformance: mainAnalyticsData.onTimePerformance,
+            sheetsIncluded: [
+              'Summary',
+              ...(analyticsData.demandPatterns.peakHours?.length > 0 ? ['Peak Hours'] : []),
+              ...(analyticsData.demandPatterns.seasonalTrends?.length > 0 ? ['Seasonal Trends'] : []),
+              ...(analyticsData.routePerformance?.length > 0 ? ['Route Performance'] : []),
+              ...(analyticsData.ticketTypes?.length > 0 ? ['Ticket Types'] : [])
+            ],
+            dataPoints: {
+              peakHours: analyticsData.demandPatterns?.peakHours?.length || 0,
+              seasonalTrends: analyticsData.demandPatterns?.seasonalTrends?.length || 0,
+              routePerformance: analyticsData.routePerformance?.length || 0,
+              ticketTypes: analyticsData.ticketTypes?.length || 0
+            }
+          },
+          'info'
+        );
+      } catch (logError) {
+        console.error('Error logging ticket analytics export activity:', logError);
+      }
+
     } catch (error) {
       console.error('Error exporting to Excel:', error);
       alert('Failed to export to Excel. Please try again.');

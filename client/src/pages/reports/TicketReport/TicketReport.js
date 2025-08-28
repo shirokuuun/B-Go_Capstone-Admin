@@ -302,7 +302,6 @@ export const getDemandPatternsData = async (timeRange, route, ticketType = '') =
           processedCount++;
         }
       } catch (error) {
-        console.error('Error processing ticket time:', error, trip);
         timeFieldsFound.none++;
       }
     });
@@ -347,7 +346,7 @@ export const getDemandPatternsData = async (timeRange, route, ticketType = '') =
           datePatterns[dayOfWeek].passengers += Number(trip.quantity) || 1; // Keep passenger count for reference
         }
       } catch (error) {
-        console.error('Error processing trip date:', error);
+        // Skip invalid trip dates
       }
     });
 

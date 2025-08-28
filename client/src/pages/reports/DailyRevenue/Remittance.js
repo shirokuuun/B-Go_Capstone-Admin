@@ -4,7 +4,6 @@ import { db } from '/src/firebase/firebase.js';
 // Function to get available dates from remittance collection
 export const getAvailableRemittanceDates = async () => {
   try {
-    console.log('📅 Fetching available remittance dates...');
     
     const conductorsRef = collection(db, 'conductors');
     const conductorsSnapshot = await getDocs(conductorsRef);
@@ -21,7 +20,6 @@ export const getAvailableRemittanceDates = async () => {
           const dateId = dateDoc.id;
           if (dateId.match(/^\d{4}-\d{2}-\d{2}$/)) {
             dates.add(dateId);
-            console.log(`✅ Found remittance date: ${dateId} for conductor: ${conductorId}`);
           }
         }
       } catch (error) {
@@ -30,7 +28,6 @@ export const getAvailableRemittanceDates = async () => {
     }
 
     const sortedDates = Array.from(dates).sort((a, b) => new Date(b) - new Date(a));
-    console.log('📅 Available remittance dates:', sortedDates);
     return sortedDates;
   } catch (error) {
     console.error('Error fetching available remittance dates:', error);
@@ -41,36 +38,26 @@ export const getAvailableRemittanceDates = async () => {
 // UPDATED: Function to get trip data from dailyTrips (since remittance doesn't have trip maps)
 export const getTripDataFromDailyTrips = async (conductorId, date) => {
   try {
-    console.log(`📋 Getting trip data from dailyTrips: ${conductorId}/${date}`);
     
     // Get trip info from dailyTrips document (since it has the trip maps)
     const dailyTripsDocRef = doc(db, `conductors/${conductorId}/dailyTrips/${date}`);
     const dailyTripsDoc = await getDoc(dailyTripsDocRef);
     
     if (!dailyTripsDoc.exists()) {
-      console.log(`❌ DailyTrips document does not exist for ${conductorId}/${date}`);
       return [];
     }
     
     const dailyTripsData = dailyTripsDoc.data();
-    console.log(`📄 DailyTrips document keys:`, Object.keys(dailyTripsData));
     
     const trips = [];
     
     // Extract trip maps from dailyTrips document
     for (const [key, value] of Object.entries(dailyTripsData)) {
       if (key.startsWith('trip') && typeof value === 'object' && value !== null) {
-        console.log(`\n🚀 Processing trip from dailyTrips: ${key}`);
-        console.log(`  📍 Direction: ${value.direction || 'N/A'}`);
-        console.log(`  ⏰ Start Time: ${value.startTime ? (value.startTime.toDate ? value.startTime.toDate().toLocaleString() : value.startTime) : 'N/A'}`);
-        console.log(`  ⏰ End Time: ${value.endTime ? (value.endTime.toDate ? value.endTime.toDate().toLocaleString() : value.endTime) : 'N/A'}`);
 
         // Get tickets from dailyTrips tickets collection
         const ticketDetails = await getTicketDetailsFromDailyTrips(conductorId, date, key);
         
-        console.log(`  💰 Trip Revenue: ₱${ticketDetails.totalRevenue}`);
-        console.log(`  👥 Trip Passengers: ${ticketDetails.totalPassengers}`);
-        console.log(`  🎫 Trip Tickets: ${ticketDetails.tickets.length}`);
 
         // Determine trip documentType based on tickets
         const tripDocumentType = (() => {
@@ -109,11 +96,9 @@ export const getTripDataFromDailyTrips = async (conductorId, date) => {
           data: value // Original trip data from dailyTrips
         });
 
-        console.log(`✅ Added trip ${key} to results`);
       }
     }
     
-    console.log(`📋 Found ${trips.length} trips in dailyTrips for ${conductorId}/${date}`);
     return trips;
   } catch (error) {
     console.error(`Error getting trip data from dailyTrips for ${conductorId}/${date}:`, error);
@@ -124,10 +109,8 @@ export const getTripDataFromDailyTrips = async (conductorId, date) => {
 // Function to get ticket details from dailyTrips
 export const getTicketDetailsFromDailyTrips = async (conductorId, date, tripNumber) => {
   try {
-    console.log(`🎫 Getting ticket details from dailyTrips: ${conductorId}/${date}/${tripNumber}`);
     
     const ticketsPath = `conductors/${conductorId}/dailyTrips/${date}/${tripNumber}/tickets/tickets`;
-    console.log(`📍 Tickets path: ${ticketsPath}`);
     
     const ticketsRef = collection(db, ticketsPath);
     const ticketsSnapshot = await getDocs(ticketsRef);
@@ -136,19 +119,11 @@ export const getTicketDetailsFromDailyTrips = async (conductorId, date, tripNumb
     let totalPassengers = 0;
     const tickets = [];
 
-    console.log(`📊 Found ${ticketsSnapshot.docs.length} tickets in dailyTrips`);
 
     for (const ticketDoc of ticketsSnapshot.docs) {
       const ticketData = ticketDoc.data();
       const ticketId = ticketDoc.id;
       
-      console.log(`🎟️ Processing ticket: ${ticketId}`, {
-        totalFare: ticketData.totalFare,
-        quantity: ticketData.quantity,
-        from: ticketData.from,
-        to: ticketData.to,
-        documentType: ticketData.documentType
-      });
       
       if (ticketData.totalFare && ticketData.quantity) {
         const fare = parseFloat(ticketData.totalFare);
@@ -173,11 +148,9 @@ export const getTicketDetailsFromDailyTrips = async (conductorId, date, tripNumb
           source: 'dailyTrips'
         });
       } else {
-        console.log(`⚠️ Skipping invalid ticket ${ticketId}: missing totalFare or quantity`);
       }
     }
 
-    console.log(`💰 Trip summary - Revenue: ${totalRevenue}, Passengers: ${totalPassengers}, Tickets: ${tickets.length}`);
 
     return {
       tickets,
@@ -197,7 +170,6 @@ export const getTicketDetailsFromDailyTrips = async (conductorId, date, tripNumb
 // OPTIONAL: Function to get remittance summary data (if needed)
 export const getRemittanceSummaryData = async (conductorId, date) => {
   try {
-    console.log(`📊 Getting remittance summary data: ${conductorId}/${date}`);
     
     // Check if there's summary data in the remittance date document
     const remittanceDateDocRef = doc(db, `conductors/${conductorId}/remittance/${date}`);
@@ -205,11 +177,9 @@ export const getRemittanceSummaryData = async (conductorId, date) => {
     
     if (remittanceDateDoc.exists()) {
       const summaryData = remittanceDateDoc.data();
-      console.log(`📊 Found remittance summary:`, summaryData);
       return summaryData;
     }
     
-    console.log(`📊 No remittance summary found, will calculate from trip data`);
     return null;
   } catch (error) {
     console.error(`Error getting remittance summary data:`, error);
@@ -221,7 +191,6 @@ export const getRemittanceSummaryData = async (conductorId, date) => {
 // Fixed version of getConductorDetails function
 export const getConductorDetails = async (conductorId) => {
   try {
-    console.log(`📋 Fetching conductor details for: ${conductorId}`);
     
     // Get conductor basic info
     const conductorRef = doc(db, 'conductors', conductorId);
@@ -235,7 +204,6 @@ export const getConductorDetails = async (conductorId) => {
     
     if (conductorDoc.exists()) {
       const data = conductorDoc.data();
-      console.log(`📄 Conductor document data:`, data); // Debug log
       
       conductorData = {
         id: conductorId,

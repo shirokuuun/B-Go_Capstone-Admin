@@ -30,7 +30,7 @@ const Layout = () => {
       case '/admin/reports':
         return 'Reports';
       case '/admin/reports/daily-revenue':
-        return 'Daily Revenue Report';
+        return 'Revenue Report';
       case '/admin/reports/route-performance':
         return 'Route Performance Report';
       case '/admin/reports/ticket-report':

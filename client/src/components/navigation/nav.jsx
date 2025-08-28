@@ -26,7 +26,7 @@ const Nav = ({ collapsed, setCollapsed }) => {
   // Reports dropdown items
   const reportsDropdownItems = [
     {
-      title: "Daily Revenue",
+      title: "Revenue",
       Icon: FaChartLine,
       to: "/admin/reports/daily-revenue"
     },

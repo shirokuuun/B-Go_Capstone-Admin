@@ -1,6 +1,8 @@
 import React from 'react';
+import * as XLSX from 'xlsx';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, BarChart, Bar, ResponsiveContainer } from 'recharts';
-import { preparePieChartData } from './DailyRevenue.js'; 
+import { preparePieChartData } from './DailyRevenue.js';
+import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js'; 
 import {
   formatMonthForDisplay,
   formatDateForBreakdown,
@@ -23,12 +25,160 @@ const MonthlyRevenue = ({
   availableMonths,
   availableRoutes,
   formatCurrency,
-  handlePrint,
   onMonthChange,
   onRouteChange,
   onTicketTypeChange,
   onRefresh
 }) => {
+  
+  // Excel export function
+  const handleExportToExcel = async () => {
+    try {
+      // Create a new workbook
+      const workbook = XLSX.utils.book_new();
+
+      // Create summary data
+      const summaryData = [
+        ['B-Go Bus Transportation - Monthly Revenue Report'],
+        [''],
+        ['Report Month:', formatMonthForDisplay(selectedMonth)],
+        ['Route Filter:', selectedRoute || 'All Routes'],
+        ['Ticket Type Filter:', selectedTicketType || 'All Types'],
+        ['Generated:', new Date().toLocaleString()],
+        [''],
+        ['SUMMARY'],
+        ['Metric', 'Value'],
+        ['Total Monthly Revenue', `₱${monthlyData.totalMonthlyRevenue?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`],
+        ['Total Passengers', monthlyData.totalMonthlyPassengers || 0],
+        ['Average Daily Revenue', `₱${monthlyData.averageDailyRevenue?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`],
+        ['Monthly Growth', formatGrowthDisplay(monthlyData.monthlyGrowth)],
+        ['Conductor Revenue', `₱${monthlyData.conductorMonthlyRevenue?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`],
+        ['Pre-booking Revenue', `₱${monthlyData.preBookingMonthlyRevenue?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`],
+        ['Pre-ticketing Revenue', `₱${monthlyData.preTicketingMonthlyRevenue?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`],
+        ['']
+      ];
+
+      // Create the summary worksheet
+      const summaryWS = XLSX.utils.aoa_to_sheet(summaryData);
+      
+      // Set column widths
+      summaryWS['!cols'] = [
+        { wch: 25 }, // Column A
+        { wch: 25 }  // Column B
+      ];
+
+      // Merge cells for title
+      summaryWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 1, r: 0 } }];
+
+      XLSX.utils.book_append_sheet(workbook, summaryWS, 'Summary');
+
+      // Create daily breakdown sheet
+      if (monthlyData.dailyBreakdown && monthlyData.dailyBreakdown.length > 0) {
+        const dailyData = [
+          ['Daily Revenue Breakdown'],
+          [''],
+          ['Date', 'Total Revenue', 'Passengers', 'Conductor Revenue', 'Pre-booking Revenue', 'Pre-ticketing Revenue', 'Average Fare']
+        ];
+
+        monthlyData.dailyBreakdown.forEach(day => {
+          dailyData.push([
+            formatDateForBreakdown(day.date),
+            `₱${day.totalRevenue?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`,
+            day.totalPassengers || 0,
+            `₱${day.conductorRevenue?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`,
+            `₱${day.preBookingRevenue?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`,
+            `₱${day.preTicketingRevenue?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`,
+            `₱${day.averageFare?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`
+          ]);
+        });
+
+        const dailyWS = XLSX.utils.aoa_to_sheet(dailyData);
+
+        // Set column widths
+        dailyWS['!cols'] = [
+          { wch: 12 }, // Date
+          { wch: 15 }, // Total Revenue
+          { wch: 12 }, // Passengers
+          { wch: 18 }, // Conductor Revenue
+          { wch: 18 }, // Pre-booking Revenue
+          { wch: 18 }, // Pre-ticketing Revenue
+          { wch: 15 }  // Average Fare
+        ];
+
+        // Merge title
+        dailyWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 6, r: 0 } }];
+
+        XLSX.utils.book_append_sheet(workbook, dailyWS, 'Daily Breakdown');
+      }
+
+      // Create top routes sheet
+      const topRoutes = getTopRoutes(monthlyData.routeMonthlyData, 10);
+      if (topRoutes && topRoutes.length > 0) {
+        const routesData = [
+          ['Top Routes by Revenue'],
+          [''],
+          ['Route', 'Revenue', 'Passengers']
+        ];
+
+        topRoutes.forEach(route => {
+          routesData.push([
+            route.route,
+            `₱${route.revenue?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`,
+            route.passengers || 0
+          ]);
+        });
+
+        const routesWS = XLSX.utils.aoa_to_sheet(routesData);
+
+        // Set column widths
+        routesWS['!cols'] = [
+          { wch: 30 }, // Route
+          { wch: 15 }, // Revenue
+          { wch: 12 }  // Passengers
+        ];
+
+        // Merge title
+        routesWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 2, r: 0 } }];
+
+        XLSX.utils.book_append_sheet(workbook, routesWS, 'Top Routes');
+      }
+
+      // Generate filename
+      const monthStr = formatMonthForDisplay(selectedMonth).replace(/\s+/g, '_').replace(/,/g, '');
+      const filename = `Monthly_Revenue_Report_${monthStr}_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+      // Save the file
+      XLSX.writeFile(workbook, filename);
+
+      // Log the export activity (don't let logging errors break the export)
+      try {
+        await logActivity(
+          ACTIVITY_TYPES.DATA_EXPORT,
+          `Exported Monthly Revenue report to Excel`,
+          {
+            filename,
+            reportType: 'Monthly Revenue',
+            monthFilter: formatMonthForDisplay(selectedMonth),
+            routeFilter: selectedRoute || 'All Routes',
+            ticketTypeFilter: selectedTicketType || 'All Types',
+            totalRevenue: monthlyData.totalMonthlyRevenue,
+            totalPassengers: monthlyData.totalMonthlyPassengers,
+            averageDailyRevenue: monthlyData.averageDailyRevenue,
+            monthlyGrowth: monthlyData.monthlyGrowth,
+            daysCount: monthlyData.dailyBreakdown?.length || 0
+          },
+          'info'
+        );
+      } catch (logError) {
+        console.warn('Failed to log export activity:', logError);
+      }
+
+      console.log('Monthly Excel file exported successfully');
+    } catch (error) {
+      console.error('Error exporting monthly report to Excel:', error);
+      alert('Failed to export to Excel. Please try again.');
+    }
+  };
   
   if (monthlyLoading) {
     return (
@@ -188,11 +338,11 @@ const MonthlyRevenue = ({
           {monthlyLoading ? 'Loading...' : 'Refresh'}
         </button>
         <button
-          onClick={handlePrint}
-          className="revenue-print-btn"
-          disabled={monthlyLoading}
+          onClick={handleExportToExcel}
+          className="revenue-export-btn"
+          disabled={monthlyLoading || !hasData}
         >
-          🖨️ Print Report
+          📊 Export to Excel
         </button>
       </div>
 

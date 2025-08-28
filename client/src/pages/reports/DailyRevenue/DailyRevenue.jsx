@@ -18,6 +18,7 @@ import {
 } from './MonthlyRevenue.js';
 import './DailyRevenue.css';
 import RemittanceReport from './Remittance.jsx';
+import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 
 
 const Revenue = () => {
@@ -39,18 +40,8 @@ const Revenue = () => {
   const [monthlySelectedTicketType, setMonthlySelectedTicketType] = useState('');
   const [monthlySelectedRoute, setMonthlySelectedRoute] = useState('');
   
-  // Daily Revenue Data
-  const [revenueData, setRevenueData] = useState({
-    conductorTrips: [],
-    preBookingTrips: [],
-    preTicketing: [],
-    totalRevenue: 0,
-    totalPassengers: 0,
-    averageFare: 0,
-    conductorRevenue: 0,
-    preBookingRevenue: 0,
-    preTicketingRevenue: 0
-  });
+  // Daily Revenue Data - Start with null to show loading
+  const [revenueData, setRevenueData] = useState(null);
 
   // Function to load revenue data with provided dates array
   const handleLoadRevenueDataWithDates = async (dates, selectedDateValue) => {
@@ -94,7 +85,21 @@ const Revenue = () => {
       
       // Apply ticket type filtering
       const filteredData = applyTicketTypeFilter(data, selectedTicketType);
-      setRevenueData(filteredData);
+      
+      // Ensure we always have a complete data structure
+      const completeData = {
+        conductorTrips: filteredData.conductorTrips || [],
+        preBookingTrips: filteredData.preBookingTrips || [],
+        preTicketing: filteredData.preTicketing || [],
+        totalRevenue: filteredData.totalRevenue || 0,
+        totalPassengers: filteredData.totalPassengers || 0,
+        averageFare: filteredData.averageFare || 0,
+        conductorRevenue: filteredData.conductorRevenue || 0,
+        preBookingRevenue: filteredData.preBookingRevenue || 0,
+        preTicketingRevenue: filteredData.preTicketingRevenue || 0
+      };
+      
+      setRevenueData(completeData);
     } catch (error) {
       console.error('Error loading revenue data:', error);
     } finally {
@@ -182,8 +187,8 @@ const Revenue = () => {
       const dates = await getAvailableDates();
       setAvailableDates(dates);
       
-      // Load revenue data for all dates on initial load (when selectedDate is empty)
-      if (dates.length > 0) {
+      // Only load data if daily-revenue view is active
+      if (dates.length > 0 && currentView === 'daily-revenue') {
         await handleLoadRevenueDataWithDates(dates, selectedDate);
       }
     } catch (error) {
@@ -202,15 +207,21 @@ const Revenue = () => {
   };
 
   useEffect(() => {
-    loadAvailableDates();
     loadAvailableRoutes();
   }, []);
 
+  // Load dates and data when view changes to daily-revenue
   useEffect(() => {
-    if (availableDates.length > 0) {
+    if (currentView === 'daily-revenue') {
+      loadAvailableDates();
+    }
+  }, [currentView]);
+
+  useEffect(() => {
+    if (availableDates.length > 0 && currentView === 'daily-revenue') {
       handleLoadRevenueData();
     }
-  }, [selectedDate, selectedTicketType, selectedRoute]);
+  }, [selectedDate, selectedTicketType, selectedRoute, currentView]);
 
 
   const toggleMenu = () => {
@@ -242,7 +253,7 @@ const Revenue = () => {
   };
 
   // Excel export function
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
     try {
       // Create a new workbook
       const workbook = XLSX.utils.book_new();
@@ -465,6 +476,30 @@ const Revenue = () => {
       // Save the file
       XLSX.writeFile(workbook, filename);
 
+      // Log the export activity (don't let logging errors break the export)
+      try {
+        await logActivity(
+          ACTIVITY_TYPES.DATA_EXPORT,
+          `Exported Daily Revenue report to Excel`,
+          {
+            filename,
+            reportType: 'Daily Revenue',
+            dateFilter: selectedDate || 'All Dates',
+            routeFilter: selectedRoute || 'All Routes',
+            ticketTypeFilter: selectedTicketType || 'All Types',
+            totalRevenue: revenueData.totalRevenue,
+            totalTrips: uniqueTrips.size,
+            totalPassengers: revenueData.totalPassengers,
+            conductorTripsCount: revenueData.conductorTrips?.length || 0,
+            preBookingTripsCount: revenueData.preBookingTrips?.length || 0,
+            preTicketingCount: revenueData.preTicketing?.length || 0
+          },
+          'info'
+        );
+      } catch (logError) {
+        console.warn('Failed to log export activity:', logError);
+      }
+
       console.log('Excel file exported successfully');
     } catch (error) {
       console.error('Error exporting to Excel:', error);
@@ -472,9 +507,13 @@ const Revenue = () => {
     }
   };
 
-  // Prepare chart data for daily revenue
-  const pieChartData = preparePieChartData(revenueData.conductorRevenue, revenueData.preBookingRevenue, revenueData.preTicketingRevenue);
-  const routeChartData = prepareRouteRevenueData(revenueData.conductorTrips, revenueData.preBookingTrips, revenueData.preTicketing);
+  // Prepare chart data for daily revenue (only if data exists)
+  const pieChartData = revenueData ? 
+    preparePieChartData(revenueData.conductorRevenue, revenueData.preBookingRevenue, revenueData.preTicketingRevenue) : 
+    [];
+  const routeChartData = revenueData ? 
+    prepareRouteRevenueData(revenueData.conductorTrips, revenueData.preBookingTrips, revenueData.preTicketing) : 
+    [];
 
 
   const renderViewContent = () => {
@@ -535,7 +574,7 @@ const Revenue = () => {
   };
 
   const renderDailyRevenue = () => {
-    if (loading) {
+    if (loading || revenueData === null) {
       return (
         <div className="revenue-daily-container">
           <div className="revenue-loading-state">
@@ -1021,14 +1060,17 @@ const Revenue = () => {
             fontWeight: '600'
           }}>
             {(() => {
+              if (loading || revenueData === null) {
+                return 'Loading...';
+              }
               if (revenueData) {
                 const totalTrips = (revenueData.conductorTrips?.length || 0) + 
                                  (revenueData.preBookingTrips?.length || 0) + 
                                  (revenueData.preTicketing?.length || 0);
                 const totalPassengers = revenueData.totalPassengers || 0;
-                return `${totalTrips} trips • ${totalPassengers} passengers`;
+                return `${totalTrips} tickets • ${totalPassengers} passengers`;
               }
-              return 'Loading...';
+              return 'No data';
             })()}
           </div>
         </div>
