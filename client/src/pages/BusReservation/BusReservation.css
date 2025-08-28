@@ -340,6 +340,42 @@
   margin-bottom: 0.75rem;
 }
 
+.bus-reservation-bus-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bus-reservation-delete-btn {
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.bus-reservation-delete-btn:hover:not(:disabled) {
+  background: #b91c1c;
+  transform: scale(1.05);
+}
+
+.bus-reservation-delete-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.bus-reservation-delete-btn svg {
+  font-size: 0.875rem;
+}
+
 .bus-reservation-bus-name {
   font-size: 1.125rem;
   font-weight: 600;

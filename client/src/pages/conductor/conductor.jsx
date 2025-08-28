@@ -4,10 +4,6 @@ import './conductor.css';
 import { IoMdAdd } from "react-icons/io";
 import { FaSync } from "react-icons/fa";
 import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaTrash } from 'react-icons/fa';
-import { auth } from '/src/firebase/firebase';
-import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, doc, setDoc } from 'firebase/firestore';
 
 const Conductor = () => {
   const [conductors, setConductors] = useState([]);
@@ -24,46 +20,40 @@ const Conductor = () => {
     // Clean up any existing listeners first
     conductorService.removeAllListeners();
     
-    // Use simple fetch instead of real-time listeners to avoid connection issues
-    const fetchConductors = async () => {
-      try {
-        const conductorsList = await conductorService.getAllConductors();
-        setConductors(conductorsList);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching conductors:', error);
-        setLoading(false);
-      }
-    };
-
-    fetchConductors();
-
-    // Set up interval for periodic updates instead of real-time
-    const interval = setInterval(fetchConductors, 10000); // Update every 10 seconds
+    // Set up real-time listener for conductors
+    const unsubscribe = conductorService.setupConductorsListener((conductorsList) => {
+      setConductors(conductorsList);
+      setLoading(false);
+    });
 
     return () => {
-      clearInterval(interval);
+      if (unsubscribe) {
+        unsubscribe();
+      }
       conductorService.removeAllListeners();
     };
   }, []);
 
-  // Fetch conductor details without real-time listeners
+  // Set up real-time listener for conductor details
   useEffect(() => {
     if (!selectedConductor?.id) return;
 
-    const fetchConductorDetails = async () => {
-      setDetailsLoading(true);
-      try {
-        const details = await conductorService.getConductorDetails(selectedConductor.id);
+    setDetailsLoading(true);
+    
+    // Set up real-time listener for conductor details
+    const unsubscribe = conductorService.setupConductorDetailsListener(
+      selectedConductor.id,
+      (details) => {
         setSelectedConductor(details);
         setDetailsLoading(false);
-      } catch (error) {
-        console.error('Error fetching conductor details:', error);
-        setDetailsLoading(false);
+      }
+    );
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
       }
     };
-
-    fetchConductorDetails();
   }, [selectedConductor?.id]);
 
   const handleConductorSelect = async (conductorId) => {
@@ -75,10 +65,27 @@ const Conductor = () => {
   };
 
   const handleDeleteConductor = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this conductor?")) return;
+    const conductor = conductors.find(c => c.id === id);
+    if (!conductor) {
+      alert("Conductor not found!");
+      return;
+    }
+
+    const confirmMessage = `Are you sure you want to delete conductor ${conductor.name}?\n\nThis will permanently delete:\n• Conductor profile\n• Login account (${conductor.email})\n• All conductor data\n\nThis action cannot be undone.`;
+    
+    if (!window.confirm(confirmMessage)) return;
+
     try {
-      await conductorService.deleteConductor(id);
-      // No need to fetch manually - real-time listener will update
+      console.log(`Deleting conductor: ${conductor.name} (${conductor.email})`);
+      const result = await conductorService.deleteConductor(id);
+      
+      if (result.success) {
+        if (result.authDeleted) {
+          alert(`✅ Conductor deleted completely!\n\n• Profile: Deleted\n• Login account: Deleted\n• Email: ${conductor.email}`);
+        } else {
+          alert(`⚠️ Conductor profile deleted.\n\nLogin account status: ${result.message || 'See activity logs for details'}`);
+        }
+      }
       
       // Clear selected conductor if it was deleted
       if (selectedConductor?.id === id) {
@@ -86,6 +93,7 @@ const Conductor = () => {
       }
     } catch (error) {
       console.error("Error deleting conductor:", error);
+      alert(`❌ Error deleting conductor: ${error.message}`);
     }
   };
 
@@ -400,9 +408,6 @@ const AddConductorModal = ({ onClose, onSuccess }) => {
     }));
   };
 
-  const extractDocumentId = (email) => {
-    return email.split('@')[0].replace(/\./g, '_');
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -410,56 +415,15 @@ const AddConductorModal = ({ onClose, onSuccess }) => {
     setError('');
 
     try {
-      // Validate required fields
-      if (!formData.busNumber || !formData.email || !formData.name || !formData.route || !formData.password) {
-        throw new Error('All fields are required');
+      // Use the conductorService.createConductor method which includes activity logging
+      const result = await conductorService.createConductor(formData);
+      
+      if (result.success) {
+        console.log('Conductor created successfully:', result.data);
+        onSuccess();
+      } else {
+        throw new Error(result.error || 'Failed to create conductor');
       }
-
-      console.log('Creating conductor with separate Firebase instance...');
-
-      // Use the same Firebase config as the main app
-      const firebaseConfig = {
-        apiKey: "AIzaSyDjqLNklma1gr3IOwPxiMO5S38hu8UQ2Fc",
-        authDomain: "it-capstone-6fe19.firebaseapp.com",
-        projectId: "it-capstone-6fe19",
-        storageBucket: "it-capstone-6fe19.firebasestorage.app",
-        messagingSenderId: "183068104612",
-        appId: "1:183068104612:web:26109c8ebb28585e265331",
-        measurementId: "G-0MW2KZMGR2"
-      };
-
-      // Initialize separate Firebase app for conductor creation
-      const conductorApp = initializeApp(firebaseConfig, 'conductor-creation-' + Date.now());
-      const conductorAuth = getAuth(conductorApp);
-      const conductorDb = getFirestore(conductorApp);
-
-      // Create Firebase Auth user in separate instance
-      const userCredential = await createUserWithEmailAndPassword(conductorAuth, formData.email, formData.password);
-      const conductorUser = userCredential.user;
-
-      // Extract document ID from email
-      const documentId = extractDocumentId(formData.email);
-
-      // Create conductor document in Firestore using separate instance
-      const conductorData = {
-        busNumber: parseInt(formData.busNumber),
-        email: formData.email,
-        name: formData.name,
-        route: formData.route,
-        isOnline: false,
-        createdAt: new Date(),
-        lastSeen: null,
-        currentLocation: null,
-        uid: conductorUser.uid,
-        totalTrips: 0,
-        todayTrips: 0,
-        status: 'offline'
-      };
-
-      await setDoc(doc(conductorDb, 'conductors', documentId), conductorData);
-
-      console.log('Conductor created successfully without affecting admin session:', documentId);
-      onSuccess();
     } catch (error) {
       console.error('Error creating conductor:', error);
       setError(error.message);

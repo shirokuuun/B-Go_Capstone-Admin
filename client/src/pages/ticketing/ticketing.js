@@ -1,6 +1,7 @@
 // Firebase imports
 import { getFirestore, collection, getDocs, doc, getDoc, query, orderBy, limit as limitQuery, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { auth } from '/src/firebase/firebase.js';
+import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 
 const db = getFirestore();
 
@@ -588,6 +589,36 @@ export const updateTicketStatus = async (conductorId, ticketId, newStatus) => {
     }
     
     await updateDoc(ticketRef, updateData);
+
+    // Log the ticket status update activity
+    const activityType = newStatus === 'boarded' ? ACTIVITY_TYPES.TICKET_SCAN : ACTIVITY_TYPES.TICKET_UPDATE;
+    const actionDescription = newStatus === 'boarded' ? 'scanned' : `updated status to ${newStatus}`;
+    
+    // Create clean metadata object (filter out undefined values)
+    const metadata = {
+      ticketId: ticketId,
+      conductorId: conductorId,
+      passengerName: ticket.passengerName || 'Unknown Passenger',
+      route: ticket.route || 'Unknown Route',
+      tripDate: ticket.date || 'Unknown Date',
+      tripId: ticket.tripId || 'Unknown Trip',
+      previousStatus: ticket.status || 'unknown',
+      newStatus: newStatus,
+      isScanned: newStatus === 'boarded',
+      ticketNumber: ticket.ticketNumber || ticketId,
+      updatedAt: new Date().toISOString()
+    };
+
+    // Only add optional fields if they have values (not null/undefined)
+    if (ticket.passengerEmail) metadata.passengerEmail = ticket.passengerEmail;
+    if (ticket.seatNumber) metadata.seatNumber = ticket.seatNumber;
+    
+    await logActivity(
+      activityType,
+      `Ticket ${actionDescription}: ${ticket.passengerName || 'Unknown Passenger'} (${ticket.route || 'Unknown Route'})`,
+      metadata
+    );
+
     return true;
   } catch (error) {
     console.error('Error updating ticket status:', error);
@@ -622,10 +653,47 @@ export const deletePreTicket = async (conductorId, ticketId) => {
       throw new Error('Access denied: Only superadmin users can delete tickets. You are logged in as a regular admin.');
     }
     
-    // Find the ticket first to get its location
+    // Find the ticket first to get its location and data for logging
     const ticket = await getPreTicketById(conductorId, ticketId);
     
     const ticketRef = doc(db, 'conductors', conductorId, 'dailyTrips', ticket.date, ticket.tripId, 'tickets', 'tickets', ticketId);
+    
+    // Log the ticket deletion activity BEFORE deleting
+    // Create clean metadata object (filter out undefined values)
+    const deletionMetadata = {
+      ticketId: ticketId,
+      conductorId: conductorId,
+      passengerName: ticket.passengerName || 'Unknown Passenger',
+      route: ticket.route || 'Unknown Route',
+      tripDate: ticket.date || 'Unknown Date',
+      tripId: ticket.tripId || 'Unknown Trip',
+      ticketStatus: ticket.status || 'unknown',
+      ticketNumber: ticket.ticketNumber || ticketId,
+      wasScanned: ticket.status === 'boarded',
+      deletedAt: new Date().toISOString(),
+      deletedBy: 'superadmin'
+    };
+
+    // Only add optional fields if they have values
+    if (ticket.passengerEmail) deletionMetadata.passengerEmail = ticket.passengerEmail;
+    if (ticket.seatNumber) deletionMetadata.seatNumber = ticket.seatNumber;
+    if (ticket.scannedAt) deletionMetadata.scannedAt = ticket.scannedAt;
+    
+    // Create clean ticket data object
+    const cleanTicketData = {};
+    if (ticket.timestamp !== undefined) cleanTicketData.timestamp = ticket.timestamp;
+    if (ticket.active !== undefined) cleanTicketData.active = ticket.active;
+    if (ticket.direction !== undefined) cleanTicketData.direction = ticket.direction;
+    
+    if (Object.keys(cleanTicketData).length > 0) {
+      deletionMetadata.ticketData = cleanTicketData;
+    }
+    
+    await logActivity(
+      ACTIVITY_TYPES.TICKET_DELETE,
+      `Deleted ticket: ${ticket.passengerName || 'Unknown Passenger'} (${ticket.route || 'Unknown Route'})`,
+      deletionMetadata
+    );
     
     await deleteDoc(ticketRef);
     

@@ -23,7 +23,15 @@ export const ACTIVITY_TYPES = {
   ROUTE_UPDATE: 'ROUTE_UPDATE',
   ROUTE_DELETE: 'ROUTE_DELETE',
   TICKET_SCAN: 'TICKET_SCAN',
+  TICKET_CREATE: 'TICKET_CREATE',
+  TICKET_UPDATE: 'TICKET_UPDATE', 
+  TICKET_DELETE: 'TICKET_DELETE',
   BOOKING_STATUS_UPDATE: 'BOOKING_STATUS_UPDATE',
+  ID_VERIFICATION_APPROVE: 'ID_VERIFICATION_APPROVE',
+  ID_VERIFICATION_REJECT: 'ID_VERIFICATION_REJECT',
+  SCHEDULE_CREATE: 'SCHEDULE_CREATE',
+  SCHEDULE_UPDATE: 'SCHEDULE_UPDATE',
+  SCHEDULE_DELETE: 'SCHEDULE_DELETE',
   SYSTEM_ERROR: 'SYSTEM_ERROR',
   DATA_EXPORT: 'DATA_EXPORT'
 };
@@ -207,6 +215,134 @@ export const getErrorLogs = async (filters = {}) => {
  */
 export const exportLogsToCSV = (logs, filename, type = 'activity') => {
   try {
+    // Import xlsx library dynamically
+    import('xlsx').then(XLSX => {
+      let headers, rows;
+
+      if (type === 'activity') {
+        headers = ['Date/Time', 'User', 'Email', 'Role', 'Activity Type', 'Description', 'Severity'];
+        rows = logs.map(log => [
+          log.timestamp.toLocaleString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          }),
+          log.userName || 'Unknown',
+          log.userEmail || 'Unknown',
+          log.userRole || 'unknown',
+          log.activityType?.replace(/_/g, ' ') || 'UNKNOWN',
+          log.description || '',
+          log.severity || 'info'
+        ]);
+      } else {
+        headers = ['Date/Time', 'User', 'Email', 'Error', 'Context', 'URL'];
+        rows = logs.map(log => [
+          log.timestamp.toLocaleString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          }),
+          log.userEmail || 'anonymous',
+          log.userEmail || 'anonymous',
+          log.errorMessage || '',
+          log.context || '',
+          log.url || ''
+        ]);
+      }
+
+      // Create worksheet data
+      const worksheetData = [headers, ...rows];
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+
+      // Auto-adjust column widths based on content
+      const columnWidths = headers.map((header, colIndex) => {
+        // Calculate the maximum width for each column
+        const headerWidth = header.length;
+        const maxDataWidth = Math.max(...rows.map(row => 
+          String(row[colIndex] || '').length
+        ), 0);
+        
+        // Set minimum width of 10 and maximum of 50 characters
+        const width = Math.min(Math.max(headerWidth, maxDataWidth, 10), 50);
+        return { wch: width };
+      });
+
+      worksheet['!cols'] = columnWidths;
+
+      // Style the header row
+      const range = XLSX.utils.decode_range(worksheet['!ref']);
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+        if (!worksheet[cellAddress]) continue;
+        
+        worksheet[cellAddress].s = {
+          font: { bold: true, sz: 12 },
+          fill: { fgColor: { rgb: "E6E6FA" } },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: {
+            top: { style: "thin" },
+            bottom: { style: "thin" },
+            left: { style: "thin" },
+            right: { style: "thin" }
+          }
+        };
+      }
+
+      // Style data rows with alternating colors
+      for (let row = 1; row <= range.e.r; row++) {
+        for (let col = range.s.c; col <= range.e.c; col++) {
+          const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+          if (!worksheet[cellAddress]) continue;
+          
+          worksheet[cellAddress].s = {
+            alignment: { vertical: "top", wrapText: true },
+            fill: { fgColor: { rgb: row % 2 === 0 ? "F9F9F9" : "FFFFFF" } },
+            border: {
+              top: { style: "thin" },
+              bottom: { style: "thin" },
+              left: { style: "thin" },
+              right: { style: "thin" }
+            }
+          };
+        }
+      }
+
+      // Create workbook and add worksheet
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, type === 'activity' ? 'Activity Logs' : 'Error Logs');
+
+      // Generate Excel file and download
+      XLSX.writeFile(workbook, `${filename}.xlsx`);
+
+      // Log the export activity
+      logActivity(
+        ACTIVITY_TYPES.DATA_EXPORT,
+        `Exported ${logs.length} ${type} logs to Excel`,
+        { filename: `${filename}.xlsx`, recordCount: logs.length }
+      );
+
+    }).catch(error => {
+      console.error('Error loading xlsx library:', error);
+      // Fallback to CSV export
+      exportLogsToCSVFallback(logs, filename, type);
+    });
+
+  } catch (error) {
+    console.error('Error exporting logs to Excel:', error);
+    // Fallback to CSV export
+    exportLogsToCSVFallback(logs, filename, type);
+  }
+};
+
+// Fallback CSV export function
+const exportLogsToCSVFallback = (logs, filename, type) => {
+  try {
     let headers, rows;
 
     if (type === 'activity') {
@@ -252,7 +388,7 @@ export const exportLogsToCSV = (logs, filename, type = 'activity') => {
     // Log the export activity
     logActivity(
       ACTIVITY_TYPES.DATA_EXPORT,
-      `Exported ${logs.length} ${type} logs to CSV`,
+      `Exported ${logs.length} ${type} logs to CSV (fallback)`,
       { filename: `${filename}.csv`, recordCount: logs.length }
     );
 

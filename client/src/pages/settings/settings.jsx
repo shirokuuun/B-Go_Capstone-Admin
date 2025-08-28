@@ -518,7 +518,7 @@ function Settings() {
                 className="audit-export-btn"
                 disabled={logsLoading || activityLogs.length === 0}
               >
-                📊 Export Activity Logs
+                📊 Export to Excel
               </button>
             </div>
           </div>

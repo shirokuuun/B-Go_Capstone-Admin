@@ -9,8 +9,10 @@ import {
   setDoc,
   doc,
   updateDoc,
+  deleteDoc,
   Timestamp
 } from 'firebase/firestore';
+import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 
 // Real-time bus listener
 export const subscribeToBuses = (callback) => {
@@ -53,6 +55,18 @@ export const addNewBus = async (busData) => {
 
     const busDocRef = doc(db, 'AvailableBuses', busData.name);
       await setDoc(busDocRef, newBusData);
+
+      // Log the activity
+      await logActivity(
+        ACTIVITY_TYPES.BUS_CREATE,
+        `Created new bus: ${newBusData.name} (${newBusData.plateNumber})`,
+        { 
+          busName: newBusData.name,
+          plateNumber: newBusData.plateNumber,
+          codingDays: newBusData.codingDays,
+          busId: busDocRef.id
+        }
+      );
 
       return {
         id: busDocRef.id,
@@ -324,5 +338,75 @@ export const checkBusAvailability = async (busId, date) => {
   } catch (error) {
     console.error("Error checking bus availability:", error);
     return { available: false, reason: 'Error checking availability' };
+  }
+};
+
+// Delete a bus and its related reservations
+export const deleteBus = async (busId) => {
+  try {
+    // First, get the bus data to check if it has active reservations
+    const busRef = doc(db, 'AvailableBuses', busId);
+    const busSnapshot = await getDocs(query(collection(db, 'AvailableBuses'), where('__name__', '==', busId)));
+    
+    if (busSnapshot.empty) {
+      throw new Error('Bus not found');
+    }
+
+    const bus = busSnapshot.docs[0].data();
+
+    // Check for active reservations
+    const activeReservationsQuery = query(
+      collection(db, 'BusReservations'),
+      where('busId', '==', busId),
+      where('status', 'in', ['scheduled', 'inTransit'])
+    );
+    
+    const activeReservations = await getDocs(activeReservationsQuery);
+    
+    if (!activeReservations.empty) {
+      throw new Error('Cannot delete bus with active reservations. Please complete or cancel reservations first.');
+    }
+
+    // Delete all completed reservations for this bus
+    const allReservationsQuery = query(
+      collection(db, 'BusReservations'),
+      where('busId', '==', busId)
+    );
+    
+    const allReservations = await getDocs(allReservationsQuery);
+    
+    // Delete reservations in batch
+    const deletePromises = allReservations.docs.map(reservation => 
+      deleteDoc(doc(db, 'BusReservations', reservation.id))
+    );
+    
+    await Promise.all(deletePromises);
+
+    // Finally, delete the bus
+    await deleteDoc(busRef);
+
+    // Log the activity
+    await logActivity(
+      ACTIVITY_TYPES.BUS_DELETE,
+      `Deleted bus: ${bus.name} (${bus.plateNumber})`,
+      { 
+        busName: bus.name,
+        plateNumber: bus.plateNumber,
+        busId: busId,
+        deletedReservations: allReservations.size
+      }
+    );
+
+    console.log(`Successfully deleted bus ${bus.name} and ${allReservations.size} reservations`);
+    
+    return {
+      success: true,
+      message: `Bus ${bus.name} deleted successfully`,
+      deletedReservations: allReservations.size
+    };
+
+  } catch (error) {
+    console.error("Error deleting bus:", error);
+    throw error;
   }
 };

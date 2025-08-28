@@ -12,7 +12,11 @@ import {
   where,
   deleteDoc
 } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, deleteUser } from 'firebase/auth';
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 
 import { db, auth } from '/src/firebase/firebase';
 
@@ -49,12 +53,10 @@ class ConductorService {
     try {
       const conductorsRef = collection(db, 'conductors');
       const snapshot = await getDocs(conductorsRef);
-      console.log(`👥 Found ${snapshot.docs.length} conductors in database`);
       
       const conductors = [];
       for (const doc of snapshot.docs) {
         const conductorData = doc.data();
-        console.log(`👤 Processing conductor: ${doc.id} - Route: ${conductorData.route}`);
         conductors.push({
           id: doc.id,
           ...conductorData,
@@ -62,7 +64,6 @@ class ConductorService {
         });
       }
       
-      console.log(`✅ Processed ${conductors.length} conductors`);
       return conductors;
     } catch (error) {
       console.error('Error fetching conductors:', error);
@@ -100,10 +101,8 @@ class ConductorService {
   // Get conductor trips using new dailyTrips path structure
   async getConductorTrips(conductorId, limit = null) {
     try {
-      console.log(`🔍 Fetching trips for conductor: ${conductorId}`);
       const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
       const datesSnapshot = await getDocs(dailyTripsRef);
-      console.log(`📅 Found ${datesSnapshot.docs.length} daily trip documents`);
       
       const allTrips = [];
       const availableDates = [];
@@ -111,7 +110,6 @@ class ConductorService {
       for (const dateDoc of datesSnapshot.docs) {
         const dateId = dateDoc.id;
         availableDates.push(dateId);
-        console.log(`📅 Processing date: ${dateId}`);
 
         // Process trip subcollections (trip1, trip2, etc.)
         const tripNames = ['trip1', 'trip2', 'trip3', 'trip4', 'trip5', 'trip6', 'trip7', 'trip8', 'trip9', 'trip10'];
@@ -123,11 +121,8 @@ class ConductorService {
             const ticketsSnapshot = await getDocs(ticketsRef);
             
             if (ticketsSnapshot.docs.length > 0) {
-              console.log(`🎫 Found ${ticketsSnapshot.docs.length} tickets in ${tripName}/tickets/tickets for date ${dateId}`);
-              
               ticketsSnapshot.docs.forEach(ticketDoc => {
                 const ticketData = ticketDoc.data();
-                console.log(`🎫 Processing ticket: ${ticketDoc.id}`, ticketData);
                 allTrips.push({
                   id: ticketDoc.id,
                   date: dateId,
@@ -140,12 +135,10 @@ class ConductorService {
             }
           } catch (tripError) {
             // Normal - not all trip numbers will exist
-            console.log(`ℹ️ No tickets found for ${tripName} on ${dateId} (this is normal)`);
+            continue;
           }
         }
       }
-
-      console.log(`✅ Total trips found: ${allTrips.length}`);
 
       // Sort by timestamp (most recent first)
       allTrips.sort((a, b) => {
@@ -187,7 +180,6 @@ class ConductorService {
   // Get trips for a specific date using new dailyTrips path structure
   async getConductorTripsByDate(conductorId, date) {
     try {
-      console.log(`🔍 Fetching trips for conductor: ${conductorId} on date: ${date}`);
       const trips = [];
       
       // Process trip subcollections (trip1, trip2, etc.)
@@ -200,8 +192,6 @@ class ConductorService {
           const ticketsSnapshot = await getDocs(ticketsRef);
           
           if (ticketsSnapshot.docs.length > 0) {
-            console.log(`🎫 Found ${ticketsSnapshot.docs.length} tickets in ${tripName}/tickets/tickets for date ${date}`);
-            
             ticketsSnapshot.docs.forEach(ticketDoc => {
               const ticketData = ticketDoc.data();
               trips.push({
@@ -215,11 +205,10 @@ class ConductorService {
           }
         } catch (tripError) {
           // Normal - not all trip numbers will exist
-          console.log(`ℹ️ No tickets found for ${tripName} on ${date} (this is normal)`);
+          continue;
         }
       }
       
-      console.log(`✅ Total trips found for ${date}: ${trips.length}`);
       return trips;
     } catch (error) {
       console.error('Error fetching trips by date:', error);
@@ -235,8 +224,6 @@ class ConductorService {
         throw new Error('Missing required parameters: conductorId, date, or ticketNumber');
       }
 
-      console.log(`🗑️ Attempting to delete trip: ${conductorId}/${date}/${ticketNumber}`);
-      
       let foundTripId = tripId;
       let tripDocRef = null;
 
@@ -262,7 +249,6 @@ class ConductorService {
             if (testTripDoc.exists()) {
               foundTripId = tripName;
               tripDocRef = testTripDocRef;
-              console.log(`✅ Found ticket in ${tripName}/tickets/tickets`);
               break;
             }
           } catch (searchError) {
@@ -278,7 +264,6 @@ class ConductorService {
 
       // Delete the trip document
       await deleteDoc(tripDocRef);
-      console.log(`✅ Deleted ticket: ${ticketNumber} from ${foundTripId}`);
 
       // Check if this was the last ticket in this trip collection
       const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', date, foundTripId, 'tickets', 'tickets');
@@ -304,7 +289,6 @@ class ConductorService {
         try {
           const dateDocRef = doc(db, 'conductors', conductorId, 'dailyTrips', date);
           await deleteDoc(dateDocRef);
-          console.log(`🗑️ Deleted empty date document: ${date}`);
         } catch (deleteError) {
           console.warn('Could not delete date document:', deleteError);
         }
@@ -313,7 +297,6 @@ class ConductorService {
       // Update conductor's total trips count
       await this.updateConductorTripsCount(conductorId);
 
-      console.log(`✅ Trip deleted successfully: ${conductorId}/${date}/${foundTripId}/${ticketNumber}`);
       
       return {
         success: true,
@@ -419,7 +402,6 @@ class ConductorService {
       
       // Clean up all listeners on error
       if (this.cleanupOnError) {
-        console.warn('Cleaning up all listeners due to error...');
         this.removeAllListeners();
       }
       
@@ -441,7 +423,6 @@ class ConductorService {
     
     // Check listener limit
     if (this.listeners.size >= this.maxListeners) {
-      console.warn('Too many listeners. Cleaning up old ones...');
       this.removeAllListeners();
     }
 
@@ -661,7 +642,6 @@ class ConductorService {
   // Get trips without setting up listeners (for modal view) using new dailyTrips path structure
   async getConductorTripsSimple(conductorId, limit = null) {
     try {
-      console.log(`🔍 Fetching simple trips for conductor: ${conductorId}`);
       const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
       const datesSnapshot = await getDocs(dailyTripsRef);
       const allTrips = [];
@@ -713,7 +693,6 @@ class ConductorService {
         }
       });
 
-      console.log(`✅ Simple fetch completed. Total trips: ${allTrips.length}`);
 
       return {
         allTrips: limit ? allTrips.slice(0, limit) : allTrips,
@@ -786,8 +765,24 @@ class ConductorService {
         throw new Error('A conductor with this email already exists');
       }
 
-      // Step 1: Create user in Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      // Create separate Firebase app instance to avoid affecting admin session
+      const firebaseConfig = {
+        apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDjqLNklma1gr3IOwPxiMO5S38hu8UQ2Fc",
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "it-capstone-6fe19.firebaseapp.com",
+        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "it-capstone-6fe19",
+        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "it-capstone-6fe19.firebasestorage.app",
+        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "183068104612",
+        appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:183068104612:web:26109c8ebb28585e265331",
+        measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-0MW2KZMGR2"
+      };
+
+      // Initialize separate Firebase app for conductor creation
+      const conductorApp = initializeApp(firebaseConfig, 'conductor-creation-' + Date.now());
+      const conductorAuth = getAuth(conductorApp);
+      const conductorDb = getFirestore(conductorApp);
+
+      // Step 1: Create user in Firebase Authentication using separate app
+      const userCredential = await createUserWithEmailAndPassword(conductorAuth, email, password);
       const user = userCredential.user;
 
       // Step 2: Update user profile
@@ -795,12 +790,13 @@ class ConductorService {
         displayName: name
       });
 
-      // Step 3: Create conductor document in Firestore
+      // Step 3: Create conductor document in Firestore using separate app
       const conductorData = {
         busNumber: parseInt(busNumber),
         email: email,
         name: name,
         route: route,
+        password: password, // Store password for deletion purposes (encrypted in production)
         isOnline: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -816,13 +812,29 @@ class ConductorService {
         status: 'offline'
       };
 
-      await setDoc(doc(db, 'conductors', documentId), conductorData);
+      await setDoc(doc(conductorDb, 'conductors', documentId), conductorData);
 
-      console.log('Conductor created successfully:', {
-        documentId: documentId,
-        uid: user.uid,
-        email: email
-      });
+      // Log the activity
+      await logActivity(
+        ACTIVITY_TYPES.CONDUCTOR_CREATE,
+        `Created new conductor: ${name} (${email})`,
+        {
+          conductorId: documentId,
+          conductorName: name,
+          email: email,
+          route: route,
+          busNumber: busNumber,
+          uid: user.uid
+        }
+      );
+
+
+      // Clean up the temporary app instance
+      try {
+        await conductorApp.delete();
+      } catch (cleanupError) {
+        // Silent cleanup
+      }
 
       return {
         success: true,
@@ -1010,8 +1022,109 @@ class ConductorService {
 
   async deleteConductor(conductorId) {
     try {
-      await deleteDoc(doc(db, 'conductors', conductorId));
-      console.log('Deleted conductor:', conductorId);
+      // Get conductor data before deletion for logging and Auth deletion
+      const conductorRef = doc(db, 'conductors', conductorId);
+      const conductorDoc = await getDoc(conductorRef);
+      
+      let conductorData = null;
+      if (conductorDoc.exists()) {
+        conductorData = conductorDoc.data();
+      }
+
+      if (!conductorData) {
+        throw new Error('Conductor not found');
+      }
+
+      // Delete from Firebase Auth if UID exists
+      let authDeletionSuccess = false;
+      let authDeletionError = null;
+      
+      if (conductorData?.uid && conductorData?.email) {
+        try {
+          
+          // Create separate Firebase app instance for deletion
+          const firebaseConfig = {
+            apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDjqLNklma1gr3IOwPxiMO5S38hu8UQ2Fc",
+            authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "it-capstone-6fe19.firebaseapp.com",
+            projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "it-capstone-6fe19",
+            storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "it-capstone-6fe19.firebasestorage.app",
+            messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "183068104612",
+            appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:183068104612:web:26109c8ebb28585e265331",
+            measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-0MW2KZMGR2"
+          };
+
+          const tempApp = initializeApp(firebaseConfig, 'conductor-deletion-' + Date.now());
+          const tempAuth = getAuth(tempApp);
+
+          // Use stored password for authentication
+          const storedPassword = conductorData.password;
+          if (storedPassword) {
+            const conductorCredential = await signInWithEmailAndPassword(tempAuth, conductorData.email, storedPassword);
+            
+            await deleteUser(conductorCredential.user);
+            
+            authDeletionSuccess = true;
+          } else {
+          }
+
+          // Clean up temporary app
+          try {
+            await tempApp.delete();
+          } catch (cleanupError) {
+            // Silent cleanup
+          }
+        } catch (authError) {
+          authDeletionError = authError;
+          console.error('Could not delete auth user:', authError);
+          
+          // Handle specific error types
+          if (authError.code === 'auth/user-not-found') {
+            // User already deleted - treat as success
+            authDeletionSuccess = true;
+            authDeletionError = null;
+          }
+        }
+      }
+
+      // Delete from Firestore
+      await deleteDoc(conductorRef);
+
+      // Log the activity with detailed information
+      let logMessage = `Deleted conductor: ${conductorData.name} (${conductorData.email})`;
+      if (authDeletionSuccess) {
+        logMessage += ' - Profile and login account deleted';
+      } else if (authDeletionError) {
+        logMessage += ` - Profile deleted, login deletion failed: ${authDeletionError.code || authDeletionError.message}`;
+      } else {
+        logMessage += ' - Profile deleted, no auth account found';
+      }
+
+      await logActivity(
+        ACTIVITY_TYPES.CONDUCTOR_DELETE,
+        logMessage,
+        {
+          conductorId: conductorId,
+          conductorName: conductorData.name,
+          email: conductorData.email,
+          route: conductorData.route,
+          busNumber: conductorData.busNumber,
+          uid: conductorData.uid,
+          authDeleted: authDeletionSuccess,
+          authError: authDeletionError?.code || null,
+          passwordStored: !!conductorData.password
+        }
+      );
+
+      
+      return {
+        success: true,
+        authDeleted: authDeletionSuccess,
+        authError: authDeletionError,
+        message: authDeletionSuccess ? 
+          'Conductor and login account deleted completely' : 
+          'Conductor profile deleted' + (authDeletionError ? ` (login deletion failed: ${authDeletionError.code})` : '')
+      };
+
     } catch (error) {
       console.error('Error deleting conductor:', error);
       throw error;
@@ -1057,7 +1170,6 @@ class ConductorService {
       
       // Re-authenticate as admin using stored credentials
       // Note: You'll need to store admin password securely or handle this differently
-      console.log('Conductor created successfully. Please sign back in as admin.');
       
       return {
         success: true,
@@ -1093,7 +1205,6 @@ class ConductorService {
   // NEW: Sync all conductor trip counts (run this to fix existing data)
   async syncAllConductorTripCounts() {
     try {
-      console.log('Starting sync of all conductor trip counts...');
       
       const conductorsRef = collection(db, 'conductors');
       const snapshot = await getDocs(conductorsRef);
@@ -1107,7 +1218,6 @@ class ConductorService {
         
         // Only update if counts don't match
         if (conductorData.totalTrips !== actualTripsCount) {
-          console.log(`Updating trips count for ${conductorData.name}: ${conductorData.totalTrips || 0} -> ${actualTripsCount}`);
           updatePromises.push(this.updateConductorTripsCount(doc.id));
           updatedCount++;
         }
@@ -1116,7 +1226,6 @@ class ConductorService {
       // Execute all updates in parallel
       await Promise.all(updatePromises);
       
-      console.log(`Sync completed. Updated ${updatedCount} conductors.`);
       
       return {
         success: true,

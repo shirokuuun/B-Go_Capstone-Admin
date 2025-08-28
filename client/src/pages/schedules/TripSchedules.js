@@ -12,6 +12,7 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '/src/firebase/firebase.js';
+import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 
 // Collection reference
 const TRIP_SCHEDULES_COLLECTION = 'trip_sched';
@@ -242,6 +243,21 @@ export const addTripSchedule = async (scheduleData) => {
     const docRef = doc(db, TRIP_SCHEDULES_COLLECTION, conductorId);
     await setDoc(docRef, docData);
     
+    // Log the activity
+    await logActivity(
+      ACTIVITY_TYPES.SCHEDULE_CREATE,
+      `Created trip schedule for ${docData.route} (${conductorId})`,
+      {
+        scheduleId: conductorId,
+        route: docData.route,
+        conductorId: conductorId,
+        schedules: sortedSchedules,
+        schedulesCount: sortedSchedules.length,
+        status: docData.status,
+        formattedSchedules: formatSchedulesForStorage(sortedSchedules)
+      }
+    );
+    
     console.log('Trip schedule added successfully with ID:', conductorId);
     return conductorId;
 
@@ -325,9 +341,37 @@ export const updateTripSchedule = async (scheduleId, updateData) => {
 
     console.log('Updating trip schedule:', scheduleId, docData);
 
-    // Update in Firestore
+    // Get current schedule data before update for activity logging
     const scheduleRef = doc(db, TRIP_SCHEDULES_COLLECTION, scheduleId);
+    const currentDoc = await getDoc(scheduleRef);
+    const currentData = currentDoc.exists() ? currentDoc.data() : null;
+
+    // Update in Firestore
     await updateDoc(scheduleRef, docData);
+
+    // Log the update activity
+    const changedFields = Object.keys(processedData).filter(key => key !== 'updatedAt');
+    await logActivity(
+      ACTIVITY_TYPES.SCHEDULE_UPDATE,
+      `Updated trip schedule for ${currentData?.route || processedData.route || 'Unknown Route'} (${scheduleId})`,
+      {
+        scheduleId: scheduleId,
+        route: currentData?.route || processedData.route || 'Unknown Route',
+        conductorId: scheduleId,
+        changedFields: changedFields,
+        previousData: {
+          route: currentData?.route,
+          schedules: currentData?.schedules ? parseSchedules(currentData.schedules) : [],
+          status: currentData?.status
+        },
+        newData: {
+          route: processedData.route || currentData?.route,
+          schedules: processedData.schedules || (currentData?.schedules ? parseSchedules(currentData.schedules) : []),
+          status: processedData.status || currentData?.status
+        },
+        updatedAt: new Date().toISOString()
+      }
+    );
 
     console.log('Trip schedule updated successfully');
 
@@ -350,9 +394,28 @@ export const deleteTripSchedule = async (scheduleId) => {
 
     console.log('Deleting trip schedule:', scheduleId);
 
-    // Delete from Firestore
+    // Get schedule data before deletion for activity logging
     const scheduleRef = doc(db, TRIP_SCHEDULES_COLLECTION, scheduleId);
+    const scheduleDoc = await getDoc(scheduleRef);
+    const scheduleData = scheduleDoc.exists() ? scheduleDoc.data() : null;
+
+    // Delete from Firestore
     await deleteDoc(scheduleRef);
+
+    // Log the deletion activity
+    await logActivity(
+      ACTIVITY_TYPES.SCHEDULE_DELETE,
+      `Deleted trip schedule for ${scheduleData?.route || 'Unknown Route'} (${scheduleId})`,
+      {
+        scheduleId: scheduleId,
+        route: scheduleData?.route || 'Unknown Route',
+        conductorId: scheduleId,
+        deletedSchedules: scheduleData?.schedules ? parseSchedules(scheduleData.schedules) : [],
+        schedulesCount: scheduleData?.schedules ? parseSchedules(scheduleData.schedules).length : 0,
+        status: scheduleData?.status || 'unknown',
+        deletedAt: new Date().toISOString()
+      }
+    );
 
     console.log('Trip schedule deleted successfully');
 

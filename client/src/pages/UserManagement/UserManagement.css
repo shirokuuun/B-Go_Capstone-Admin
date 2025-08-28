@@ -49,6 +49,18 @@
   box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.1);
 }
 
+/* Permission indicator styles */
+.usermgmt-no-delete-permission {
+  color: #a0aec0;
+  font-size: 0.85rem;
+  padding: 6px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background-color: #f7fafc;
+  cursor: not-allowed;
+  font-weight: 500;
+}
+
 .usermgmt-title {
   font-size: 2rem;
   font-weight: 700;

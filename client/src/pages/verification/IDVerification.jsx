@@ -1,6 +1,9 @@
 import '/src/pages/verification/IDVerification.css';
 import Header from '/src/components/HeaderTemplate/header.jsx';
 import React, { useEffect, useState } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '/src/firebase/firebase.js';
+import { fetchCurrentUserData } from '/src/pages/settings/settings.js';
 import { fetchUsers, fetchUserIDData, updateIDVerificationStatus, subscribeToUsers, subscribeToUserIDData } from '/src/pages/verification/IDVerification.js';
 
 
@@ -10,21 +13,59 @@ function IDVerification() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedUserID, setSelectedUserID] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'verified', 'rejected'
+  const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'verified'
+  
+  // Authentication and role checking states
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
 
+  // Authentication and role checking useEffect
   useEffect(() => {
-    // Set up real-time subscription to users
-    const unsubscribeUsers = subscribeToUsers((usersData) => {
-      setUsers(usersData);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const userData = await fetchCurrentUserData();
+          setCurrentUser(userData);
+          setUserRole(userData?.role);
+          
+          // Check if user has admin or superadmin role
+          if (userData?.role === 'admin' || userData?.role === 'superadmin') {
+            setAccessDenied(false);
+          } else {
+            setAccessDenied(true);
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          setAccessDenied(true);
+        }
+      } else {
+        // User not logged in, redirect to login
+        window.location.href = '/login';
+      }
+      setAuthLoading(false);
     });
 
-    // Cleanup subscription on unmount
-    return () => {
-      if (unsubscribeUsers) {
-        unsubscribeUsers();
-      }
-    };
+    return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    // Only set up subscription if user is authorized
+    if (!accessDenied && !authLoading) {
+      // Set up real-time subscription to users
+      const unsubscribeUsers = subscribeToUsers((usersData) => {
+        setUsers(usersData);
+      });
+
+      // Cleanup subscription on unmount
+      return () => {
+        if (unsubscribeUsers) {
+          unsubscribeUsers();
+        }
+      };
+    }
+  }, [accessDenied, authLoading]);
 
   // Real-time subscription for selected user's ID data
   useEffect(() => {
@@ -60,7 +101,7 @@ function IDVerification() {
     
     setLoading(true);
     try {
-      await updateIDVerificationStatus(selectedUser.id, action);
+      await updateIDVerificationStatus(selectedUser.id, action, currentUser);
       
       // Note: State updates will happen automatically via real-time subscriptions
       // No need to manually update local state anymore
@@ -91,7 +132,45 @@ function IDVerification() {
   const filteredData = getFilteredUsers();
   const pendingCount = users.filter(user => (user.idVerificationStatus || 'pending') === 'pending').length;
   const verifiedCount = users.filter(user => user.idVerificationStatus === 'verified').length;
-  const rejectedCount = users.filter(user => user.idVerificationStatus === 'rejected').length;
+
+  // Show loading screen while checking authentication
+  if (authLoading) {
+    return (
+      <div className="id-verification-container">
+        <div className="id-verification-loading-container">
+          <div className="id-verification-loading">
+            <h2>Loading...</h2>
+            <p>Checking permissions...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied message if user doesn't have proper role
+  if (accessDenied) {
+    return (
+      <div className="id-verification-container">
+        <div className="id-verification-access-denied">
+          <div className="access-denied-content">
+            <h2>🚫 Access Denied</h2>
+            <p>You don't have permission to access ID Verification.</p>
+            <p>This feature is only available to administrators.</p>
+            <div className="access-denied-info">
+              <p><strong>Your Role:</strong> {userRole || 'Unknown'}</p>
+              <p><strong>Required Roles:</strong> Admin, Super Admin</p>
+            </div>
+            <button 
+              onClick={() => window.history.back()} 
+              className="id-verification-back-btn"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="id-verification-container">
@@ -109,11 +188,6 @@ function IDVerification() {
                 {verifiedCount} verified
               </span>
             </div>
-            <div className="id-verification-stat-item">
-              <span className="id-verification-count-badge rejected">
-                {rejectedCount} rejected
-              </span>
-            </div>
           </div>
         </div>
         
@@ -129,12 +203,6 @@ function IDVerification() {
             onClick={() => setActiveTab('verified')}
           >
             Verified ({verifiedCount})
-          </button>
-          <button 
-            className={`id-verification-tab ${activeTab === 'rejected' ? 'active' : ''}`}
-            onClick={() => setActiveTab('rejected')}
-          >
-            Rejected ({rejectedCount})
           </button>
         </div>
 

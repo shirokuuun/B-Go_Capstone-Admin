@@ -2,6 +2,7 @@ import { db } from '/src/firebase/firebase.js';
 import { 
   collection, getDocs, addDoc, query, where, setDoc, doc, getDoc, updateDoc, deleteDoc, onSnapshot, deleteField 
 } from 'firebase/firestore';
+import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 
 // Real-time subscription to all users with their ID verification status
 export const subscribeToUsers = (callback) => {
@@ -129,9 +130,16 @@ export const fetchUserIDData = async (userId) => {
   }
 };
 
-// Update ID verification status
-export const updateIDVerificationStatus = async (userId, status) => {
+// Update ID verification status with activity logging
+export const updateIDVerificationStatus = async (userId, status, adminInfo = null) => {
   try {
+    // Get user information for activity logging
+    const userDocRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userDocRef);
+    const userData = userDoc.exists() ? userDoc.data() : null;
+    const userName = userData?.name || userData?.displayName || 'Unknown User';
+    const userEmail = userData?.email || 'Unknown Email';
+
     if (status === 'rejected') {
       const idDocRef = doc(db, 'users', userId, 'VerifyID', 'id');
 
@@ -145,13 +153,27 @@ export const updateIDVerificationStatus = async (userId, status) => {
       await deleteDoc(idDocRef);
 
       // Reset main user doc fields
-      const userDocRef = doc(db, 'users', userId);
       await updateDoc(userDocRef, {
         idVerificationStatus: 'pending',
         idVerifiedAt: null,
         verifiedAt: deleteField(),
         verifiedBy: deleteField()
       });
+
+      // Log the rejection activity
+      await logActivity(
+        ACTIVITY_TYPES.ID_VERIFICATION_REJECT,
+        `Rejected ID verification for ${userName} (${userEmail})`,
+        {
+          userId: userId,
+          userName: userName,
+          userEmail: userEmail,
+          adminName: adminInfo?.name || 'Unknown Admin',
+          adminEmail: adminInfo?.email || 'Unknown Email',
+          action: 'rejected',
+          previousStatus: userData?.idVerificationStatus || 'pending'
+        }
+      );
 
       console.log(`ID verification revoked and date fields removed for user ${userId}`);
     } else {
@@ -160,17 +182,33 @@ export const updateIDVerificationStatus = async (userId, status) => {
       await updateDoc(idDocRef, {
         status: status,
         verifiedAt: new Date(),
-        verifiedBy: 'admin' // Replace with actual admin info if needed
+        verifiedBy: adminInfo?.name || adminInfo?.email || 'admin'
       });
 
       // Also update the user's main document
-      const userDocRef = doc(db, 'users', userId);
       await updateDoc(userDocRef, {
         idVerificationStatus: status,
         idVerifiedAt: new Date()
       });
 
-      console.log(`ID verification status updated to ${status} for user ${userId}`);
+      // Log the verification activity
+      await logActivity(
+        ACTIVITY_TYPES.ID_VERIFICATION_APPROVE,
+        `Approved ID verification for ${userName} (${userEmail})`,
+        {
+          userId: userId,
+          userName: userName,
+          userEmail: userEmail,
+          adminName: adminInfo?.name || 'Unknown Admin',
+          adminEmail: adminInfo?.email || 'Unknown Email',
+          action: 'verified',
+          previousStatus: userData?.idVerificationStatus || 'pending',
+          verifiedAt: new Date().toISOString(),
+          verifiedBy: adminInfo?.name || adminInfo?.email || 'admin'
+        }
+      );
+
+      console.log(`ID verification status updated to ${status} for user ${userId} by ${adminInfo?.name || 'admin'}`);
     }
     
     return true;

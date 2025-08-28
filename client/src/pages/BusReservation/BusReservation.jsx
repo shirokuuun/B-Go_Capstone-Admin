@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import './BusReservation.css';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth } from '/src/firebase/firebase.js';
+import { isSuperAdmin } from '/src/pages/auth/authService.js';
 import { IoMdAdd } from 'react-icons/io';
 import { FaBusSimple } from "react-icons/fa6";
 import { FaRegClock } from "react-icons/fa";
 import { FaCheckCircle } from "react-icons/fa";
 import { IoAlertCircleSharp } from "react-icons/io5";
 import { FaListAlt } from 'react-icons/fa';
+import { FaTrashAlt } from 'react-icons/fa';
 
-import { subscribeToBuses, initializeBusStatusChecker } from "./BusReservation.js";
+import { subscribeToBuses, initializeBusStatusChecker, deleteBus } from "./BusReservation.js";
 import AddBusModal from '/src/pages/BusReservation/BusReservationModal.jsx';
 
 function BusReservation() {
@@ -19,6 +23,9 @@ function BusReservation() {
     reserved: 0,
     inTransit: 0
   });
+  const [user] = useAuthState(auth);
+  const [isSuperAdminUser, setIsSuperAdminUser] = useState(false);
+  const [deletingBusId, setDeletingBusId] = useState(null);
 
   // ✅ Real-time listener with count updates
   useEffect(() => {
@@ -47,6 +54,37 @@ function BusReservation() {
     };
   }, []);
 
+  // Check if user is superadmin
+  useEffect(() => {
+    if (user?.uid) {
+      isSuperAdmin(user.uid).then(setIsSuperAdminUser);
+    }
+  }, [user]);
+
+  // Delete bus handler
+  const handleDeleteBus = async (busId, busName) => {
+    if (!isSuperAdminUser) {
+      alert('Access denied. Only superadmins can delete buses.');
+      return;
+    }
+
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete "${busName}"?\n\nThis will also delete all related reservations and cannot be undone.`
+    );
+
+    if (!confirmDelete) return;
+
+    setDeletingBusId(busId);
+    try {
+      const result = await deleteBus(busId);
+      alert(result.message);
+    } catch (error) {
+      alert(`Error: ${error.message}`);
+    } finally {
+      setDeletingBusId(null);
+    }
+  };
+
   const renderDetailsContent = () => {
     switch (activeAction) {
       case 'viewAll':
@@ -59,9 +97,21 @@ function BusReservation() {
                 <div key={bus.id} className="bus-reservation-bus-card">
                   <div className="bus-reservation-bus-header">
                     <h4 className="bus-reservation-bus-name">{bus.name}</h4>
-                    <span className={`bus-reservation-status-tag ${isAvailable ? "available" : "not-available"}`}>
-                      {isAvailable ? "Available" : "Not Available"}
-                    </span>
+                    <div className="bus-reservation-bus-header-actions">
+                      <span className={`bus-reservation-status-tag ${isAvailable ? "available" : "not-available"}`}>
+                        {isAvailable ? "Available" : "Not Available"}
+                      </span>
+                      {isSuperAdminUser && (
+                        <button 
+                          onClick={() => handleDeleteBus(bus.id, bus.name)}
+                          disabled={deletingBusId === bus.id}
+                          className="bus-reservation-delete-btn"
+                          title="Delete Bus (Superadmin only)"
+                        >
+                          {deletingBusId === bus.id ? '...' : <FaTrashAlt />}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="bus-reservation-bus-info">
                     <p><strong>Plate:</strong> {bus.plateNumber}</p>
@@ -91,9 +141,21 @@ function BusReservation() {
               <div key={bus.id} className="bus-reservation-bus-card">
                 <div className="bus-reservation-bus-header">
                   <h4 className="bus-reservation-bus-name">{bus.name}</h4>
-                  <span className="bus-reservation-status-tag not-available">
-                    Not Available
-                  </span>
+                  <div className="bus-reservation-bus-header-actions">
+                    <span className="bus-reservation-status-tag not-available">
+                      Not Available
+                    </span>
+                    {isSuperAdminUser && (
+                      <button 
+                        onClick={() => handleDeleteBus(bus.id, bus.name)}
+                        disabled={deletingBusId === bus.id}
+                        className="bus-reservation-delete-btn"
+                        title="Delete Bus (Superadmin only)"
+                      >
+                        {deletingBusId === bus.id ? '...' : <FaTrashAlt />}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="bus-reservation-bus-info">
                   <p><strong>Plate:</strong> {bus.plateNumber}</p>
@@ -114,9 +176,21 @@ function BusReservation() {
                 <div key={bus.id} className="bus-reservation-bus-card">
                   <div className="bus-reservation-bus-header">
                     <h4 className="bus-reservation-bus-name">{bus.name}</h4>
-                    <span className="bus-reservation-status-tag available">
-                      Available
-                    </span>
+                    <div className="bus-reservation-bus-header-actions">
+                      <span className="bus-reservation-status-tag available">
+                        Available
+                      </span>
+                      {isSuperAdminUser && (
+                        <button 
+                          onClick={() => handleDeleteBus(bus.id, bus.name)}
+                          disabled={deletingBusId === bus.id}
+                          className="bus-reservation-delete-btn"
+                          title="Delete Bus (Superadmin only)"
+                        >
+                          {deletingBusId === bus.id ? '...' : <FaTrashAlt />}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="bus-reservation-bus-info">
                     <p><strong>Plate:</strong> {bus.plateNumber}</p>

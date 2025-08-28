@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '/src/firebase/firebase.js';
+import { fetchCurrentUserData } from '/src/pages/settings/settings.js';
 import { fetchAllUsers, deleteUser, fetchUserById } from './UserManagement.js';
 import './UserManagement.css';
 
@@ -10,10 +13,40 @@ const UserManagement = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
+  
+  // Authentication and role states
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  // Authentication and role checking useEffect
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const userData = await fetchCurrentUserData();
+          setCurrentUser(userData);
+          setUserRole(userData?.role);
+          setIsSuperAdmin(userData?.role === 'superadmin');
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          setError('Failed to load user permissions');
+        }
+      } else {
+        window.location.href = '/login';
+      }
+      setAuthLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
-    loadUsers();
-  }, []);
+    if (!authLoading) {
+      loadUsers();
+    }
+  }, [authLoading]);
 
   const loadUsers = async () => {
     try {
@@ -41,17 +74,32 @@ const UserManagement = () => {
   };
 
   const handleDeleteClick = async (user) => {
-    const confirmMessage = `Are you sure you want to delete this user?\n\nName: ${user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.name || user.displayName || 'Unknown User'}\nEmail: ${user.email || 'No email'}\nID: ${user.id}\n\nThis action cannot be undone.`;
+    // Check if user is superadmin
+    if (!isSuperAdmin) {
+      alert('Access denied. Only super administrators can delete users.');
+      return;
+    }
+
+    const confirmMessage = `⚠️ SUPER ADMIN ACTION ⚠️\n\nAre you sure you want to delete this user?\n\nName: ${user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.name || user.displayName || 'Unknown User'}\nEmail: ${user.email || 'No email'}\nID: ${user.id}\n\nThis action cannot be undone and will be logged in the activity logs.`;
     
     const confirmed = window.confirm(confirmMessage);
     
     if (confirmed) {
       try {
         setActionLoading(true);
-        await deleteUser(user.id);
+        const result = await deleteUser(user.id, currentUser);
         setUsers(users.filter(u => u.id !== user.id));
+        
+        // Show detailed feedback based on deletion result
+        if (result && result.success) {
+          const alertMessage = `✅ ${result.message}\n\n${result.details}\n\nThis action has been logged in the activity logs.`;
+          alert(alertMessage);
+        } else {
+          alert('User deleted successfully. This action has been logged.');
+        }
       } catch (err) {
         setError(err.message);
+        alert('❌ Failed to delete user: ' + err.message);
       } finally {
         setActionLoading(false);
       }
@@ -308,16 +356,24 @@ const UserManagement = () => {
                       </p>
                     </div>
                   </div>
-                  <button
-                    className="usermgmt-btn usermgmt-btn-delete-small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteClick(user);
-                    }}
-                    disabled={actionLoading}
-                  >
-                    Delete
-                  </button>
+                  {isSuperAdmin && (
+                    <button
+                      className="usermgmt-btn usermgmt-btn-delete-small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteClick(user);
+                      }}
+                      disabled={actionLoading}
+                      title="Delete user (Super Admin only)"
+                    >
+                      Delete
+                    </button>
+                  )}
+                  {!isSuperAdmin && (
+                    <span className="usermgmt-no-delete-permission" title="Only Super Administrators can delete users">
+                      🔒 Delete (Super Admin Only)
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
