@@ -1040,7 +1040,7 @@ html, body {
 
 .revenue-detailed-breakdown-table th:nth-child(2),
 .revenue-detailed-breakdown-table td:nth-child(2) {
-  width: 13%; /* Date & Time */
+  width: 18%; /* Date & Time */
   min-width: 140px;
 }
 
@@ -1604,17 +1604,25 @@ html, body {
    DATE & TIME COLUMN STYLES
    ========================= */
 
-/* Date & Time column specific styling */
-.revenue-revenue-table td:nth-child(2) {
+/* Daily Revenue Date & Time column specific styling */
+.daily-revenue-table td:nth-child(2) {
   font-size: 11px;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: 500;
+  color: #17a2b8;
+  font-style: italic;
 }
 
-/* Direction column specific styling */
-.revenue-revenue-table td:nth-child(4) {
+/* Date & Time column styling for Detailed Breakdown by Conductor ONLY */
+.revenue-section-container .revenue-remittance-breakdown-table th:nth-child(2), 
+.revenue-section-container .revenue-remittance-breakdown-table td:nth-child(2) {
+  font-size: 11px;
+  font-weight: 500;
+  color: #17a2b8;
+  font-style: italic;
+}
+
+
+.revenue-remittance-breakdown-table th:nth-child(4), .revenue-remittance-breakdown-table td:nth-child(4) {
   font-size: 11px;
   font-weight: 500;
   color: #17a2b8;

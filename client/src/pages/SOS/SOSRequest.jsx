@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { listenToSOSRequests, updateSOSStatus, deleteSOSRequest } from '/src/pages/SOS/FetchSOS.js';
 import { RiArrowDropDownLine } from "react-icons/ri";
 import { MdDelete } from "react-icons/md";
+import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 
 function SOSRequest() {
   const [collapsed, setCollapsed] = useState(false);
@@ -73,6 +74,9 @@ function SOSRequest() {
   const handleUpdateSOSStatus = async (sosId) => {
     if (!sosId || updating) return;
 
+    // Find the SOS data before update for logging
+    const sosToUpdate = sosData.find(sos => sos.id === sosId);
+
     setUpdating(true);
     try {
       const result = await updateSOSStatus(sosId, 'Received');
@@ -83,6 +87,27 @@ function SOSRequest() {
         setSosData(updatedSosData);
         setSelectedPendingId(null);
         console.log('SOS status updated successfully');
+
+        // Log the status update activity
+        try {
+          await logActivity(
+            ACTIVITY_TYPES.SOS_MANAGEMENT,
+            `Marked SOS request as Received`,
+            {
+              sosId: sosId,
+              emergencyType: sosToUpdate?.emergencyType || 'Unknown',
+              previousStatus: sosToUpdate?.status || 'Unknown',
+              newStatus: 'Received',
+              route: sosToUpdate?.route || 'Unknown',
+              description: sosToUpdate?.description || 'No description',
+              updatedAt: new Date().toISOString(),
+              action: 'status_update'
+            },
+            'info'
+          );
+        } catch (logError) {
+          console.warn('Failed to log SOS status update activity:', logError);
+        }
       } else {
         alert(`Failed to update SOS status: ${result.error}`);
       }
@@ -99,6 +124,9 @@ function SOSRequest() {
     const confirmDelete = window.confirm("Are you sure you want to delete this SOS request?");
     if (!confirmDelete) return;
 
+    // Find the SOS data before deletion for logging
+    const sosToDelete = sosData.find(sos => sos.id === sosId);
+
     setUpdating(true);
     try {
       const result = await deleteSOSRequest(sosId);
@@ -107,6 +135,26 @@ function SOSRequest() {
         setSosData(updatedSosData);
         setSelectedPendingId(null);
         console.log("SOS request deleted successfully");
+
+        // Log the deletion activity
+        try {
+          await logActivity(
+            ACTIVITY_TYPES.SOS_MANAGEMENT,
+            `Deleted SOS request`,
+            {
+              sosId: sosId,
+              emergencyType: sosToDelete?.emergencyType || 'Unknown',
+              status: sosToDelete?.status || 'Unknown',
+              route: sosToDelete?.route || 'Unknown',
+              description: sosToDelete?.description || 'No description',
+              deletedAt: new Date().toISOString(),
+              action: 'delete'
+            },
+            'warning'
+          );
+        } catch (logError) {
+          console.warn('Failed to log SOS deletion activity:', logError);
+        }
       } else {
         alert(`Failed to delete SOS request: ${result.error}`);
       }

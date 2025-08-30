@@ -233,8 +233,22 @@ const Revenue = () => {
   };
 
   const formatTime = (timestamp) => {
-    if (!timestamp || !timestamp.toDate) return 'N/A';
-    return timestamp.toDate().toLocaleTimeString();
+    if (!timestamp) return 'N/A';
+    
+    let date;
+    if (timestamp.toDate) {
+      date = timestamp.toDate();
+    } else if (timestamp instanceof Date) {
+      date = timestamp;
+    } else {
+      date = new Date(timestamp);
+    }
+    
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
   };
 
   const formatCurrency = (amount) => {
@@ -244,12 +258,22 @@ const Revenue = () => {
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     });
+  };
+
+  const formatDateTime = (dateStr, timestamp) => {
+    try {
+      const formattedDate = dateStr ? formatDate(dateStr) : 'N/A';
+      const formattedTime = timestamp ? formatTime(timestamp) : 'N/A';
+      return `${formattedDate} ${formattedTime}`;
+    } catch (error) {
+      return `${dateStr || 'N/A'} ${formatTime(timestamp)}`;
+    }
   };
 
   // Excel export function
@@ -330,15 +354,7 @@ const Revenue = () => {
         ];
 
         revenueData.conductorTrips.forEach(trip => {
-          const dateTime = (() => {
-            try {
-              const dateStr = trip.date ? new Date(trip.date).toLocaleDateString() : new Date().toLocaleDateString();
-              const timeStr = trip.timestamp ? formatTime(trip.timestamp) : 'N/A';
-              return `${dateStr} ${timeStr}`;
-            } catch (error) {
-              return `${trip.date || 'N/A'} ${formatTime(trip.timestamp)}`;
-            }
-          })();
+          const dateTime = formatDateTime(trip.date, trip.timestamp);
 
           conductorData.push([
             trip.tripId || 'N/A',
@@ -384,15 +400,7 @@ const Revenue = () => {
         ];
 
         revenueData.preBookingTrips.forEach(trip => {
-          const dateTime = (() => {
-            try {
-              const dateStr = trip.date ? new Date(trip.date).toLocaleDateString() : new Date().toLocaleDateString();
-              const timeStr = trip.timestamp ? formatTime(trip.timestamp) : 'N/A';
-              return `${dateStr} ${timeStr}`;
-            } catch (error) {
-              return `${trip.date || 'N/A'} ${formatTime(trip.timestamp)}`;
-            }
-          })();
+          const dateTime = formatDateTime(trip.date, trip.timestamp);
 
           preBookingData.push([
             trip.tripId || 'N/A',
@@ -431,15 +439,7 @@ const Revenue = () => {
         ];
 
         revenueData.preTicketing.forEach(trip => {
-          const dateTime = (() => {
-            try {
-              const dateStr = trip.date ? new Date(trip.date).toLocaleDateString() : new Date().toLocaleDateString();
-              const timeStr = trip.timestamp ? formatTime(trip.timestamp) : 'N/A';
-              return `${dateStr} ${timeStr}`;
-            } catch (error) {
-              return `${trip.date || 'N/A'} ${formatTime(trip.timestamp)}`;
-            }
-          })();
+          const dateTime = formatDateTime(trip.date, trip.timestamp);
 
           preTicketingData.push([
             trip.tripId || 'N/A',
@@ -735,7 +735,7 @@ const Revenue = () => {
               </h4>
               {revenueData.conductorTrips.length > 0 ? (
                 <div className="revenue-table-container">
-                  <table className="revenue-revenue-table revenue-detailed-breakdown-table">
+                  <table className="revenue-revenue-table revenue-detailed-breakdown-table daily-revenue-table">
                     <thead>
                       <tr>
                         <th>Trip ID</th>
@@ -753,15 +753,7 @@ const Revenue = () => {
                             {trip.tripId || 'N/A'}
                           </td>
                           <td>
-                            {(() => {
-                              try {
-                                const dateStr = trip.date ? new Date(trip.date).toLocaleDateString() : new Date().toLocaleDateString();
-                                const timeStr = trip.timestamp ? formatTime(trip.timestamp) : 'N/A';
-                                return `${dateStr} ${timeStr}`;
-                              } catch (error) {
-                                return `${trip.date || 'N/A'} ${formatTime(trip.timestamp)}`;
-                              }
-                            })()}
+                            {formatDateTime(trip.date, trip.timestamp)}
                           </td>
                           <td className="revenue-route-text">
                             {trip.from} → {trip.to}
@@ -805,7 +797,7 @@ const Revenue = () => {
               </h4>
               {revenueData.preBookingTrips && revenueData.preBookingTrips.length > 0 ? (
                 <div className="revenue-table-container">
-                  <table className="revenue-revenue-table revenue-detailed-breakdown-table">
+                  <table className="revenue-revenue-table revenue-detailed-breakdown-table daily-revenue-table">
                     <thead>
                       <tr>
                         <th>Trip ID</th>
@@ -823,15 +815,7 @@ const Revenue = () => {
                             {trip.tripId || 'N/A'}
                           </td>
                           <td>
-                            {(() => {
-                              try {
-                                const dateStr = trip.date ? new Date(trip.date).toLocaleDateString() : new Date().toLocaleDateString();
-                                const timeStr = trip.timestamp ? formatTime(trip.timestamp) : 'N/A';
-                                return `${dateStr} ${timeStr}`;
-                              } catch (error) {
-                                return `${trip.date || 'N/A'} ${formatTime(trip.timestamp)}`;
-                              }
-                            })()}
+                            {formatDateTime(trip.date, trip.timestamp)}
                           </td>
                           <td className="revenue-route-text">
                             {trip.from} → {trip.to}
@@ -875,7 +859,7 @@ const Revenue = () => {
               </h4>
               {revenueData.preTicketing.length > 0 ? (
                 <div className="revenue-table-container">
-                  <table className="revenue-revenue-table revenue-detailed-breakdown-table">
+                  <table className="revenue-revenue-table revenue-detailed-breakdown-table daily-revenue-table">
                     <thead>
                       <tr>
                         <th>Trip ID</th>
@@ -893,15 +877,7 @@ const Revenue = () => {
                             {trip.tripId || 'N/A'}
                           </td>
                           <td>
-                            {(() => {
-                              try {
-                                const dateStr = trip.date ? new Date(trip.date).toLocaleDateString() : new Date().toLocaleDateString();
-                                const timeStr = trip.timestamp ? formatTime(trip.timestamp) : 'N/A';
-                                return `${dateStr} ${timeStr}`;
-                              } catch (error) {
-                                return `${trip.date || 'N/A'} ${formatTime(trip.timestamp)}`;
-                              }
-                            })()}
+                            {formatDateTime(trip.date, trip.timestamp)}
                           </td>
                           <td className="revenue-route-text">
                             {trip.from} → {trip.to}

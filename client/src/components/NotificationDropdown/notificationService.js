@@ -14,18 +14,21 @@ export const listenToSOSNotifications = (callback) => {
     querySnapshot.forEach((doc) => {
       const data = doc.data();
       
-      // Create notification object for SOS requests
-      notifications.push({
-        id: `sos_${doc.id}`,
-        title: `New SOS Request - ${data.emergencyType}`,
-        message: `Emergency assistance requested on route ${data.route}`,
-        type: data.status?.toLowerCase() === 'pending' ? 'error' : 'warning',
-        timestamp: data.timestamp?.seconds ? new Date(data.timestamp.seconds * 1000) : new Date(),
-        read: data.status?.toLowerCase() !== 'pending', // Mark pending as unread
-        category: 'sos',
-        sourceId: doc.id,
-        sourceData: data
-      });
+      // Only show notifications for pending SOS requests
+      // Once status becomes 'received', they won't appear in notifications
+      if (data.status?.toLowerCase() === 'pending') {
+        notifications.push({
+          id: `sos_${doc.id}`,
+          title: `New SOS Request - ${data.emergencyType}`,
+          message: `Emergency assistance requested on route ${data.route}`,
+          type: 'error',
+          timestamp: data.timestamp?.seconds ? new Date(data.timestamp.seconds * 1000) : new Date(),
+          read: false, // Always unread for pending SOS
+          category: 'sos',
+          sourceId: doc.id,
+          sourceData: data
+        });
+      }
     });
     
     callback(notifications);

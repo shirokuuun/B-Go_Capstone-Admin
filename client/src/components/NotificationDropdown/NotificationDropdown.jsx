@@ -1,7 +1,10 @@
 import './NotificationDropdown.css';
 import { IoMdCheckmarkCircle, IoMdInformationCircle, IoMdWarning, IoMdAlert } from 'react-icons/io';
+import { useNavigate } from 'react-router-dom';
 
 const NotificationDropdown = ({ notifications, isOpen, onClose }) => {
+  const navigate = useNavigate();
+  
   if (!isOpen) return null;
 
   const getNotificationIcon = (type) => {
@@ -30,6 +33,27 @@ const NotificationDropdown = ({ notifications, isOpen, onClose }) => {
     return `${Math.floor(diffInMinutes / 1440)}d ago`;
   };
 
+  const handleNotificationClick = (notification) => {
+    // Check if it's an SOS request notification
+    const isSOS = notification.type === 'error' || 
+                  notification.title?.toLowerCase().includes('sos') || 
+                  notification.message?.toLowerCase().includes('sos') ||
+                  notification.category === 'sos' ||
+                  notification.title?.toLowerCase().includes('emergency') ||
+                  notification.message?.toLowerCase().includes('emergency');
+    
+    if (isSOS) {
+      // Navigate to SOS request page
+      navigate('/admin/sos');
+      setTimeout(() => {
+        onClose();
+      }, 100);
+    } else {
+      // For non-SOS notifications, just close the dropdown
+      onClose();
+    }
+  };
+
   return (
     <div className="notification-dropdown">
       <div className="notification-header">
@@ -47,7 +71,16 @@ const NotificationDropdown = ({ notifications, isOpen, onClose }) => {
           </div>
         ) : (
           notifications.map((notification) => (
-            <div key={notification.id} className={`notification-item ${notification.read ? 'read' : 'unread'}`}>
+            <div 
+              key={notification.id} 
+              className={`notification-item ${notification.read ? 'read' : 'unread'}`}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleNotificationClick(notification);
+              }}
+              style={{ cursor: 'pointer' }}
+            >
               <div className="notification-content">
                 <div className="notification-main">
                   {getNotificationIcon(notification.type)}
