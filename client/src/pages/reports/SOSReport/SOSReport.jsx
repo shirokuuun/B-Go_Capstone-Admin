@@ -12,7 +12,6 @@ import {
   analyzeEmergencyTypes,
   identifyRouteHotspots,
   analyzeMonthlyTrends,
-  generateInsights,
   prepareExcelData,
   cleanup
 } from './FetchSOSReport.js';
@@ -27,7 +26,6 @@ const SOSReport = () => {
   const [emergencyTypes, setEmergencyTypes] = useState([]);
   const [routeHotspots, setRouteHotspots] = useState([]);
   const [monthlyTrends, setMonthlyTrends] = useState([]);
-  const [insights, setInsights] = useState({ strengths: [], improvements: [], recommendations: [] });
   
   // UI states
   const [loading, setLoading] = useState(false);
@@ -97,14 +95,12 @@ const SOSReport = () => {
           const emergencyAnalysis = analyzeEmergencyTypes(data);
           const hotspots = identifyRouteHotspots(data);
           const trends = analyzeMonthlyTrends(data);
-          const performanceInsights = generateInsights(data, calculatedMetrics, hotspots);
           
           setMetrics(calculatedMetrics);
           setResponseTimeDistribution(responseDistribution);
           setEmergencyTypes(emergencyAnalysis);
           setRouteHotspots(hotspots);
           setMonthlyTrends(trends);
-          setInsights(performanceInsights);
           
           setLoading(false);
         } catch (err) {
@@ -178,6 +174,17 @@ const SOSReport = () => {
       ];
       
       const summaryWS = XLSX.utils.aoa_to_sheet(summaryData);
+      
+      // Auto-size columns for Summary sheet
+      const summaryColWidths = [];
+      summaryData.forEach(row => {
+        row.forEach((cell, colIndex) => {
+          const cellLength = cell ? cell.toString().length : 10;
+          summaryColWidths[colIndex] = Math.max(summaryColWidths[colIndex] || 10, cellLength + 5);
+        });
+      });
+      summaryWS['!cols'] = summaryColWidths.map(width => ({ wch: Math.min(width, 50) }));
+      
       XLSX.utils.book_append_sheet(workbook, summaryWS, 'Summary');
       
       // Response Times sheet
@@ -192,41 +199,64 @@ const SOSReport = () => {
       });
       
       const responseTimeWS = XLSX.utils.aoa_to_sheet(responseTimeData);
+      
+      // Auto-size columns for Response Times sheet
+      const responseTimeColWidths = [];
+      responseTimeData.forEach(row => {
+        row.forEach((cell, colIndex) => {
+          const cellLength = cell ? cell.toString().length : 10;
+          responseTimeColWidths[colIndex] = Math.max(responseTimeColWidths[colIndex] || 10, cellLength + 5);
+        });
+      });
+      responseTimeWS['!cols'] = responseTimeColWidths.map(width => ({ wch: Math.min(width, 50) }));
+      
       XLSX.utils.book_append_sheet(workbook, responseTimeWS, 'Response Times');
       
       // Emergency Types sheet
       const emergencyTypeData = [
         ['Emergency Type Analysis'],
         [''],
-        ['Emergency Type', 'Total', 'Resolved', 'Pending', 'Resolution Rate', 'Avg Response Time']
+        ['Emergency Type', 'Total', 'Received', 'Pending', 'Cancelled', 'Resolution Rate', 'Avg Response Time']
       ];
       
       emergencyTypes.forEach(item => {
         emergencyTypeData.push([
           item.type,
           item.total,
-          item.resolved,
+          item.received,
           item.pending,
+          item.cancelled,
           `${item.resolutionRate.toFixed(1)}%`,
           `${item.avgResponseTime.toFixed(1)} min`
         ]);
       });
       
       const emergencyTypeWS = XLSX.utils.aoa_to_sheet(emergencyTypeData);
+      
+      // Auto-size columns for Emergency Types sheet
+      const emergencyTypeColWidths = [];
+      emergencyTypeData.forEach(row => {
+        row.forEach((cell, colIndex) => {
+          const cellLength = cell ? cell.toString().length : 10;
+          emergencyTypeColWidths[colIndex] = Math.max(emergencyTypeColWidths[colIndex] || 10, cellLength + 5);
+        });
+      });
+      emergencyTypeWS['!cols'] = emergencyTypeColWidths.map(width => ({ wch: Math.min(width, 50) }));
+      
       XLSX.utils.book_append_sheet(workbook, emergencyTypeWS, 'Emergency Types');
       
       // Route Analysis sheet
       const routeAnalysisData = [
         ['Route Hotspots Analysis'],
         [''],
-        ['Route', 'Total Incidents', 'Resolved', 'Critical', 'Resolution Rate', 'Risk Level', 'Top Emergency Type']
+        ['Route', 'Total Incidents', 'Received', 'Critical', 'Resolution Rate', 'Risk Level', 'Top Emergency Type']
       ];
       
       routeHotspots.forEach(item => {
         routeAnalysisData.push([
           item.route,
           item.total,
-          item.resolved,
+          item.received,
           item.critical,
           `${item.resolutionRate.toFixed(1)}%`,
           item.riskLevel,
@@ -235,20 +265,31 @@ const SOSReport = () => {
       });
       
       const routeAnalysisWS = XLSX.utils.aoa_to_sheet(routeAnalysisData);
+      
+      // Auto-size columns for Route Analysis sheet
+      const routeAnalysisColWidths = [];
+      routeAnalysisData.forEach(row => {
+        row.forEach((cell, colIndex) => {
+          const cellLength = cell ? cell.toString().length : 10;
+          routeAnalysisColWidths[colIndex] = Math.max(routeAnalysisColWidths[colIndex] || 10, cellLength + 5);
+        });
+      });
+      routeAnalysisWS['!cols'] = routeAnalysisColWidths.map(width => ({ wch: Math.min(width, 50) }));
+      
       XLSX.utils.book_append_sheet(workbook, routeAnalysisWS, 'Route Analysis');
       
       // Monthly Trends sheet
       const monthlyTrendsData = [
         ['Monthly Trends Analysis'],
         [''],
-        ['Month', 'Total', 'Resolved', 'Pending', 'Cancelled', 'Resolution Rate']
+        ['Month', 'Total', 'Received', 'Pending', 'Cancelled', 'Resolution Rate']
       ];
       
       monthlyTrends.forEach(item => {
         monthlyTrendsData.push([
           item.month,
           item.total,
-          item.resolved,
+          item.received,
           item.pending,
           item.cancelled,
           `${item.resolutionRate.toFixed(1)}%`
@@ -256,6 +297,17 @@ const SOSReport = () => {
       });
       
       const monthlyTrendsWS = XLSX.utils.aoa_to_sheet(monthlyTrendsData);
+      
+      // Auto-size columns for Monthly Trends sheet
+      const monthlyTrendsColWidths = [];
+      monthlyTrendsData.forEach(row => {
+        row.forEach((cell, colIndex) => {
+          const cellLength = cell ? cell.toString().length : 10;
+          monthlyTrendsColWidths[colIndex] = Math.max(monthlyTrendsColWidths[colIndex] || 10, cellLength + 5);
+        });
+      });
+      monthlyTrendsWS['!cols'] = monthlyTrendsColWidths.map(width => ({ wch: Math.min(width, 50) }));
+      
       XLSX.utils.book_append_sheet(workbook, monthlyTrendsWS, 'Monthly Trends');
       
       // Generate filename
@@ -332,27 +384,6 @@ const SOSReport = () => {
 
   return (
     <div className="sos-report-container">
-      {/* Header */}
-      <div className="sos-report-header">
-        <h1>SOS Analytics Report</h1>
-        <div className="sos-report-actions">
-          <button
-            onClick={loadData}
-            className="sos-refresh-btn"
-            disabled={loading}
-          >
-            {loading ? 'Loading...' : 'Refresh'}
-          </button>
-          <button
-            onClick={handleExportExcel}
-            className="sos-export-btn"
-            disabled={loading || sosData.length === 0}
-          >
-            📊 Export Excel
-          </button>
-        </div>
-      </div>
-
       {/* Filters */}
       <div className="sos-report-filters">
         <div className="filter-group">
@@ -386,6 +417,7 @@ const SOSReport = () => {
         </div>
       </div>
 
+      <div className="sos-metrics-whole-container">
       {/* Performance Metrics Dashboard */}
       <div className="sos-metrics-dashboard-container">
       <div className="sos-metrics-pattern"></div>
@@ -408,6 +440,24 @@ const SOSReport = () => {
         </div>
       </div>
       </div>
+
+      {/* Controls - Refresh and Export buttons */}
+        <div className="sos-daily-controls">
+          <button
+            onClick={loadData}
+            className="sos-refresh-btn"
+            disabled={loading}
+          >
+            {loading ? 'Loading...' : 'Refresh'}
+          </button>
+          <button
+            onClick={handleExportExcel}
+            className="sos-export-btn"
+            disabled={loading || sosData.length === 0}
+          >
+            📊 Export Excel
+          </button>
+        </div>
 
       {/* Charts Section */}
       <div className="sos-charts-section">
@@ -436,7 +486,7 @@ const SOSReport = () => {
               <Tooltip />
               <Legend />
               <Line type="monotone" dataKey="total" stroke="#8884d8" name="Total Incidents" />
-              <Line type="monotone" dataKey="resolved" stroke="#82ca9d" name="Resolved" />
+              <Line type="monotone" dataKey="received" stroke="#82ca9d" name="Received" />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -451,8 +501,9 @@ const SOSReport = () => {
               <tr>
                 <th>Emergency Type</th>
                 <th>Total</th>
-                <th>Resolved</th>
+                <th>Received</th>
                 <th>Pending</th>
+                <th>Cancelled</th>
                 <th>Resolution Rate</th>
                 <th>Avg Response Time</th>
               </tr>
@@ -462,8 +513,9 @@ const SOSReport = () => {
                 <tr key={index}>
                   <td>{item.type}</td>
                   <td>{item.total}</td>
-                  <td>{item.resolved}</td>
+                  <td>{item.received}</td>
                   <td>{item.pending}</td>
+                  <td>{item.cancelled}</td>
                   <td>{formatPercentage(item.resolutionRate)}</td>
                   <td>{formatTime(item.avgResponseTime)}</td>
                 </tr>
@@ -508,44 +560,6 @@ const SOSReport = () => {
           ))}
         </div>
       </div>
-
-      {/* Performance Insights */}
-      <div className="sos-insights-section">
-        <h3>Performance Insights</h3>
-        <div className="insights-grid">
-          {insights.strengths.length > 0 && (
-            <div className="insights-card strengths">
-              <h4>✅ Strengths</h4>
-              <ul>
-                {insights.strengths.map((strength, index) => (
-                  <li key={index}>{strength}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          
-          {insights.improvements.length > 0 && (
-            <div className="insights-card improvements">
-              <h4>⚠️ Areas for Improvement</h4>
-              <ul>
-                {insights.improvements.map((improvement, index) => (
-                  <li key={index}>{improvement}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          
-          {insights.recommendations.length > 0 && (
-            <div className="insights-card recommendations">
-              <h4>💡 Recommendations</h4>
-              <ul>
-                {insights.recommendations.map((recommendation, index) => (
-                  <li key={index}>{recommendation}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );

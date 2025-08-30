@@ -78,6 +78,51 @@
 }
 
 /* =========================
+   CONTROLS SECTION (Buttons)
+   ========================= */
+
+.sos-daily-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+/* Update button styles to match revenue report */
+.sos-refresh-btn, .sos-export-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.sos-refresh-btn {
+  background-color: #007bff;
+  color: white;
+}
+
+.sos-export-btn {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.sos-refresh-btn:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+
+.sos-export-btn:hover:not(:disabled) {
+  background-color: #138496;
+}
+
+.sos-refresh-btn:disabled, .sos-export-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+/* =========================
    FILTERS SECTION
    ========================= */
 
@@ -122,6 +167,19 @@
 /* =========================
    METRICS DASHBOARD
    ========================= */
+
+.sos-metrics-whole-container{
+  background-color: white;
+  padding: 20px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  width: 100%;
+  min-height: calc(100vh - 100px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+}
 
 .sos-metrics-dashboard-container{
   background: #007c91;

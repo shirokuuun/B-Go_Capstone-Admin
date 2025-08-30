@@ -63,8 +63,45 @@ export const fetchSOSData = (dateRange, routeFilter, emergencyTypeFilter, callba
       cachedData = sosData;
       cacheTimestamp = Date.now();
 
+      // Sanitize data to ensure no nested objects in strings
+      const sanitizedData = sosData.map(item => {
+        const sanitized = { ...item };
+        
+        // Recursively check for any object values that might be rendered
+        const sanitizeValue = (value, key) => {
+          if (value && typeof value === 'object' && !Array.isArray(value)) {
+            // Special handling for location objects
+            if (key === 'location') {
+              if (value.lat !== undefined && value.lng !== undefined) {
+                if (value.lat === 0 && value.lng === 0) {
+                  return 'No location';
+                } else {
+                  return `${value.lat}, ${value.lng}`;
+                }
+              }
+              return 'Unknown';
+            }
+            // Skip sanitizing timestamp fields - they need to remain as Timestamp objects
+            if (key === 'timestamp' || key === 'updatedAt' || key === 'createdAt') {
+              return value;
+            }
+            // For other objects, convert to JSON string to prevent React errors
+            console.warn(`Found object in ${key}:`, value);
+            return JSON.stringify(value);
+          }
+          return value;
+        };
+        
+        // Sanitize all properties
+        Object.keys(sanitized).forEach(key => {
+          sanitized[key] = sanitizeValue(sanitized[key], key);
+        });
+        
+        return sanitized;
+      });
+      
       // Call callback with processed data
-      callback(sosData);
+      callback(sanitizedData);
     }, (error) => {
       console.error("Error fetching SOS data:", error);
       callback([]);
@@ -116,23 +153,41 @@ export const calculateMetrics = (sosData) => {
   }
 
   const totalIncidents = sosData.length;
-  const resolvedIncidents = sosData.filter(item => 
-    item.status && item.status.toLowerCase() === 'resolved'
+  const receivedIncidents = sosData.filter(item => 
+    item.status && item.status.toLowerCase() === 'received'
   ).length;
   
-  const resolutionRate = totalIncidents > 0 ? (resolvedIncidents / totalIncidents) * 100 : 0;
+  const resolutionRate = totalIncidents > 0 ? (receivedIncidents / totalIncidents) * 100 : 0;
   
-  // Calculate average response time (time from pending to received status)
+  // Calculate average response time using real timestamps
   let totalResponseTime = 0;
   let responseTimeCount = 0;
   
   sosData.forEach(item => {
-    if (item.status && item.status.toLowerCase() === 'received' && item.timestamp) {
-      // Simulate response time calculation (in real app, you'd have status change timestamps)
-      // For now, we'll use a base calculation
-      const responseTime = Math.random() * 15; // 0-15 minutes simulation
-      totalResponseTime += responseTime;
-      responseTimeCount++;
+    if (item.status && item.status.toLowerCase() === 'received' && item.timestamp && item.updatedAt) {
+      try {
+        let createdTime, updatedTime;
+        
+        // Handle Firestore timestamp objects
+        if (item.timestamp.toDate) {
+          createdTime = item.timestamp.toDate();
+        } else {
+          createdTime = new Date(item.timestamp);
+        }
+        
+        if (item.updatedAt.toDate) {
+          updatedTime = item.updatedAt.toDate();
+        } else {
+          updatedTime = new Date(item.updatedAt);
+        }
+        
+        // Calculate response time in minutes
+        const responseTime = (updatedTime - createdTime) / (1000 * 60);
+        totalResponseTime += responseTime;
+        responseTimeCount++;
+      } catch (error) {
+        console.warn('Error calculating response time for metrics:', item.id, error);
+      }
     }
   });
   
@@ -142,6 +197,8 @@ export const calculateMetrics = (sosData) => {
   const criticalIncidents = sosData.filter(item => 
     item.severity === 'critical' || 
     item.emergencyType === 'Medical Emergency' ||
+    item.emergencyType === 'Brake Failure' ||
+    item.emergencyType === 'Accident' ||
     item.emergencyType === 'Security Incident'
   ).length;
 
@@ -163,9 +220,34 @@ export const analyzeResponseTimeDistribution = (sosData) => {
   };
 
   sosData.forEach(item => {
-    if (item.status && (item.status.toLowerCase() === 'received' || item.status.toLowerCase() === 'resolved')) {
-      // Simulate response time (in real app, calculate from timestamp differences)
-      const responseTime = Math.random() * 20;
+    if (item.status && item.status.toLowerCase() === 'received') {
+      // Calculate real response time using timestamp and updatedAt
+      let responseTime = 0;
+      
+      if (item.timestamp && item.updatedAt) {
+        try {
+          let createdTime, updatedTime;
+          
+          // Handle Firestore timestamp objects
+          if (item.timestamp.toDate) {
+            createdTime = item.timestamp.toDate();
+          } else {
+            createdTime = new Date(item.timestamp);
+          }
+          
+          if (item.updatedAt.toDate) {
+            updatedTime = item.updatedAt.toDate();
+          } else {
+            updatedTime = new Date(item.updatedAt);
+          }
+          
+          // Calculate difference in minutes
+          responseTime = (updatedTime - createdTime) / (1000 * 60);
+        } catch (error) {
+          console.warn('Error calculating response time for item:', item.id, error);
+          responseTime = 0;
+        }
+      }
       
       if (responseTime <= 5) {
         distribution['0-5min']++;
@@ -196,8 +278,9 @@ export const analyzeEmergencyTypes = (sosData) => {
     if (!typeAnalysis[type]) {
       typeAnalysis[type] = {
         total: 0,
-        resolved: 0,
+        received: 0,
         pending: 0,
+        cancelled: 0,
         avgResponseTime: 0,
         responseTimesSum: 0,
         responseTimesCount: 0
@@ -208,17 +291,37 @@ export const analyzeEmergencyTypes = (sosData) => {
     
     if (item.status) {
       const status = item.status.toLowerCase();
-      if (status === 'resolved') {
-        typeAnalysis[type].resolved++;
+      if (status === 'received') {
+        typeAnalysis[type].received++;
       } else if (status === 'pending') {
         typeAnalysis[type].pending++;
+      } else if (status === 'cancelled') {
+        typeAnalysis[type].cancelled++;
       }
       
-      if (status === 'received' || status === 'resolved') {
-        // Simulate response time calculation
-        const responseTime = Math.random() * 15;
-        typeAnalysis[type].responseTimesSum += responseTime;
-        typeAnalysis[type].responseTimesCount++;
+      if (status === 'received' && item.timestamp && item.updatedAt) {
+        // Calculate real response time
+        try {
+          let createdTime, updatedTime;
+          
+          if (item.timestamp.toDate) {
+            createdTime = item.timestamp.toDate();
+          } else {
+            createdTime = new Date(item.timestamp);
+          }
+          
+          if (item.updatedAt.toDate) {
+            updatedTime = item.updatedAt.toDate();
+          } else {
+            updatedTime = new Date(item.updatedAt);
+          }
+          
+          const responseTime = (updatedTime - createdTime) / (1000 * 60);
+          typeAnalysis[type].responseTimesSum += responseTime;
+          typeAnalysis[type].responseTimesCount++;
+        } catch (error) {
+          console.warn('Error calculating response time for emergency type:', type, error);
+        }
       }
     }
   });
@@ -227,9 +330,10 @@ export const analyzeEmergencyTypes = (sosData) => {
   return Object.entries(typeAnalysis).map(([type, data]) => ({
     type,
     total: data.total,
-    resolved: data.resolved,
+    received: data.received,
     pending: data.pending,
-    resolutionRate: data.total > 0 ? (data.resolved / data.total) * 100 : 0,
+    cancelled: data.cancelled,
+    resolutionRate: data.total > 0 ? (data.received / data.total) * 100 : 0,
     avgResponseTime: data.responseTimesCount > 0 ? 
       data.responseTimesSum / data.responseTimesCount : 0
   })).sort((a, b) => b.total - a.total);
@@ -245,7 +349,7 @@ export const identifyRouteHotspots = (sosData) => {
     if (!routeAnalysis[route]) {
       routeAnalysis[route] = {
         total: 0,
-        resolved: 0,
+        received: 0,
         criticalCount: 0,
         emergencyTypes: {}
       };
@@ -253,14 +357,15 @@ export const identifyRouteHotspots = (sosData) => {
 
     routeAnalysis[route].total++;
     
-    if (item.status && item.status.toLowerCase() === 'resolved') {
-      routeAnalysis[route].resolved++;
+    if (item.status && item.status.toLowerCase() === 'received') {
+      routeAnalysis[route].received++;
     }
     
     // Count critical incidents
     if (item.severity === 'critical' || 
         item.emergencyType === 'Medical Emergency' ||
-        item.emergencyType === 'Security Incident') {
+        item.emergencyType === 'Brake Failure' ||
+        item.emergencyType === 'Accident') {
       routeAnalysis[route].criticalCount++;
     }
     
@@ -273,21 +378,21 @@ export const identifyRouteHotspots = (sosData) => {
   return Object.entries(routeAnalysis).map(([route, data]) => ({
     route,
     total: data.total,
-    resolved: data.resolved,
+    received: data.received,
     critical: data.criticalCount,
-    resolutionRate: data.total > 0 ? (data.resolved / data.total) * 100 : 0,
-    riskLevel: calculateRiskLevel(data.total, data.criticalCount, data.resolved),
+    resolutionRate: data.total > 0 ? (data.received / data.total) * 100 : 0,
+    riskLevel: calculateRiskLevel(data.total, data.criticalCount, data.received),
     topEmergencyType: Object.entries(data.emergencyTypes)
       .sort(([,a], [,b]) => b - a)[0]?.[0] || 'None'
   })).sort((a, b) => b.total - a.total);
 };
 
 // Calculate risk level for routes
-const calculateRiskLevel = (total, critical, resolved) => {
+const calculateRiskLevel = (total, critical, received) => {
   if (total === 0) return 'Low';
   
   const criticalRate = (critical / total) * 100;
-  const resolutionRate = (resolved / total) * 100;
+  const resolutionRate = (received / total) * 100;
   
   if (criticalRate > 30 || resolutionRate < 50) return 'High';
   if (criticalRate > 15 || resolutionRate < 75) return 'Medium';
@@ -312,7 +417,7 @@ export const analyzeMonthlyTrends = (sosData) => {
       if (!monthlyData[monthKey]) {
         monthlyData[monthKey] = {
           total: 0,
-          resolved: 0,
+          received: 0,
           pending: 0,
           cancelled: 0
         };
@@ -333,57 +438,11 @@ export const analyzeMonthlyTrends = (sosData) => {
     .map(([month, data]) => ({
       month,
       ...data,
-      resolutionRate: data.total > 0 ? (data.resolved / data.total) * 100 : 0
+      resolutionRate: data.total > 0 ? (data.received / data.total) * 100 : 0
     }))
     .sort((a, b) => a.month.localeCompare(b.month));
 };
 
-// Generate performance insights
-export const generateInsights = (sosData, metrics, routeHotspots) => {
-  const insights = {
-    strengths: [],
-    improvements: [],
-    recommendations: []
-  };
-
-  // Analyze strengths
-  if (metrics.resolutionRate > 80) {
-    insights.strengths.push("High resolution rate indicates effective incident management");
-  }
-  
-  if (metrics.avgResponseTime < 5) {
-    insights.strengths.push("Excellent average response time under 5 minutes");
-  }
-
-  // Identify improvement areas
-  if (metrics.resolutionRate < 50) {
-    insights.improvements.push("Low resolution rate needs immediate attention");
-  }
-  
-  if (metrics.avgResponseTime > 10) {
-    insights.improvements.push("Response time exceeds 10 minutes - review dispatch process");
-  }
-  
-  const highRiskRoutes = routeHotspots.filter(r => r.riskLevel === 'High');
-  if (highRiskRoutes.length > 0) {
-    insights.improvements.push(`${highRiskRoutes.length} routes identified as high-risk`);
-  }
-
-  // Generate recommendations
-  if (metrics.criticalIncidents > metrics.totalIncidents * 0.3) {
-    insights.recommendations.push("Consider implementing preventive measures for critical incidents");
-  }
-  
-  if (highRiskRoutes.length > 0) {
-    insights.recommendations.push(`Focus additional resources on high-risk routes: ${highRiskRoutes.slice(0, 3).map(r => r.route).join(', ')}`);
-  }
-  
-  if (metrics.avgResponseTime > 8) {
-    insights.recommendations.push("Implement real-time tracking system to improve response times");
-  }
-
-  return insights;
-};
 
 // Cleanup function
 export const cleanup = () => {
@@ -410,7 +469,9 @@ export const prepareExcelData = (sosData, metrics, routeHotspots, emergencyTypes
       emergencyType: item.emergencyType || 'Unknown',
       status: item.status || 'Unknown',
       route: item.route || 'Unknown',
-      location: item.location ? `${item.location.lat}, ${item.location.lng}` : 'Unknown',
+      location: item.location && item.location.lat !== undefined && item.location.lng !== undefined ? 
+        (item.location.lat === 0 && item.location.lng === 0 ? 
+          'No location' : `${item.location.lat}, ${item.location.lng}`) : 'Unknown',
       timestamp: item.timestamp ? 
         (item.timestamp.toDate ? item.timestamp.toDate() : new Date(item.timestamp)).toLocaleString() : 
         'Unknown',

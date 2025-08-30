@@ -532,9 +532,7 @@ export const getRoutePerformanceData = async (timeRange, route, ticketType = '')
         revenuePerKm,
         averageFare: Math.round(averageFare * 100) / 100,
         averagePassengers: averagePassengersPerTrip > 0 ? Math.round(averagePassengersPerTrip) : routeData.passengers, // Average passengers per trip
-        profitMargin: Math.round((averageFare * 0.25) * 100) / 100, // Estimate 25% margin
-        marketShare: Math.min(utilization, 35), // Estimate market share based on utilization
-        customerRating: 4.0 + (utilization / 100) * 0.5 // Rating improves with utilization
+        marketShare: Math.min(utilization, 35) // Estimate market share based on utilization
       };
     });
 
@@ -577,8 +575,8 @@ export const getTicketTypeData = async (timeRange, route, ticketType = '') => {
         marketShare: totalRevenue > 0 ? Math.round((conductorRevenue / totalRevenue) * 100) : 0,
         growth: growthRates.conductorGrowth,
         averagePrice: (() => {
-          const totalPassengers = rawData.conductorTrips.reduce((sum, trip) => sum + (trip.quantity || 1), 0);
-          return totalPassengers > 0 ? Math.round((conductorRevenue / totalPassengers) * 100) / 100 : 0;
+          const tripCount = rawData.conductorTrips.length;
+          return tripCount > 0 ? Math.round((conductorRevenue / tripCount) * 100) / 100 : 0;
         })(),
         volume: rawData.conductorTrips.length,
         revenue: conductorRevenue,
@@ -589,8 +587,8 @@ export const getTicketTypeData = async (timeRange, route, ticketType = '') => {
         marketShare: totalRevenue > 0 ? Math.round((preBookingRevenue / totalRevenue) * 100) : 0,
         growth: growthRates.preBookingGrowth,
         averagePrice: (() => {
-          const totalPassengers = rawData.preBookingTrips.reduce((sum, trip) => sum + (trip.quantity || 1), 0);
-          return totalPassengers > 0 ? Math.round((preBookingRevenue / totalPassengers) * 100) / 100 : 0;
+          const tripCount = rawData.preBookingTrips.length;
+          return tripCount > 0 ? Math.round((preBookingRevenue / tripCount) * 100) / 100 : 0;
         })(),
         volume: rawData.preBookingTrips.length,
         revenue: preBookingRevenue,
@@ -601,8 +599,8 @@ export const getTicketTypeData = async (timeRange, route, ticketType = '') => {
         marketShare: totalRevenue > 0 ? Math.round((preTicketingRevenue / totalRevenue) * 100) : 0,
         growth: growthRates.preTicketingGrowth,
         averagePrice: (() => {
-          const totalPassengers = rawData.preTicketing.reduce((sum, trip) => sum + (trip.quantity || 1), 0);
-          return totalPassengers > 0 ? Math.round((preTicketingRevenue / totalPassengers) * 100) / 100 : 0;
+          const tripCount = rawData.preTicketing.length;
+          return tripCount > 0 ? Math.round((preTicketingRevenue / tripCount) * 100) / 100 : 0;
         })(),
         volume: rawData.preTicketing.length,
         revenue: preTicketingRevenue,

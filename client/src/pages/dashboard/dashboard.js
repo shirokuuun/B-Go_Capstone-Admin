@@ -179,11 +179,27 @@ class DashboardService {
 
         // Add to recent requests for today
         if (requestDate === today) {
+          // Format location properly
+          let locationText = 'Unknown location';
+          if (data.location && typeof data.location === 'object') {
+            if (data.location.lat !== undefined && data.location.lng !== undefined) {
+              if (data.location.lat === 0 && data.location.lng === 0) {
+                locationText = 'No location';
+              } else {
+                locationText = `${data.location.lat}, ${data.location.lng}`;
+              }
+            }
+          } else if (data.location && typeof data.location === 'string') {
+            locationText = data.location;
+          } else if (data.address) {
+            locationText = data.address;
+          }
+
           recentRequests.push({
             id: doc.id,
             status: status,
             timestamp: dateField,
-            location: data.location || data.address || 'Unknown location',
+            location: locationText,
             passengerName: data.passengerName || data.name || 'Unknown',
             message: data.message || data.description || ''
           });

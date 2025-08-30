@@ -99,7 +99,16 @@ const TicketReport = () => {
       setLoading(true);
       
       // Get the main analytics data for summary
-      const mainAnalyticsData = await getTicketAnalyticsData(selectedTimeRange, selectedRoute, selectedTicketType);
+      const totalTickets = analyticsData.ticketTypes?.reduce((sum, type) => sum + (type.volume || 0), 0) || 0;
+      const totalRev = analyticsData.ticketTypes?.reduce((sum, type) => sum + (type.revenue || 0), 0) || 0;
+      
+      const mainAnalyticsData = {
+        // Count actual tickets sold from ticket types data
+        totalTicketsSold: totalTickets,
+        totalRevenue: totalRev,
+        // Calculate weighted average ticket price based on volume
+        averageTicketPrice: totalTickets > 0 ? Math.round((totalRev / totalTickets) * 100) / 100 : 0
+      };
       
       // Create a new workbook
       const workbook = XLSX.utils.book_new();
@@ -118,10 +127,7 @@ const TicketReport = () => {
         ['Metric', 'Value'],
         ['Total Tickets Sold', mainAnalyticsData.totalTicketsSold],
         ['Total Revenue', `₱${mainAnalyticsData.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
-        ['Average Ticket Price', `₱${mainAnalyticsData.averageTicketPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
-        ['Market Share', `${mainAnalyticsData.marketShare}%`],
-        ['Customer Satisfaction Score', `${mainAnalyticsData.customerSatisfactionScore}/5.0`],
-        ['On-Time Performance', `${mainAnalyticsData.onTimePerformance}%`],
+        ['Revenue per Ticket Sold', `₱${mainAnalyticsData.averageTicketPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
         ['']
       ];
 
@@ -173,16 +179,16 @@ const TicketReport = () => {
       // Create Seasonal Trends sheet
       if (analyticsData.demandPatterns.seasonalTrends?.length > 0) {
         const seasonalData = [
-          ['Seasonal Trends Analysis'],
+          ['Daily Demand Analysis'],
           [''],
-          ['Period', 'Change %', 'Trend Direction', 'Reason']
+          ['Day of Week', 'Tickets Sold', 'Total Passengers', 'Details']
         ];
 
         analyticsData.demandPatterns.seasonalTrends.forEach(trend => {
           seasonalData.push([
             trend.period,
-            `${trend.change}%`,
-            trend.indicator === 'up' ? 'Increasing' : 'Decreasing',
+            trend.change, // This is ticket count, not percentage
+            trend.reason?.split(', ')[1]?.replace(' passengers', '') || 'N/A', // Extract passenger count
             trend.reason || 'N/A'
           ]);
         });
@@ -190,15 +196,15 @@ const TicketReport = () => {
         const seasonalWS = XLSX.utils.aoa_to_sheet(seasonalData);
         
         seasonalWS['!cols'] = [
-          { wch: 15 }, // Period
-          { wch: 12 }, // Change %
-          { wch: 15 }, // Trend Direction
-          { wch: 25 }  // Reason
+          { wch: 15 }, // Day of Week
+          { wch: 15 }, // Tickets Sold
+          { wch: 18 }, // Total Passengers
+          { wch: 25 }  // Details
         ];
 
         seasonalWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 3, r: 0 } }];
 
-        XLSX.utils.book_append_sheet(workbook, seasonalWS, 'Seasonal Trends');
+        XLSX.utils.book_append_sheet(workbook, seasonalWS, 'Daily Demand');
       }
 
       // Create Route Performance sheet
@@ -206,7 +212,7 @@ const TicketReport = () => {
         const routeData = [
           ['Route Performance Analysis'],
           [''],
-          ['Route Name', 'Utilization %', 'Revenue per KM', 'Average Fare', 'Average Passengers', 'Profit Margin', 'Market Share %', 'Customer Rating']
+          ['Route Name', 'Utilization %', 'Revenue per KM', 'Average Passengers']
         ];
 
         analyticsData.routePerformance.forEach(route => {
@@ -214,11 +220,7 @@ const TicketReport = () => {
             route.routeName,
             `${route.utilization}%`,
             `₱${route.revenuePerKm}`,
-            `₱${route.averageFare}`,
-            route.averagePassengers,
-            `₱${route.profitMargin}`,
-            `${route.marketShare}%`,
-            `${route.customerRating}/5.0`
+            route.averagePassengers
           ]);
         });
 
@@ -228,14 +230,10 @@ const TicketReport = () => {
           { wch: 25 }, // Route Name
           { wch: 15 }, // Utilization %
           { wch: 15 }, // Revenue per KM
-          { wch: 15 }, // Average Fare
-          { wch: 18 }, // Average Passengers
-          { wch: 15 }, // Profit Margin
-          { wch: 15 }, // Market Share %
-          { wch: 15 }  // Customer Rating
+          { wch: 18 }  // Average Passengers
         ];
 
-        routeWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 7, r: 0 } }];
+        routeWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 3, r: 0 } }];
 
         XLSX.utils.book_append_sheet(workbook, routeWS, 'Route Performance');
       }
@@ -301,9 +299,6 @@ const TicketReport = () => {
             totalTicketsSold: mainAnalyticsData.totalTicketsSold,
             totalRevenue: mainAnalyticsData.totalRevenue,
             averageTicketPrice: mainAnalyticsData.averageTicketPrice,
-            marketShare: mainAnalyticsData.marketShare,
-            customerSatisfactionScore: mainAnalyticsData.customerSatisfactionScore,
-            onTimePerformance: mainAnalyticsData.onTimePerformance,
             sheetsIncluded: [
               'Summary',
               ...(analyticsData.demandPatterns.peakHours?.length > 0 ? ['Peak Hours'] : []),
@@ -573,48 +568,43 @@ const TicketReport = () => {
             </div>
             <div className="ticket-card-content">
               {analyticsData.ticketTypes?.length > 0 ? (
-                <div className="ticket-types-grid">
-                  <div className="ticket-types-chart">
-                    <div className="ticket-simple-chart">
-                      <h4>Market Share Distribution</h4>
-                      {analyticsData.ticketTypes.map((type, index) => (
-                        <div key={index} className="ticket-chart-bar">
-                          <div className="ticket-chart-label">{type.type}</div>
-                          <div className="ticket-chart-progress">
-                            <div 
-                              className="ticket-chart-fill" 
-                              style={{ 
-                                width: `${type.marketShare}%`,
-                                backgroundColor: CHART_COLORS[index % CHART_COLORS.length]
-                              }}
-                            ></div>
-                          </div>
-                          <div className="ticket-chart-value">{type.marketShare}%</div>
-                        </div>
-                      ))}
+                <div className="ticket-types-table-container">
+                  <div className="ticket-types-table">
+                    <div className="ticket-table-header">
+                      <div className="ticket-table-cell ticket-header-cell">Ticket Type</div>
+                      <div className="ticket-table-cell ticket-header-cell">Market Share</div>
+                      <div className="ticket-table-cell ticket-header-cell">Growth</div>
+                      <div className="ticket-table-cell ticket-header-cell">Margin Level</div>
+                      <div className="ticket-table-cell ticket-header-cell">Average Price</div>
+                      <div className="ticket-table-cell ticket-header-cell">Volume</div>
+                      <div className="ticket-table-cell ticket-header-cell">Revenue</div>
+                      <div className="ticket-table-cell ticket-header-cell">Customer Segment</div>
                     </div>
-                  </div>
-
-                  <div className="ticket-types-breakdown">
+                    
                     {analyticsData.ticketTypes.map((type, index) => (
-                      <div key={index} className="ticket-type-item">
-                        <div className="ticket-type-header">
+                      <div key={index} className="ticket-table-row">
+                        <div className="ticket-table-cell ticket-type-cell">
                           <div 
-                            className="ticket-type-color" 
+                            className="ticket-type-indicator" 
                             style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
                           ></div>
-                          <div className="ticket-type-name">{type.type}</div>
-                          <div className="ticket-type-share">{type.marketShare}%</div>
+                          {type.type}
                         </div>
-                        
-                        <div className="ticket-type-metrics">
-                          <div className="ticket-type-volume">
-                            <span className="ticket-volume-count">{type.volume} tickets</span>
-                          </div>
+                        <div className="ticket-table-cell">{type.marketShare}%</div>
+                        <div className="ticket-table-cell">
+                          <span className={`ticket-growth-indicator ${type.growth >= 0 ? 'positive' : 'negative'}`}>
+                            {type.growth >= 0 ? '+' : ''}{type.growth}%
+                          </span>
+                        </div>
+                        <div className="ticket-table-cell">
                           <StatusBadge status={type.marginLevel?.toLowerCase()}>
-                            {type.marginLevel} Margin
+                            {type.marginLevel}
                           </StatusBadge>
                         </div>
+                        <div className="ticket-table-cell">₱{type.averagePrice}</div>
+                        <div className="ticket-table-cell">{type.volume}</div>
+                        <div className="ticket-table-cell">₱{type.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        <div className="ticket-table-cell">{type.customerSegment}</div>
                       </div>
                     ))}
                   </div>
