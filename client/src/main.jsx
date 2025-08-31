@@ -21,6 +21,7 @@ import Ticketing from '/src/pages/ticketing/ticketing.jsx';
 import DailyRevenue from '/src/pages/reports/DailyRevenue/DailyRevenue.jsx';
 import SOSReport from '/src/pages/reports/SOSReport/SOSReport.jsx';
 import TicketReport from '/src/pages/reports/TicketReport/TicketReport.jsx';
+import UserReports from '/src/pages/reports/UserReports/UserReports.jsx';
 
 // 💳 PayMongo components
 import PaymentPage from '/src/paymongo/PaymentPage/PaymentPage.jsx';
@@ -71,6 +72,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="reports/daily-revenue" element={<PageTransitionWrapper><DailyRevenue /></PageTransitionWrapper>} />
           <Route path="reports/sos-analytics" element={<PageTransitionWrapper><SOSReport /></PageTransitionWrapper>} />
           <Route path="reports/ticket-report" element={<PageTransitionWrapper><TicketReport /></PageTransitionWrapper>} />
+          <Route path="reports/user-reports" element={<PageTransitionWrapper><UserReports /></PageTransitionWrapper>} />
 
           <Route path="payments" element={<PageTransitionWrapper><PaymentTransactions /></PageTransitionWrapper>} />
           <Route path="settings" element={<PageTransitionWrapper><Settings /></PageTransitionWrapper>} />

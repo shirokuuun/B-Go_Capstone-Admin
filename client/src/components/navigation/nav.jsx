@@ -20,6 +20,7 @@ import { PiTestTube } from "react-icons/pi";
 import { FaRoute } from "react-icons/fa";
 import { FaRegUser } from "react-icons/fa";
 import { BsFillTicketDetailedFill } from "react-icons/bs";
+import { FaUserCog } from "react-icons/fa";
 
 const Nav = ({ collapsed, setCollapsed }) => {
 
@@ -39,6 +40,11 @@ const Nav = ({ collapsed, setCollapsed }) => {
       title: "Ticket Analytics",
       Icon: FaUserTie,
       to: "/admin/reports/ticket-report"
+    },
+    {
+      title: "User Reports",
+      Icon: FaUserCog,
+      to: "/admin/reports/user-reports"
     },
   ];
 

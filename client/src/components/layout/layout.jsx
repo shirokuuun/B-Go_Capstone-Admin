@@ -35,6 +35,8 @@ const Layout = () => {
         return 'SOS Analytics Report';
       case '/admin/reports/ticket-report':
         return 'Ticket Analytics Report';
+      case '/admin/reports/user-reports':
+        return 'User Reports';
       case '/admin/payments':
         return 'Payment Transactions';
       case '/admin/settings':
