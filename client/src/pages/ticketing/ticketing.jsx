@@ -4,7 +4,9 @@ import {
   getConductorsWithPreTickets,
   getPreTicketsByConductor,
   getConductorById,
-  deletePreTicket
+  deletePreTicket,
+  subscribeToConductorsWithTickets,
+  subscribeToTicketsByConductor
 } from './ticketing.js';
 import './ticketing.css';
 import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt } from 'react-icons/fa';
@@ -29,25 +31,62 @@ const Ticketing = () => {
   const [selectedTicketType, setSelectedTicketType] = useState('');
   const [selectedTripDirection, setSelectedTripDirection] = useState('');
 
+  // State for managing ticket subscriptions (declare before use)
+  const [ticketUnsubscribe, setTicketUnsubscribe] = useState(null);
+
+  // Set up real-time listeners for conductors and stats
   useEffect(() => {
-    const fetchInitialData = async () => {
+    let unsubscribeConductors = null;
+    
+    const setupRealTimeData = async () => {
       try {
         setLoading(true);
-        const [statsData, conductorsData] = await Promise.all([
-          getPreTicketingStats(),
-          getConductorsWithPreTickets()
-        ]);
+        
+        // Get initial stats (still using static call for now)
+        const statsData = await getPreTicketingStats();
         setStats(statsData);
-        setConductors(conductorsData);
+        
+        // Set up real-time conductor listener
+        unsubscribeConductors = subscribeToConductorsWithTickets((updatedConductors, error) => {
+          if (error) {
+            console.error('Real-time conductors error:', error);
+            setLoading(false);
+            return;
+          }
+          
+          if (updatedConductors) {
+            setConductors(updatedConductors);
+            console.log(`📊 Real-time update: ${updatedConductors.length} conductors loaded`);
+          }
+          setLoading(false);
+        });
+        
       } catch (error) {
-        console.error('Error fetching initial data:', error);
-      } finally {
+        console.error('Error setting up real-time data:', error);
         setLoading(false);
       }
     };
 
-    fetchInitialData();
+    setupRealTimeData();
+    
+    // Cleanup function
+    return () => {
+      if (unsubscribeConductors) {
+        console.log('🔇 Unsubscribing from conductors real-time listener');
+        unsubscribeConductors();
+      }
+    };
   }, []);
+
+  // Cleanup ticket subscription when component unmounts
+  useEffect(() => {
+    return () => {
+      if (ticketUnsubscribe) {
+        console.log('🔇 Cleaning up ticket subscription on unmount');
+        ticketUnsubscribe();
+      }
+    };
+  }, [ticketUnsubscribe]);
 
   // Filter tickets whenever conductorTickets or filter values change
   useEffect(() => {
@@ -61,9 +100,15 @@ const Ticketing = () => {
     // Filter by ticket type
     if (selectedTicketType) {
       if (selectedTicketType === 'conductor') {
-        filtered = filtered.filter(ticket => !ticket.ticketType || ticket.ticketType === '');
+        filtered = filtered.filter(ticket => {
+          const effectiveType = getEffectiveTicketType(ticket);
+          return effectiveType === 'conductor';
+        });
       } else {
-        filtered = filtered.filter(ticket => ticket.ticketType === selectedTicketType);
+        filtered = filtered.filter(ticket => {
+          const effectiveType = getEffectiveTicketType(ticket);
+          return effectiveType === selectedTicketType;
+        });
       }
     }
 
@@ -78,15 +123,37 @@ const Ticketing = () => {
   const handleConductorSelect = async (conductorId) => {
     try {
       setTicketsLoading(true);
-      const [conductorData, tickets] = await Promise.all([
-        getConductorById(conductorId),
-        getPreTicketsByConductor(conductorId)
-      ]);
+      
+      // Clean up previous subscription
+      if (ticketUnsubscribe) {
+        console.log('🔇 Unsubscribing from previous ticket listener');
+        ticketUnsubscribe();
+        setTicketUnsubscribe(null);
+      }
+      
+      // Get conductor data
+      const conductorData = await getConductorById(conductorId);
       setSelectedConductor(conductorData);
-      setConductorTickets(tickets);
+      
+      // Set up real-time ticket listener for this conductor
+      const unsubscribe = subscribeToTicketsByConductor(conductorId, (updatedTickets, error) => {
+        if (error) {
+          console.error(`Real-time tickets error for conductor ${conductorId}:`, error);
+          setTicketsLoading(false);
+          return;
+        }
+        
+        if (updatedTickets) {
+          setConductorTickets(updatedTickets);
+          console.log(`🎫 Real-time update: ${updatedTickets.length} tickets for conductor ${conductorId}`);
+        }
+        setTicketsLoading(false);
+      });
+      
+      setTicketUnsubscribe(() => unsubscribe);
+      
     } catch (error) {
-      console.error('Error fetching conductor tickets:', error);
-    } finally {
+      console.error('Error setting up conductor tickets:', error);
       setTicketsLoading(false);
     }
   };
@@ -146,14 +213,22 @@ const Ticketing = () => {
     );
   };
 
-  const getTicketTypeLabel = (ticketType) => {
-    if (ticketType === 'preBooking') {
+  const getTicketTypeLabel = (ticket) => {
+    // Check documentType first, then fallback to ticketType
+    const effectiveType = ticket.documentType || ticket.ticketType;
+    
+    if (effectiveType === 'preBooking') {
       return 'Pre-Booking';
-    } else if (ticketType === 'preTicket') {
+    } else if (effectiveType === 'preTicket') {
       return 'Pre-Ticketing';
     } else {
       return 'Conductor Ticket';
     }
+  };
+
+  // Helper function to get the effective ticket type for filtering/styling
+  const getEffectiveTicketType = (ticket) => {
+    return ticket.documentType || ticket.ticketType || 'conductor';
   };
 
   // Get unique filter options from current tickets
@@ -165,7 +240,7 @@ const Ticketing = () => {
   const getAvailableDates = () => getUniqueOptions(conductorTickets, 'date');
   
   const getTicketTypes = () => {
-    const types = [...new Set(conductorTickets.map(ticket => ticket.ticketType || 'conductor'))];
+    const types = [...new Set(conductorTickets.map(ticket => getEffectiveTicketType(ticket)))];
     return types.sort();
   };
   
@@ -364,19 +439,19 @@ const Ticketing = () => {
                       {getStatusBadge(ticket.status)}
                     </div>
                     <p className="ticketing-ticket-meta">
-                      <strong>Type:</strong> <span className={`ticketing-ticket-type ticketing-type-${ticket.ticketType || 'conductor'}`}>
-                        {getTicketTypeLabel(ticket.ticketType)}
+                      <strong>Type:</strong> <span className={`ticketing-ticket-type ticketing-type-${getEffectiveTicketType(ticket)}`}>
+                        {getTicketTypeLabel(ticket)}
                       </span>
                     </p>
                     <p className="ticketing-ticket-meta">Direction: {ticket.direction}</p>
                     <p className="ticketing-ticket-meta">Distance: {ticket.fromKm} km → {ticket.toKm} km</p>
                     <p className="ticketing-ticket-meta">
                       Date: {ticket.date} at {ticket.time}
-                      {(ticket.ticketType === 'preTicket' || ticket.ticketType === 'preBooking') && ticket.scannedAt && 
+                      {(getEffectiveTicketType(ticket) === 'preTicket' || getEffectiveTicketType(ticket) === 'preBooking') && ticket.scannedAt && 
                         ` • Scanned: ${formatDate(ticket.scannedAt)}`
                       }
                     </p>
-                    {(ticket.ticketType === 'preTicket' || ticket.ticketType === 'preBooking') && ticket.scannedBy && (
+                    {(getEffectiveTicketType(ticket) === 'preTicket' || getEffectiveTicketType(ticket) === 'preBooking') && ticket.scannedBy && (
                       <p className="ticketing-ticket-meta">Scanned by: {ticket.scannedBy}</p>
                     )}
                   </div>

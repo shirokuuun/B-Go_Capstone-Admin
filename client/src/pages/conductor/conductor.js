@@ -57,10 +57,32 @@ class ConductorService {
       const conductors = [];
       for (const doc of snapshot.docs) {
         const conductorData = doc.data();
+        
+        // SAFE OPTIMIZATION: Use cached totalTrips when available
+        let tripsCount;
+        
+        if (conductorData.totalTrips !== undefined && conductorData.totalTrips !== null) {
+          // Use cached count for fast performance
+          tripsCount = conductorData.totalTrips;
+          console.log(`📊 Using cached trips count for ${doc.id}: ${tripsCount}`);
+        } else {
+          // Only calculate real count if cache is missing (new conductors)
+          console.log(`🔄 Cache missing for ${doc.id}, calculating actual trips count...`);
+          tripsCount = await this.getConductorTripsCount(doc.id);
+          
+          // Update the cache for next time
+          try {
+            await this.updateConductorTripsCount(doc.id);
+            console.log(`✅ Updated trips count cache for ${doc.id}: ${tripsCount}`);
+          } catch (updateError) {
+            console.warn(`⚠️ Failed to update cache for ${doc.id}:`, updateError);
+          }
+        }
+        
         conductors.push({
           id: doc.id,
           ...conductorData,
-          tripsCount: await this.getConductorTripsCount(doc.id)
+          tripsCount: tripsCount
         });
       }
       
@@ -361,25 +383,38 @@ class ConductorService {
           try {
             const conductorData = doc.data();
             
-            // Get actual trip count by fetching trips collection
-            const actualTripsCount = await this.getConductorTripsCount(doc.id);
+            // SAFE OPTIMIZATION: Use cached totalTrips when available
+            let tripsCount;
             
-            // If cached count doesn't match actual count, update it
-            if (conductorData.totalTrips !== actualTripsCount) {
-              await this.updateConductorTripsCount(doc.id);
+            if (conductorData.totalTrips !== undefined && conductorData.totalTrips !== null) {
+              // Use cached count for fast performance
+              tripsCount = conductorData.totalTrips;
+              console.log(`📊 Using cached trips count for ${doc.id}: ${tripsCount}`);
+            } else {
+              // Only calculate real count if cache is missing (new conductors)
+              console.log(`🔄 Cache missing for ${doc.id}, calculating actual trips count...`);
+              tripsCount = await this.getConductorTripsCount(doc.id);
+              
+              // Update the cache for next time
+              try {
+                await this.updateConductorTripsCount(doc.id);
+                console.log(`✅ Updated trips count cache for ${doc.id}: ${tripsCount}`);
+              } catch (updateError) {
+                console.warn(`⚠️ Failed to update cache for ${doc.id}:`, updateError);
+              }
             }
             
             return {
               id: doc.id,
               ...conductorData,
-              tripsCount: actualTripsCount // Use actual trips count
+              tripsCount: tripsCount
             };
           } catch (error) {
             console.error(`Error processing conductor ${doc.id}:`, error);
             return {
               id: doc.id,
               ...doc.data(),
-              tripsCount: 0
+              tripsCount: doc.data().totalTrips || 0 // Use cache or fallback to 0
             };
           }
         });

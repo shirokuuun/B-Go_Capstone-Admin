@@ -1,5 +1,5 @@
 // Firebase imports
-import { getFirestore, collection, getDocs, doc, getDoc, query, orderBy, limit as limitQuery, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, doc, getDoc, query, orderBy, limit as limitQuery, updateDoc, deleteDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { auth } from '/src/firebase/firebase.js';
 import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 
@@ -128,15 +128,12 @@ export const getConductorsWithPreTickets = async () => {
               const ticketData = ticketDoc.data();
               allTicketCount++;
               
-              // Check both ticketType and documentType for consistency with DailyRevenue
-              const ticketTypeField = ticketData.ticketType || ticketData.documentType || '';
+              console.log(`🎫 Ticket ${ticketDoc.id}: type="${ticketData.ticketType}", documentType="${ticketData.documentType}", from="${ticketData.from}", to="${ticketData.to}"`);
               
-              console.log(`🎫 Ticket ${ticketDoc.id}: type="${ticketData.ticketType}", documentType="${ticketData.documentType}", effectiveType="${ticketTypeField}", from="${ticketData.from}", to="${ticketData.to}"`);
-              
-              // Count tickets by type (same logic as getPreTicketingStats)
-              if (ticketTypeField === 'preTicket') {
+              // Count tickets by type - prioritize documentType for pre-tickets and pre-bookings
+              if (ticketData.documentType === 'preTicket') {
                 preTicketCount++;
-              } else if (ticketTypeField === 'preBooking') {
+              } else if (ticketData.documentType === 'preBooking') {
                 preBookingCount++;
               } else {
                 // All other tickets (including undefined, null, '', or any other value) are conductor tickets
@@ -249,9 +246,6 @@ export const getPreTicketsByConductor = async (conductorId, limit = 50) => {
               const ticketData = ticketDoc.data();
               const ticketId = ticketDoc.id;
               
-              // Check both ticketType and documentType for consistency with DailyRevenue
-              const ticketTypeField = ticketData.ticketType || ticketData.documentType || '';
-              
               // Include ALL tickets (preTicket, preBooking, and conductor tickets)
               // This allows viewing all tickets when clicking on a conductor
               if (true) { // Show all tickets
@@ -345,15 +339,12 @@ export const getPreTicketingStats = async () => {
             ticketsSnapshot.forEach(ticketDoc => {
               const ticketData = ticketDoc.data();
               
-              // Check both ticketType and documentType for consistency with DailyRevenue
-              const ticketTypeField = ticketData.ticketType || ticketData.documentType || '';
-              
-              // Count tickets by type (using both fields)
-              if (ticketTypeField === 'preTicket') {
+              // Count tickets by type - prioritize documentType for pre-tickets and pre-bookings
+              if (ticketData.documentType === 'preTicket') {
                 preTickets++;
                 totalTickets++;
                 conductorHasTickets = true;
-              } else if (ticketTypeField === 'preBooking') {
+              } else if (ticketData.documentType === 'preBooking') {
                 preBookings++;
                 totalTickets++;
                 conductorHasTickets = true;
@@ -429,9 +420,6 @@ export const getAllRecentPreTickets = async (limitParam = 50) => {
               ticketsSnapshot.forEach(ticketDoc => {
                 const ticketData = ticketDoc.data();
                 const ticketId = ticketDoc.id;
-                
-                // Check both ticketType and documentType for consistency with DailyRevenue
-                const ticketTypeField = ticketData.ticketType || ticketData.documentType || '';
                 
                 // Include ALL tickets (preTicket, preBooking, and conductor tickets)
                 // This allows viewing all recent tickets across all conductors
@@ -701,5 +689,202 @@ export const deletePreTicket = async (conductorId, ticketId) => {
   } catch (error) {
     console.error('Error deleting ticket:', error);
     throw error;
+  }
+};
+
+// ==================== REAL-TIME FUNCTIONS ====================
+
+/**
+ * Subscribe to real-time conductor updates with tickets
+ * @param {Function} onUpdate - Callback function that receives updated conductors array
+ * @returns {Function} Unsubscribe function to stop listening
+ */
+export const subscribeToConductorsWithTickets = (onUpdate) => {
+  try {
+    const conductorsRef = collection(db, 'conductors');
+    
+    const unsubscribe = onSnapshot(conductorsRef, async (snapshot) => {
+      console.log('🔄 Real-time update: Conductors collection changed');
+      
+      try {
+        // Process the conductors data using existing logic
+        const conductorsWithTickets = [];
+        
+        for (const conductorDoc of snapshot.docs) {
+          const conductorData = conductorDoc.data();
+          const conductorId = conductorDoc.id;
+          
+          console.log(`🔍 Processing conductor: ${conductorId}`);
+          
+          // Get all daily trips for this conductor
+          const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
+          const dailyTripsSnapshot = await getDocs(dailyTripsRef);
+          
+          let preTicketCount = 0;
+          let preBookingCount = 0;
+          let conductorTicketCount = 0;
+          let allTicketCount = 0;
+          
+          // Count tickets across all dates and trips
+          for (const dateDoc of dailyTripsSnapshot.docs) {
+            const dateId = dateDoc.id;
+            
+            // Get all trip names for this date
+            const tripNames = await getAllTripNames(conductorId, dateId);
+            
+            for (const tripName of tripNames) {
+              try {
+                const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
+                const ticketsSnapshot = await getDocs(ticketsRef);
+                
+                ticketsSnapshot.forEach(ticketDoc => {
+                  const ticketData = ticketDoc.data();
+                  allTicketCount++;
+                  
+                  // Count tickets by type - prioritize documentType
+                  if (ticketData.documentType === 'preTicket') {
+                    preTicketCount++;
+                  } else if (ticketData.documentType === 'preBooking') {
+                    preBookingCount++;
+                  } else {
+                    conductorTicketCount++;
+                  }
+                });
+              } catch (error) {
+                continue;
+              }
+            }
+          }
+          
+          // Calculate total tickets
+          allTicketCount = preTicketCount + preBookingCount + conductorTicketCount;
+          
+          // Include conductor if they have any tickets
+          if (allTicketCount > 0) {
+            conductorsWithTickets.push({
+              id: conductorId,
+              ...conductorData,
+              preTicketsCount: allTicketCount,
+              totalTicketsCount: allTicketCount,
+              preTicketsOnly: preTicketCount,
+              stats: {
+                preTickets: preTicketCount,
+                preBookings: preBookingCount,
+                conductorTickets: conductorTicketCount,
+                totalTickets: allTicketCount
+              }
+            });
+          }
+        }
+        
+        console.log(`📊 Real-time update: ${conductorsWithTickets.length} conductors with tickets`);
+        onUpdate(conductorsWithTickets);
+        
+      } catch (error) {
+        console.error('Error processing real-time conductor updates:', error);
+        onUpdate(null, error);
+      }
+    }, (error) => {
+      console.error('Error in conductors real-time listener:', error);
+      onUpdate(null, error);
+    });
+
+    return unsubscribe;
+  } catch (error) {
+    console.error('Error setting up conductors real-time listener:', error);
+    throw new Error('Failed to set up real-time listener: ' + error.message);
+  }
+};
+
+/**
+ * Subscribe to real-time ticket updates for a specific conductor
+ * @param {string} conductorId - Conductor ID
+ * @param {Function} onUpdate - Callback function that receives updated tickets array
+ * @returns {Function} Unsubscribe function to stop listening
+ */
+export const subscribeToTicketsByConductor = (conductorId, onUpdate) => {
+  try {
+    const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
+    
+    const unsubscribe = onSnapshot(dailyTripsRef, async (snapshot) => {
+      console.log(`🔄 Real-time update: Tickets changed for conductor ${conductorId}`);
+      
+      try {
+        const allTickets = [];
+        
+        for (const dateDoc of snapshot.docs) {
+          const dateId = dateDoc.id;
+          
+          // Get all trip names for this date
+          const tripNames = await getAllTripNames(conductorId, dateId);
+          
+          for (const tripName of tripNames) {
+            try {
+              const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
+              const ticketsSnapshot = await getDocs(ticketsRef);
+              
+              if (ticketsSnapshot.docs.length > 0) {
+                // Get trip direction for this trip
+                const tripDirection = await getTripDirection(conductorId, dateId, tripName);
+                
+                ticketsSnapshot.forEach(ticketDoc => {
+                  const ticketData = ticketDoc.data();
+                  const ticketId = ticketDoc.id;
+                  
+                  allTickets.push({
+                    id: ticketId,
+                    conductorId: conductorId,
+                    tripId: tripName,
+                    date: dateId,
+                    amount: ticketData.totalFare || 0,
+                    quantity: ticketData.quantity || 0,
+                    from: ticketData.from || '',
+                    to: ticketData.to || '',
+                    fromKm: ticketData.startKm || 0,
+                    toKm: ticketData.endKm || 0,
+                    route: `${ticketData.from} → ${ticketData.to}`,
+                    direction: tripDirection || `${ticketData.from} → ${ticketData.to}`,
+                    timestamp: ticketData.timestamp,
+                    discountBreakdown: ticketData.discountBreakdown || [],
+                    status: ticketData.active ? 'active' : 'inactive',
+                    ticketType: ticketData.ticketType || ticketData.documentType,
+                    documentType: ticketData.documentType || ticketData.ticketType,
+                    scannedAt: ticketData.timestamp,
+                    time: ticketData.timestamp ? new Date(ticketData.timestamp.seconds * 1000).toLocaleTimeString() : '',
+                    dateFormatted: ticketData.timestamp ? new Date(ticketData.timestamp.seconds * 1000).toLocaleDateString() : dateId
+                  });
+                });
+              }
+            } catch (error) {
+              continue;
+            }
+          }
+        }
+        
+        // Sort by timestamp (most recent first)
+        const sortedTickets = allTickets
+          .sort((a, b) => {
+            const aTime = a.timestamp?.seconds || 0;
+            const bTime = b.timestamp?.seconds || 0;
+            return bTime - aTime;
+          })
+          .slice(0, 50); // Limit to 50 tickets
+        
+        console.log(`🎫 Real-time update: ${sortedTickets.length} tickets for conductor ${conductorId}`);
+        onUpdate(sortedTickets);
+        
+      } catch (error) {
+        console.error(`Error processing real-time ticket updates for conductor ${conductorId}:`, error);
+        onUpdate(null, error);
+      }
+    }, (error) => {
+      console.error(`Error in tickets real-time listener for conductor ${conductorId}:`, error);
+      onUpdate(null, error);
+    });
+
+    return unsubscribe;
+  } catch (error) {
+    console.error(`Error setting up tickets real-time listener for conductor ${conductorId}:`, error);
+    throw new Error('Failed to set up real-time listener: ' + error.message);
   }
 };

@@ -180,6 +180,74 @@ app.post('/api/conductors/create', async (req, res) => {
   }
 });
 
+// DELETE USER ENDPOINT (using Firebase Admin SDK)
+app.delete('/api/users/delete/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { adminInfo } = req.body;
+
+    // Validate required fields
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID is required'
+      });
+    }
+
+    // Check if admin has superadmin role
+    if (!adminInfo || adminInfo.role !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Only super administrators can delete users.'
+      });
+    }
+
+    console.log(`🗑️ Deleting user: ${userId}`);
+
+    const db = admin.firestore();
+
+    // Get user data before deletion
+    const userDocRef = db.collection('users').doc(userId);
+    const userDocSnap = await userDocRef.get();
+    
+    if (!userDocSnap.exists) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const userData = userDocSnap.data();
+    const userName = userData.firstName && userData.lastName 
+      ? `${userData.firstName} ${userData.lastName}`
+      : userData.name || userData.displayName || 'Unknown User';
+
+    // Delete user document from Firestore
+    await userDocRef.delete();
+    console.log(`✅ User document ${userId} deleted from Firestore`);
+
+    // Note: Firebase Auth account remains due to insufficient permissions
+
+    res.json({
+      success: true,
+      message: 'User profile deleted successfully',
+      authDeleted: false,
+      deletedUser: {
+        id: userId,
+        name: userName,
+        email: userData.email
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error deleting user:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete user: ' + error.message
+    });
+  }
+});
+
 
 // ==================== PAYMONGO API ROUTES ====================
 

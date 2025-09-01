@@ -47,6 +47,28 @@ export const ACTIVITY_TYPES = {
  * @param {string} severity - Severity level: 'info', 'warning', 'error'
  * @returns {Promise<string>} Document ID of the created audit log
  */
+/**
+ * Recursively removes undefined values from an object
+ * @param {Object} obj - The object to clean
+ * @returns {Object} Clean object without undefined values
+ */
+const removeUndefinedValues = (obj) => {
+  if (obj === null || obj === undefined) return null;
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(removeUndefinedValues);
+  
+  const cleaned = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      const cleanedValue = removeUndefinedValues(value);
+      if (cleanedValue !== null || (typeof cleanedValue === 'object' && Object.keys(cleanedValue).length > 0)) {
+        cleaned[key] = cleanedValue;
+      }
+    }
+  }
+  return cleaned;
+};
+
 export const logActivity = async (activityType, description, metadata = {}, severity = 'info') => {
   try {
     if (!auth.currentUser) {
@@ -62,6 +84,9 @@ export const logActivity = async (activityType, description, metadata = {}, seve
       console.warn('Could not fetch admin data for audit log:', error);
     }
 
+    // Clean metadata to remove undefined values
+    const cleanMetadata = removeUndefinedValues(metadata);
+
     const auditLogData = {
       userId: auth.currentUser.uid,
       userEmail: auth.currentUser.email,
@@ -69,7 +94,7 @@ export const logActivity = async (activityType, description, metadata = {}, seve
       userRole: adminData?.role || 'unknown',
       activityType,
       description,
-      metadata,
+      metadata: cleanMetadata,
       severity,
       timestamp: serverTimestamp(),
       userAgent: navigator.userAgent,

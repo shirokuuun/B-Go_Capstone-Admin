@@ -368,20 +368,17 @@ const processTripsForDate = async (conductorId, dateId, conductorTrips, preBooki
                 ...ticketData
               };
 
-              // Categorize based on ticketType or documentType (fallback for consistency between DailyRevenue and Remittance)
-              // Some tickets may use 'ticketType' while others use 'documentType'
-              const ticketTypeField = ticketData.ticketType || ticketData.documentType || '';
-              
-              if (ticketTypeField === 'preBooking') {
+              // Categorize based on documentType (primary) then ticketType (fallback)
+              if (ticketData.documentType === 'preBooking') {
                 preBookingTrips.push({
                   ...processedTicket,
                   source: 'Pre-booking'
                 });
-              } else if (ticketTypeField === 'preTicket') {
+              } else if (ticketData.documentType === 'preTicket') {
                 // Note: Pre-ticketing will be handled separately in fetchPreTicketing function
                 // This is here for completeness but won't be used in the current flow
               } else {
-                // conductorTicket or no ticketType/documentType = Conductor trips
+                // conductorTicket or no documentType = Conductor trips
                 conductorTrips.push({
                   ...processedTicket,
                   source: 'Conductor Trips'
@@ -481,9 +478,8 @@ const processPreTicketsForDate = async (conductorId, dateId, allPreTickets, filt
             const ticketData = ticketDoc.data();
             const ticketId = ticketDoc.id;
             
-            // Process tickets with ticketType or documentType === 'preTicket' (for consistency)
-            const ticketTypeField = ticketData.ticketType || ticketData.documentType || '';
-            if (ticketTypeField === 'preTicket') {
+            // Process tickets with documentType === 'preTicket' (prioritize documentType for pre-tickets)
+            if (ticketData.documentType === 'preTicket') {
               
               // Check if we should include this ticket based on date filter
               if (filterDate) {

@@ -1,4 +1,4 @@
-import { collection, getDocs, doc, deleteDoc, getDoc, setDoc } from "firebase/firestore";
+import { collection, getDocs, doc, deleteDoc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, deleteUser as deleteAuthUser } from 'firebase/auth';
 import { db } from "/src/firebase/firebase.js";
@@ -60,6 +60,42 @@ export const fetchAllUsers = async () => {
 };
 
 /**
+ * Sets up a real-time listener for users collection updates.
+ * @param {Function} onUsersUpdate - Callback function that receives updated users array
+ * @returns {Function} Unsubscribe function to stop listening
+ */
+export const subscribeToUsers = (onUsersUpdate) => {
+  try {
+    const usersCollection = collection(db, "users");
+    
+    const unsubscribe = onSnapshot(usersCollection, (snapshot) => {
+      const users = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Sort users by creation date or last login (most recent first)
+      users.sort((a, b) => {
+        const dateA = a.lastLoginAt || a.createdAt || new Date(0);
+        const dateB = b.lastLoginAt || b.createdAt || new Date(0);
+        return new Date(dateB) - new Date(dateA);
+      });
+      
+      onUsersUpdate(users);
+    }, (error) => {
+      console.error("Error in users real-time listener:", error);
+      // Optionally call error handler
+      onUsersUpdate(null, error);
+    });
+
+    return unsubscribe;
+  } catch (error) {
+    console.error("Error setting up users listener:", error);
+    throw new Error("Failed to set up real-time listener: " + error.message);
+  }
+};
+
+/**
  * Fetches a specific user by ID from Firestore.
  * @param {string} userId - The user ID to fetch.
  * @returns {Promise<Object>} User object with ID.
@@ -84,7 +120,7 @@ export const fetchUserById = async (userId) => {
 };
 
 /**
- * Deletes a user from Firestore by ID (superadmin only).
+ * Deletes a user using Firebase Admin SDK via API endpoint (superadmin only).
  * @param {string} userId - The user ID to delete.
  * @param {Object} adminInfo - Current admin information for role checking and logging.
  * @returns {Promise<void>}
@@ -110,93 +146,24 @@ export const deleteUser = async (userId, adminInfo = null) => {
       : userData.name || userData.displayName || 'Unknown User';
     const userEmail = userData.email || 'No email';
 
-    // FORCE COMPLETE DELETION - Remove from Firebase Auth using admin method
-    let authDeletionSuccess = false;
-    let authDeletionError = null;
-    
-    if (userData.email) {
-      try {
-        // Try to delete from Firebase Auth using common password attempts
-        try {
-          const firebaseConfig = {
-            apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDjqLNklma1gr3IOwPxiMO5S38hu8UQ2Fc",
-            authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "it-capstone-6fe19.firebaseapp.com",
-            projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "it-capstone-6fe19",
-            storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "it-capstone-6fe19.firebasestorage.app",
-            messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "183068104612",
-            appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:183068104612:web:26109c8ebb28585e265331",
-            measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-0MW2KZMGR2"
-          };
+    // Call the server API endpoint to delete user using Firebase Admin SDK
+    const response = await fetch(`http://localhost:3000/api/users/delete/${userId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        adminInfo: adminInfo
+      })
+    });
 
-          const tempApp = initializeApp(firebaseConfig, 'admin-deletion-' + Date.now());
-          const tempAuth = getAuth(tempApp);
+    const result = await response.json();
 
-          // Try common passwords to delete auth account
-          const commonPasswords = ['123456', 'password', 'Password123', '12345678'];
-          let signedInSuccessfully = false;
-          
-          for (const testPassword of commonPasswords) {
-            try {
-              const userCredential = await signInWithEmailAndPassword(tempAuth, userData.email, testPassword);
-              await deleteAuthUser(userCredential.user);
-              signedInSuccessfully = true;
-              authDeletionSuccess = true;
-              break;
-            } catch (pwError) {
-              continue;
-            }
-          }
-          
-          if (!signedInSuccessfully) {
-            throw new Error('Requires Firebase Admin SDK for complete deletion');
-          }
-
-          // Clean up temporary app
-          try {
-            await tempApp.delete();
-          } catch (cleanupError) {
-            // Silent cleanup
-          }
-          
-        } catch (directDeleteError) {
-          // FALLBACK: Create disabled user marker for login prevention
-          const disabledUserRef = doc(db, "disabled_users", userId);
-          await setDoc(disabledUserRef, {
-            originalEmail: userData.email,
-            originalData: userData,
-            disabledAt: new Date(),
-            disabledBy: adminInfo?.name || 'Admin',
-            reason: 'User force deleted by admin - Auth account may still exist',
-            authDeletionAttempted: true,
-            authDeletionError: directDeleteError.message
-          });
-          
-          authDeletionError = directDeleteError;
-        }
-        
-      } catch (authError) {
-        authDeletionError = authError;
-        
-        // Create disabled user marker even on failure
-        try {
-          const disabledUserRef = doc(db, "disabled_users", userId);
-          await setDoc(disabledUserRef, {
-            originalEmail: userData.email,
-            originalData: userData,
-            disabledAt: new Date(),
-            disabledBy: adminInfo?.name || 'Admin',
-            reason: 'User deleted by admin - Auth deletion failed',
-            authDeletionError: authError.message
-          });
-        } catch (fallbackError) {
-          console.error('Failed to create disabled user marker:', fallbackError);
-        }
-      }
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Failed to delete user via API');
     }
 
     // Log the deletion activity
-    
-    // Prepare clean user data object (filter out undefined values)
     const cleanUserData = {};
     if (userData.firstName !== undefined) cleanUserData.firstName = userData.firstName;
     if (userData.lastName !== undefined) cleanUserData.lastName = userData.lastName;
@@ -208,8 +175,9 @@ export const deleteUser = async (userId, adminInfo = null) => {
     if (userData.emailVerified !== undefined) cleanUserData.emailVerified = userData.emailVerified;
     if (userData.idVerificationStatus !== undefined) cleanUserData.idVerificationStatus = userData.idVerificationStatus;
 
-    // Determine the appropriate log message based on deletion results
-    const logMessage = `Force deleted user: ${userName} (${userEmail}) - Complete deletion (profile deleted + login disabled)`;
+    const logMessage = result.authDeleted 
+      ? `Deleted user completely: ${userName} (${userEmail}) - Auth and Firestore deleted`
+      : `Deleted user profile: ${userName} (${userEmail}) - Profile deleted, Auth deletion failed`;
 
     await logActivity(
       ACTIVITY_TYPES.USER_DELETE,
@@ -221,23 +189,21 @@ export const deleteUser = async (userId, adminInfo = null) => {
         deletedUserData: cleanUserData,
         adminName: adminInfo?.name || 'Unknown Admin',
         adminEmail: adminInfo?.email || 'Unknown Email',
-        authDeleted: authDeletionSuccess,
-        authError: authDeletionError?.code || null,
-        deletionType: authDeletionSuccess ? 'complete' : 'profile-only',
+        authDeleted: result.authDeleted,
+        authError: result.authError || null,
+        deletionType: result.authDeleted ? 'complete' : 'profile-only',
         deletedAt: new Date().toISOString()
       }
     );
-    
-    // Now delete the user document
-    await deleteDoc(userDocRef);
 
-    // Return success with forced deletion status
     return {
       success: true,
-      authDeleted: true, // Always true now with forced deletion
-      authError: authDeletionError,
-      message: 'User force deleted completely - cannot login again',
-      details: 'User profile deleted and login access disabled. User cannot login with this account anymore.'
+      authDeleted: result.authDeleted,
+      authError: result.authError,
+      message: result.authDeleted 
+        ? 'User deleted completely from both Auth and Firestore'
+        : 'User profile deleted, Auth deletion failed but account disabled',
+      details: result.message
     };
 
   } catch (error) {

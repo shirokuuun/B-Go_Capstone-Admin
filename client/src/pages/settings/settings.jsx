@@ -12,7 +12,9 @@ import {
   isValidImageFile,
   getRoleDisplayName,
   updateUsername,
-  deleteCurrentAccount
+  deleteCurrentAccount,
+  subscribeToAdminUsers,
+  deleteAdminUser
 } from './settings.js';
 import {
   getActivityLogs,
@@ -52,6 +54,13 @@ function Settings() {
   
   // Store unsubscribe function for cleanup
   const [activityLogsUnsubscribe, setActivityLogsUnsubscribe] = useState(null);
+  
+  // Admin users management state (superadmin only)
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [adminUsersUnsubscribe, setAdminUsersUnsubscribe] = useState(null);
+  const [showDeleteUserModal, setShowDeleteUserModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -312,6 +321,50 @@ function Settings() {
     setupActivityLogsListener();
   };
 
+  // Setup admin users subscription (superadmin only)
+  const setupAdminUsersListener = () => {
+    if (adminUsersUnsubscribe) {
+      adminUsersUnsubscribe();
+    }
+
+    setAdminUsersLoading(true);
+    
+    const unsubscribe = subscribeToAdminUsers(
+      (users) => {
+        setAdminUsers(users);
+        setAdminUsersLoading(false);
+      },
+      (errorMsg) => {
+        setError('Failed to load admin users: ' + errorMsg);
+        setAdminUsersLoading(false);
+      }
+    );
+
+    setAdminUsersUnsubscribe(() => unsubscribe);
+  };
+
+  // Handle admin user deletion
+  const handleDeleteUser = (user) => {
+    setUserToDelete(user);
+    setShowDeleteUserModal(true);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    try {
+      setLoading(true);
+      await deleteAdminUser(userToDelete.id, userToDelete.email, userToDelete.name);
+      setMessage(`Admin user ${userToDelete.name} deleted successfully`);
+      setShowDeleteUserModal(false);
+      setUserToDelete(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Load logs when component mounts - for all admins
   useEffect(() => {
     if (userData && (userData.role === 'admin' || userData.role === 'superadmin')) {
@@ -326,11 +379,21 @@ function Settings() {
     }
   }, [logFilters]);
 
+  // Load admin users when component mounts - for superadmin only
+  useEffect(() => {
+    if (userData && userData.role === 'superadmin') {
+      setupAdminUsersListener();
+    }
+  }, [userData]);
+
   // Cleanup listeners on unmount
   useEffect(() => {
     return () => {
       if (activityLogsUnsubscribe) {
         activityLogsUnsubscribe();
+      }
+      if (adminUsersUnsubscribe) {
+        adminUsersUnsubscribe();
       }
     };
   }, []);
@@ -506,6 +569,89 @@ function Settings() {
             </form>
           </div>
         </div>
+
+        {/* Admin Users Management Section - Only for SuperAdmin */}
+        {userData.role === 'superadmin' && (
+        <div className="settings-card settings-full-width">
+          <div className="settings-card-header">
+            <h2 className="settings-card-title">Admin Users Management</h2>
+          </div>
+          <div className="settings-card-content">
+            <div className="settings-admin-users-stats">
+              <div className="settings-admin-users-pattern"></div>
+              <div className="settings-stat-item">
+                <span className="settings-stat-number">{adminUsers.length}</span>
+                <span className="settings-stat-label">Total Admin Users</span>
+              </div>
+              <div className="settings-stat-item">
+                <span className="settings-stat-number">
+                  {adminUsers.filter(user => user.role === 'superadmin').length}
+                </span>
+                <span className="settings-stat-label">Superadmins</span>
+              </div>
+              <div className="settings-stat-item">
+                <span className="settings-stat-number">
+                  {adminUsers.filter(user => user.role === 'admin').length}
+                </span>
+                <span className="settings-stat-label">Admins</span>
+              </div>
+            </div>
+
+            {adminUsersLoading ? (
+              <div className="settings-log-loading">Loading admin users...</div>
+            ) : adminUsers.length === 0 ? (
+              <div className="settings-no-logs">No admin users found</div>
+            ) : (
+              <div className="settings-admin-users-table">
+                <div className="settings-admin-users-header">
+                  <span>Profile</span>
+                  <span>Name</span>
+                  <span>Email</span>
+                  <span>Role</span>
+                  <span>Created</span>
+                  <span>Actions</span>
+                </div>
+                {adminUsers.map(user => (
+                  <div key={user.id} className={`settings-admin-user-row ${user.id === userData.id ? 'current-user' : ''}`}>
+                    <span className="settings-admin-user-profile">
+                      {user.profileImageUrl ? (
+                        <img src={user.profileImageUrl} alt="Profile" className="settings-admin-user-avatar" />
+                      ) : (
+                        <div className="settings-admin-user-avatar-placeholder">
+                          {(user.name || user.email || '?').charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </span>
+                    <span className="settings-admin-user-name">
+                      {user.name || 'N/A'}
+                      {user.id === userData.id && <span className="settings-current-badge"> (You)</span>}
+                    </span>
+                    <span className="settings-admin-user-email">{user.email}</span>
+                    <span className={`settings-admin-user-role role-${user.role}`}>
+                      {user.role === 'superadmin' ? ' SuperAdmin' : ' Admin'}
+                    </span>
+                    <span className="settings-admin-user-created">
+                      {user.createdAt ? new Date(user.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}
+                    </span>
+                    <span className="settings-admin-user-actions">
+                      {user.id !== userData.id && (
+                        <button
+                          onClick={() => handleDeleteUser(user)}
+                          className="settings-admin-delete-btn"
+                          disabled={loading}
+                          title={`Delete ${user.name || user.email}`}
+                        >
+                          <MdDeleteForever />
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        )}
 
         {/* System Logs & Audit Section - Visible to all admins */}
         {(userData.role === 'admin' || userData.role === 'superadmin') && (

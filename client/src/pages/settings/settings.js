@@ -1,5 +1,5 @@
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential, deleteUser } from 'firebase/auth';
-import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, collection, getDocs, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { auth, db } from '/src/firebase/firebase.js';
 import { getCurrentAdminData, isSuperAdmin } from '/src/pages/auth/authService.js';
@@ -194,6 +194,155 @@ export const isValidImageFile = (file) => {
   
   const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
   return validTypes.includes(file.type) && file.size <= 5 * 1024 * 1024; // 5MB limit
+};
+
+/**
+ * Fetches all admin users (admin and superadmin roles only)
+ * @returns {Promise<Array>} Array of admin user objects
+ */
+export const fetchAllAdminUsers = async () => {
+  try {
+    const adminCollection = collection(db, 'Admin');
+    const adminSnapshot = await getDocs(adminCollection);
+    
+    const adminUsers = [];
+    adminSnapshot.forEach((doc) => {
+      const data = doc.data();
+      // Only include admin and superadmin users
+      if (data.role === 'admin' || data.role === 'superadmin') {
+        adminUsers.push({
+          id: doc.id,
+          ...data
+        });
+      }
+    });
+    
+    return adminUsers;
+  } catch (error) {
+    console.error('Error fetching admin users:', error);
+    throw error;
+  }
+};
+
+/**
+ * Subscribes to real-time admin users updates
+ * @param {Function} callback - Function to handle admin users data
+ * @param {Function} errorCallback - Function to handle errors
+ * @returns {Function} Unsubscribe function
+ */
+export const subscribeToAdminUsers = (callback, errorCallback) => {
+  try {
+    const adminCollection = collection(db, 'Admin');
+    const q = query(adminCollection, orderBy('createdAt', 'desc'));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const adminUsers = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        // Only include admin and superadmin users
+        if (data.role === 'admin' || data.role === 'superadmin') {
+          adminUsers.push({
+            id: doc.id,
+            ...data
+          });
+        }
+      });
+      callback(adminUsers);
+    }, (error) => {
+      console.error('Error in admin users subscription:', error);
+      errorCallback(error.message);
+    });
+
+    return unsubscribe;
+  } catch (error) {
+    console.error('Error setting up admin users subscription:', error);
+    errorCallback(error.message);
+  }
+};
+
+/**
+ * Deletes an admin user account (superadmin only)
+ * @param {string} userId - The user ID to delete
+ * @param {string} userEmail - The user email (for logging)
+ * @param {string} userName - The user name (for logging)
+ * @returns {Promise<string>} Success message
+ * @throws {Error} If deletion fails or user is not superadmin
+ */
+export const deleteAdminUser = async (userId, userEmail, userName) => {
+  try {
+    if (!auth.currentUser) {
+      throw new Error('No authenticated user found');
+    }
+
+    // Verify current user is superadmin
+    const currentUserData = await getCurrentAdminData(auth.currentUser.uid);
+    if (currentUserData?.role !== 'superadmin') {
+      throw new Error('Only superadmin users can delete admin accounts');
+    }
+
+    // Prevent self-deletion
+    if (userId === auth.currentUser.uid) {
+      throw new Error('You cannot delete your own account');
+    }
+
+    // Get the user data before deletion for logging
+    const userToDelete = await getCurrentAdminData(userId);
+    if (!userToDelete) {
+      throw new Error('Admin user not found');
+    }
+
+    // Delete from Firestore first
+    const userDocRef = doc(db, 'Admin', userId);
+    await deleteDoc(userDocRef);
+
+    // Try to delete from Authentication (this might fail due to permissions)
+    try {
+      // This would require Firebase Admin SDK on the backend
+      // For now, we'll use the API endpoint if available
+      const response = await fetch(`/api/users/delete/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await auth.currentUser.getIdToken()}`
+        }
+      });
+
+      if (!response.ok) {
+        console.warn('Failed to delete from Authentication, but Firestore deletion succeeded');
+      }
+    } catch (authError) {
+      console.warn('Authentication deletion failed:', authError);
+      // Continue - Firestore deletion was successful
+    }
+
+    // Log the deletion activity
+    await logActivity(
+      ACTIVITY_TYPES.USER_DELETE,
+      `Superadmin deleted admin user: ${userName} (${userEmail})`,
+      { 
+        deletedUserId: userId,
+        deletedUserEmail: userEmail,
+        deletedUserName: userName,
+        deletedUserRole: userToDelete.role
+      },
+      'warning'
+    );
+
+    return 'Admin user deleted successfully';
+  } catch (error) {
+    console.error('Error deleting admin user:', error);
+    
+    // Log the error
+    await logSystemError(error, 'Admin User Deletion', { 
+      userId,
+      userEmail,
+      userName,
+      currentUserId: auth.currentUser?.uid,
+      attemptedAction: 'deleteAdminUser' 
+    });
+    
+    throw error;
+  }
 };
 
 /**

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '/src/firebase/firebase.js';
 import { fetchCurrentUserData } from '/src/pages/settings/settings.js';
-import { fetchAllUsers, deleteUser, fetchUserById } from './UserManagement.js';
+import { fetchAllUsers, deleteUser, fetchUserById, subscribeToUsers } from './UserManagement.js';
 import './UserManagement.css';
 
 const UserManagement = () => {
@@ -44,7 +44,38 @@ const UserManagement = () => {
 
   useEffect(() => {
     if (!authLoading) {
-      loadUsers();
+      let unsubscribe = null;
+      
+      try {
+        setLoading(true);
+        setError('');
+        
+        unsubscribe = subscribeToUsers((updatedUsers, error) => {
+          if (error) {
+            console.error('Real-time listener error:', error);
+            setError(error.message);
+            setLoading(false);
+            return;
+          }
+          
+          if (updatedUsers) {
+            setUsers(updatedUsers);
+            console.log(`📊 Real-time update: ${updatedUsers.length} users loaded`);
+          }
+          setLoading(false);
+        });
+      } catch (err) {
+        setError(err.message);
+        setLoading(false);
+      }
+
+      // Cleanup function to unsubscribe when component unmounts or dependencies change
+      return () => {
+        if (unsubscribe) {
+          console.log('🔇 Unsubscribing from users real-time listener');
+          unsubscribe();
+        }
+      };
     }
   }, [authLoading]);
 
