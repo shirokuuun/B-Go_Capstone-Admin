@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '/src/firebase/firebase.js';
+import { fetchCurrentUserData } from '/src/pages/settings/settings.js';
 import DashboardService from './dashboard.js';
 import AdminTest from '/src/pages/dashboard/AdminTest.jsx';
 import './dashboard.css';
@@ -7,6 +10,23 @@ function Dashboard() {
   const [dashboardData, setDashboardData] = useState(null);
   const [filter, setFilter] = useState('today');
   const [customDate, setCustomDate] = useState('');
+  const [userData, setUserData] = useState(null);
+
+  // Authentication useEffect
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const adminData = await fetchCurrentUserData();
+          setUserData(adminData);
+        } catch (err) {
+          console.error('Error fetching user data:', err);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -50,8 +70,25 @@ function Dashboard() {
 
   return (
     <div className="dashboard-container">
+      {/* Stylish Admin Greeting */}
+      {userData && (
+        <div className="dashboard-greeting">
+          <div className="greeting-content">
+            <div className="greeting-text">
+              <h1 className="greeting-title">
+                Hello, <span className="admin-name">{userData.name}</span>
+              </h1>
+              <p className="greeting-subtitle">Welcome back to your dashboard</p>
+            </div>
+            <div className="greeting-decoration">
+              <div className="greeting-pattern"></div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Admin Test Component - Add this temporarily for testing */}
-      <AdminTest />
+     {/* <AdminTest /> */}
       
       {/* Filter Section */}
       <div className="filter-section">

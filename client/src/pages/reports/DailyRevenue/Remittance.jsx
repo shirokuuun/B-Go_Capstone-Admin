@@ -12,6 +12,7 @@ import {
   getAllConductorDetails,
   formatTicketType
 } from './Remittance.js';
+import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
 import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 import './DailyRevenue.css';
 
@@ -858,7 +859,7 @@ const RemittanceReport = () => {
               className="revenue-export-btn"
               disabled={loading || filteredRemittanceData.length === 0}
             >
-              📊 Export to Excel
+              <PiMicrosoftExcelLogoFill size={20} /> Export to Excel
             </button>
           </div>
 

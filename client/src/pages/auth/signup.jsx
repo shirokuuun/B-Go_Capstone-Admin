@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { signupAdmin } from "/src/pages/auth/authService.js";
+import Silk from "/src/components/Silk/Silk.jsx";
 import "./signup.css";
 import signupVisual from "/src/assets/signup-visual.jpg";
 
@@ -30,6 +31,14 @@ function Signup() {
 
   return (
     <div className="signup-page">
+      {/* Silk Shader Background */}
+      <Silk
+        speed={5}
+        scale={1}
+        color="#007c91"
+        noiseIntensity={1.5}
+        rotation={0}
+      />
       <div className="signup-wrapper">
         {/* Left side - image */}
         <div className="signup-box left">

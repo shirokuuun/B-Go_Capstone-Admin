@@ -84,6 +84,17 @@
   /* Remove default positioning - will be set by JS */
 }
 
+/* Create a hover bridge to prevent tooltip from disappearing */
+.dni-tooltip::after {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: transparent;
+}
+
 /* Position tooltip based on viewport */
 .dni-tooltip.tooltip-top {
   top: 20px;

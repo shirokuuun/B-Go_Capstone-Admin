@@ -2,6 +2,7 @@ import React from 'react';
 import * as XLSX from 'xlsx';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, BarChart, Bar, ResponsiveContainer } from 'recharts';
 import { preparePieChartData } from './DailyRevenue.js';
+import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
 import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js'; 
 import {
   formatMonthForDisplay,
@@ -342,7 +343,7 @@ const MonthlyRevenue = ({
           className="revenue-export-btn"
           disabled={monthlyLoading || !hasData}
         >
-          📊 Export to Excel
+          <PiMicrosoftExcelLogoFill size={20} /> Export to Excel
         </button>
       </div>
 

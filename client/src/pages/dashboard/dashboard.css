@@ -16,6 +16,126 @@
   margin: 0 auto;
 }
 
+/* Stylish Admin Greeting */
+.dashboard-greeting {
+  background: linear-gradient(135deg, #007c91 0%, #005c6b 100%);
+  border-radius: 20px;
+  margin-bottom: 2rem;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 8px 25px rgba(0, 124, 145, 0.2);
+}
+
+.greeting-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2.5rem 3rem;
+  position: relative;
+  z-index: 2;
+}
+
+.greeting-text {
+  flex: 1;
+}
+
+.greeting-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 0.5rem 0;
+  line-height: 1.2;
+}
+
+.admin-name {
+  color: #4fd1c7;
+  background: linear-gradient(45deg, #4fd1c7, #81e6f3);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+  text-shadow: 0 0 30px rgba(79, 209, 199, 0.3);
+}
+
+.greeting-subtitle {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 400;
+  margin: 0;
+}
+
+.greeting-decoration {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.greeting-pattern {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  background: linear-gradient(45deg, rgba(255, 255, 255, 0.1), rgba(79, 209, 199, 0.2));
+  border-radius: 50%;
+  animation: float 3s ease-in-out infinite;
+}
+
+.greeting-pattern::before {
+  content: '';
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(45deg, rgba(79, 209, 199, 0.3), rgba(255, 255, 255, 0.1));
+  border-radius: 50%;
+  top: 20px;
+  left: 20px;
+  animation: float 3s ease-in-out infinite reverse;
+}
+
+.greeting-pattern::after {
+  content: '';
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  top: 35px;
+  right: 15px;
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(180deg); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .greeting-content {
+    flex-direction: column;
+    text-align: center;
+    padding: 2rem;
+  }
+
+  .greeting-title {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  .greeting-decoration {
+    margin-top: 1.5rem;
+    width: 80px;
+    height: 80px;
+  }
+
+  .greeting-pattern {
+    width: 70px;
+    height: 70px;
+  }
+}
+
 /* Filter Section */
 .filter-section {
   background: #ffffff;

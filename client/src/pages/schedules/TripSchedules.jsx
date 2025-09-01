@@ -5,6 +5,7 @@ import { FaBus, FaClock, FaEdit, FaTrash, FaRoute } from 'react-icons/fa';
 import { MdSchedule } from 'react-icons/md';
 import { auth } from '/src/firebase/firebase.js';
 import { useAuthState } from 'react-firebase-hooks/auth';
+import { RiEdit2Fill } from "react-icons/ri";
 import { 
   subscribeToTripSchedules, 
   deleteTripSchedule, 
@@ -197,7 +198,7 @@ function TripSchedules() {
                           disabled={actionLoading}
                           title="Edit schedule"
                         >
-                          <FaEdit />
+                          <RiEdit2Fill />
                         </button>
                       )}
                       {permissions.canDelete && (

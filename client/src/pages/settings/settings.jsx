@@ -1,6 +1,9 @@
 import '/src/pages/settings/settings.css';
 import Header from '/src/components/HeaderTemplate/header.jsx';
 import { MdDeleteForever } from "react-icons/md";
+import { IoMdArrowDropdownCircle } from "react-icons/io";
+import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
+import { RiEdit2Fill } from "react-icons/ri";
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '/src/firebase/firebase.js';
@@ -61,6 +64,7 @@ function Settings() {
   const [adminUsersUnsubscribe, setAdminUsersUnsubscribe] = useState(null);
   const [showDeleteUserModal, setShowDeleteUserModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [isAdminUsersExpanded, setIsAdminUsersExpanded] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -379,9 +383,9 @@ function Settings() {
     }
   }, [logFilters]);
 
-  // Load admin users when component mounts - for superadmin only
+  // Load admin users when component mounts - for all admin roles
   useEffect(() => {
-    if (userData && userData.role === 'superadmin') {
+    if (userData && (userData.role === 'admin' || userData.role === 'superadmin')) {
       setupAdminUsersListener();
     }
   }, [userData]);
@@ -453,7 +457,7 @@ function Settings() {
                       onClick={handleUsernameEdit}
                       className="settings-username-edit-btn"
                     >
-                      ✏️ Edit
+                      <RiEdit2Fill size={16} /> Edit
                     </button>
                   </div>
                 )}
@@ -570,13 +574,19 @@ function Settings() {
           </div>
         </div>
 
-        {/* Admin Users Management Section - Only for SuperAdmin */}
-        {userData.role === 'superadmin' && (
+        {/* Admin Users Management Section - Available to all admins */}
+        {(userData.role === 'admin' || userData.role === 'superadmin') && (
         <div className="settings-card settings-full-width">
           <div className="settings-card-header">
-            <h2 className="settings-card-title">Admin Users Management</h2>
+            <div className="settings-dropdown-header" onClick={() => setIsAdminUsersExpanded(!isAdminUsersExpanded)}>
+              <h2 className="settings-card-title">Admin Users Management</h2>
+              <span className={`settings-dropdown-arrow ${isAdminUsersExpanded ? 'expanded' : ''}`}>
+                <IoMdArrowDropdownCircle size={24} />
+              </span>
+            </div>
           </div>
-          <div className="settings-card-content">
+          {isAdminUsersExpanded && (
+          <>
             <div className="settings-admin-users-stats">
               <div className="settings-admin-users-pattern"></div>
               <div className="settings-stat-item">
@@ -596,7 +606,7 @@ function Settings() {
                 <span className="settings-stat-label">Admins</span>
               </div>
             </div>
-
+            <div className="settings-card-content">
             {adminUsersLoading ? (
               <div className="settings-log-loading">Loading admin users...</div>
             ) : adminUsers.length === 0 ? (
@@ -634,7 +644,7 @@ function Settings() {
                       {user.createdAt ? new Date(user.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}
                     </span>
                     <span className="settings-admin-user-actions">
-                      {user.id !== userData.id && (
+                      {user.id !== userData.id && userData.role === 'superadmin' && (
                         <button
                           onClick={() => handleDeleteUser(user)}
                           className="settings-admin-delete-btn"
@@ -649,7 +659,9 @@ function Settings() {
                 ))}
               </div>
             )}
-          </div>
+            </div>
+          </>
+          )}
         </div>
         )}
 
@@ -664,7 +676,7 @@ function Settings() {
                 className="audit-export-btn"
                 disabled={logsLoading || activityLogs.length === 0}
               >
-                📊 Export to Excel
+                <PiMicrosoftExcelLogoFill size={24} /> Export to Excel
               </button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { loginAdmin } from "/src/pages/auth/authService.js";
+import Silk from "/src/components/Silk/Silk.jsx";
 import "./login.css";
 import loginVisual from "/src/assets/login-visual.jpg";
 
@@ -24,6 +25,14 @@ function Login() {
 
   return (
     <div className="login-page">
+      {/* Silk Shader Background */}
+      <Silk
+        speed={5}
+        scale={1}
+        color="#007c91"
+        noiseIntensity={1.5}
+        rotation={0}
+      />
       <div className="login-wrapper">
         <div className="login-box left">
           <div className="login-logo">

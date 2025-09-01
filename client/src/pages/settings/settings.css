@@ -92,6 +92,31 @@
   margin: 0;
 }
 
+/* Dropdown Header */
+.settings-dropdown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease;
+}
+
+.settings-dropdown-header:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.settings-dropdown-arrow {
+  font-size: 1rem;
+  color: #ffffff;
+  transition: transform 0.3s ease;
+  margin-left: 10px;
+}
+
+.settings-dropdown-arrow.expanded {
+  transform: rotate(180deg);
+}
+
 .settings-card-content {
   padding: 24px;
 }
@@ -142,6 +167,9 @@
   cursor: pointer;
   transition: all 0.3s ease;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .settings-username-edit-btn:hover {
@@ -1021,11 +1049,11 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
-  margin-bottom: 24px;
-  padding: 20px;
+  margin: 0;
+  padding: 20px 24px;
   background: #007c91;
-  border-radius: 12px;
   color: white;
+  border-top: 1px solid #e2e8f0;
 }
 
 .settings-admin-users-pattern{

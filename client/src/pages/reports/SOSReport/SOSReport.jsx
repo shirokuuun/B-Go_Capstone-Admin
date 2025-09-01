@@ -15,6 +15,7 @@ import {
   prepareExcelData,
   cleanup
 } from './FetchSOSReport.js';
+import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
 import { logActivity, ACTIVITY_TYPES } from "/src/pages/settings/auditService.js";
 import './SOSReport.css';
 
@@ -37,14 +38,8 @@ const SOSReport = () => {
   const [emergencyTypeFilter, setEmergencyTypeFilter] = useState('all');
   const [availableRoutes, setAvailableRoutes] = useState([]);
   
-  // Available emergency types
-  const emergencyTypeOptions = [
-    'Medical Emergency',
-    'Vehicle Breakdown', 
-    'Security Incident',
-    'Route Obstruction',
-    'Other'
-  ];
+  // Dynamic emergency type options based on fetched data
+  const emergencyTypeOptions = emergencyTypes.map(item => item.type);
 
   // Calculate date range based on selected time range
   const getDateRange = () => {
@@ -455,7 +450,7 @@ const SOSReport = () => {
             className="sos-export-btn"
             disabled={loading || sosData.length === 0}
           >
-            📊 Export Excel
+            <PiMicrosoftExcelLogoFill size={16} /> Export to Excel
           </button>
         </div>
 

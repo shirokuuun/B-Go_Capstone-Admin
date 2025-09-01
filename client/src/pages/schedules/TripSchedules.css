@@ -123,6 +123,11 @@
 
 .tripsch-add-icon {
   font-size: 1.25rem;
+  transition: transform 0.3s ease;
+}
+
+.tripsch-add-schedule-btn:hover:not(:disabled) .tripsch-add-icon {
+  transform: rotate(90deg);
 }
 
 /* Stats Grid */

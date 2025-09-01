@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import { fetchUsersForReports, formatUserForDisplay, getUserStats } from "./UserReports.js";
 import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 import "./UserReports.css";
+import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
 
 const UserReports = () => {
   const [users, setUsers] = useState([]);
@@ -317,7 +318,7 @@ const UserReports = () => {
           className="user-reports-export-btn"
           disabled={loading || filteredUsers.length === 0}
         >
-          📊 Export to Excel
+          <PiMicrosoftExcelLogoFill size={16} /> Export to Excel
         </button>
       </div>
 

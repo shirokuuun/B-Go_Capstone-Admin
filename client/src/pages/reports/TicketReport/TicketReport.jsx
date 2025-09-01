@@ -9,6 +9,7 @@ import {
   getAvailableTimeRanges,
   getAvailableRoutes
 } from './TicketReport.js';
+import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
 import { logActivity, ACTIVITY_TYPES } from "/src/pages/settings/auditService.js";
 import './TicketReport.css';
 
@@ -433,7 +434,7 @@ const TicketReport = () => {
           className="ticket-export-btn"
           disabled={loading}
         >
-          📊 Export to Excel
+          <PiMicrosoftExcelLogoFill size={16} /> Export to Excel
         </button>
       </div>
 
@@ -448,7 +449,6 @@ const TicketReport = () => {
           <div className="ticket-card">
             <div className="ticket-card-header">
               <div className="ticket-card-title">
-                <span className="ticket-card-icon">⏰</span>
                 Demand Patterns
               </div>
             </div>
@@ -509,7 +509,6 @@ const TicketReport = () => {
           <div className="ticket-card">
             <div className="ticket-card-header">
               <div className="ticket-card-title">
-                <span className="ticket-card-icon">🚌</span>
                 Route Performance Analysis
               </div>
             </div>
@@ -562,7 +561,6 @@ const TicketReport = () => {
           <div className="ticket-card">
             <div className="ticket-card-header">
               <div className="ticket-card-title">
-                <span className="ticket-card-icon">📊</span>
                 Ticket Type Performance
               </div>
             </div>

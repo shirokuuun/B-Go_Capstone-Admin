@@ -8,6 +8,7 @@ import {
   subscribeToConductorsWithTickets,
   subscribeToTicketsByConductor
 } from './ticketing.js';
+import { IoMdPeople } from "react-icons/io";
 import './ticketing.css';
 import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt } from 'react-icons/fa';
 
@@ -560,7 +561,7 @@ const Ticketing = () => {
         {/* Navigation Tabs */}
         <div className="ticketing-nav-tabs">
           {[
-            { id: 'overview', name: 'Conductors & Tickets', icon: '👥' }
+            { id: 'overview', name: 'Conductors & Tickets', icon: <IoMdPeople size={30} /> }
           ].map((tab) => (
             <button
               key={tab.id}

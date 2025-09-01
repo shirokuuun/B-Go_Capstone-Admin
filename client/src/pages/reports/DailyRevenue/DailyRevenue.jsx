@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
+import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
+import { IoMdArrowDropdownCircle } from "react-icons/io";
+import { FaMoneyCheck } from "react-icons/fa6"
+import { FaRegCalendarCheck } from "react-icons/fa";
+import { TbCalendarMonthFilled } from "react-icons/tb";
+import { LuBus } from "react-icons/lu";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, BarChart, Bar, ResponsiveContainer } from 'recharts';
 import { 
   loadRevenueData, 
@@ -675,7 +681,7 @@ const Revenue = () => {
             className="revenue-export-btn"
             disabled={loading || revenueData.totalRevenue === 0}
           >
-            📊 Export to Excel
+            <PiMicrosoftExcelLogoFill size={20} /> Export to Excel
           </button>
         </div>
 
@@ -925,29 +931,30 @@ const Revenue = () => {
         <div className="revenue-menu-item">
           <div 
             className={`revenue-menu-header ${isMenuExpanded ? 'revenue-menu-active' : ''}`}
+
             onClick={toggleMenu}
           >
-            <span><span className="revenue-menu-icon">📊</span>Revenue</span>
-            <span className={`revenue-chevron ${isMenuExpanded ? 'revenue-chevron-rotated' : ''}`}>▼</span>
+            <span><span className="revenue-menu-icon"><FaMoneyCheck size={20}/></span>Revenue</span>
+            <span className={`revenue-chevron ${isMenuExpanded ? 'revenue-chevron-rotated' : ''}`}><IoMdArrowDropdownCircle size={20} /></span>
           </div>
           <div className={`revenue-submenu ${isMenuExpanded ? 'revenue-submenu-open' : ''}`}>
             <div 
               className={`revenue-submenu-item ${currentView === 'daily-revenue' ? 'revenue-submenu-selected' : ''}`}
               onClick={() => selectMenuItem('daily-revenue')}
             >
-              <span className="revenue-menu-icon">📅</span>Daily Revenue
+              <span className="revenue-menu-icon"><FaRegCalendarCheck size={20} /></span>Daily Revenue
             </div>
             <div 
               className={`revenue-submenu-item ${currentView === 'monthly-revenue' ? 'revenue-submenu-selected' : ''}`}
               onClick={() => selectMenuItem('monthly-revenue')}
             >
-              <span className="revenue-menu-icon">📆</span>Monthly Revenue
+              <span className="revenue-menu-icon"><TbCalendarMonthFilled size={23} /></span>Monthly Revenue
             </div>
             <div 
               className={`revenue-submenu-item ${currentView === 'daily-trips' ? 'revenue-submenu-selected' : ''}`}
               onClick={() => selectMenuItem('daily-trips')}
             >
-              <span className="revenue-menu-icon">🚌</span>Daily Trips Remittance
+              <span className="revenue-menu-icon"><LuBus size={20} /></span>Daily Trips Remittance
             </div>
           </div>
         </div>

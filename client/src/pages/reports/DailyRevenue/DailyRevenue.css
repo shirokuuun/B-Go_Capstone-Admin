@@ -77,6 +77,9 @@ html, body {
 .revenue-menu-icon {
   margin-right: 10px;
   opacity: 0.7;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
 }
 
 .revenue-chevron {
@@ -407,6 +410,10 @@ html, body {
   cursor: pointer;
   font-weight: 500;
   transition: background-color 0.15s ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .revenue-print-btn {
@@ -494,6 +501,7 @@ html, body {
   font-size: 28px;
   font-weight: 700;
   margin: 0;
+  
   line-height: 1.2;
 }
 
