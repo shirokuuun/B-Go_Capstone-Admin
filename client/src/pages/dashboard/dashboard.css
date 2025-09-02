@@ -178,6 +178,9 @@
 /* Cards */
 .trip-summary-card,
 .sos-summary-card,
+.conductors-summary-card,
+.id-verification-summary-card,
+.revenue-trend-card,
 .recent-sos-card {
   background: #ffffff;
   padding: 1.5rem;
@@ -194,6 +197,9 @@
 
 .trip-summary-card h3,
 .sos-summary-card h3,
+.conductors-summary-card h3,
+.id-verification-summary-card h3,
+.revenue-trend-card h3,
 .recent-sos-card h3 {
   font-size: 1.2rem;
   margin-bottom: 1.2rem;
@@ -486,7 +492,189 @@
   
   .trip-summary-card h3,
   .sos-summary-card h3,
+  .conductors-summary-card h3,
+  .id-verification-summary-card h3,
+  .revenue-trend-card h3,
   .recent-sos-card h3 {
     font-size: 1.5rem;
   }
+
+  .chart-container {
+    height: 150px;
+    padding: 15px 5px 0px 5px;
+    gap: 4px;
+  }
+
+  .bar-label .day {
+    font-size: 0.75rem;
+  }
+
+  .bar-label .amount {
+    font-size: 0.65rem;
+  }
+}
+
+/* Conductors Summary Card Styling */
+.conductors-summary-card .summary-item.online {
+  background: linear-gradient(135deg, #e8f5e8 0%, #f1f9f1 100%);
+  border-left: 4px solid #4caf50;
+}
+
+.conductors-summary-card .summary-item.online h4 {
+  color: #2e7d32;
+}
+
+.conductors-summary-card .summary-item.online p {
+  color: #4caf50;
+}
+
+.conductors-summary-card .summary-item.offline {
+  background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+  border-left: 4px solid #f44336;
+}
+
+.conductors-summary-card .summary-item.offline h4 {
+  color: #c62828;
+}
+
+.conductors-summary-card .summary-item.offline p {
+  color: #f44336;
+}
+
+.conductors-summary-card .summary-item.percentage {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border-left: 4px solid #2196f3;
+}
+
+.conductors-summary-card .summary-item.percentage h4 {
+  color: #1565c0;
+}
+
+.conductors-summary-card .summary-item.percentage p {
+  color: #2196f3;
+}
+
+/* ID Verification Summary Card Styling */
+.id-verification-summary-card .summary-item.pending-verification {
+  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+  border-left: 4px solid #ff9800;
+}
+
+.id-verification-summary-card .summary-item.pending-verification h4 {
+  color: #f57c00;
+}
+
+.id-verification-summary-card .summary-item.pending-verification p {
+  color: #ff9800;
+}
+
+.id-verification-summary-card .summary-item.verified {
+  background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
+  border-left: 4px solid #4caf50;
+}
+
+.id-verification-summary-card .summary-item.verified h4 {
+  color: #2e7d32;
+}
+
+.id-verification-summary-card .summary-item.verified p {
+  color: #4caf50;
+}
+
+.id-verification-summary-card .summary-item.verification-rate {
+  background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+  border-left: 4px solid #9c27b0;
+}
+
+.id-verification-summary-card .summary-item.verification-rate h4 {
+  color: #7b1fa2;
+}
+
+.id-verification-summary-card .summary-item.verification-rate p {
+  color: #9c27b0;
+}
+
+/* Revenue Trend Card Styling */
+.revenue-trend-card {
+  grid-column: 1 / -1;
+  max-width: none;
+}
+
+.revenue-chart {
+  margin-top: 1rem;
+}
+
+.chart-container {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  height: 200px;
+  padding: 20px 10px 0px 10px;
+  gap: 8px;
+}
+
+.chart-bar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+
+.bar-container {
+  flex: 1;
+  display: flex;
+  align-items: end;
+  width: 100%;
+  max-width: 40px;
+  position: relative;
+}
+
+.bar-fill {
+  width: 100%;
+  background: linear-gradient(135deg, #007c91 0%, #005c6b 100%);
+  border-radius: 6px 6px 0 0;
+  min-height: 4px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 124, 145, 0.3);
+}
+
+.bar-fill:hover {
+  background: linear-gradient(135deg, #0095b3 0%, #007c91 100%);
+  box-shadow: 0 4px 12px rgba(0, 124, 145, 0.4);
+  transform: translateY(-2px);
+}
+
+.bar-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 8px;
+  min-height: 40px;
+}
+
+.bar-label .day {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 2px;
+}
+
+.bar-label .amount {
+  font-size: 0.75rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.no-data {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #999;
+  font-size: 1rem;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 8px;
+  border: 2px dashed #dee2e6;
 }

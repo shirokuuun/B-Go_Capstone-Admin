@@ -1,80 +1,113 @@
-import { getDocs, collectionGroup, collection  } from 'firebase/firestore';
+import { getDocs, collection, doc, getDoc, query, where } from 'firebase/firestore';
 import { db } from '/src/firebase/firebase.js';
 
 class DashboardService {
+  // Helper function to get all trip names from date document maps
+  async getAllTripNames(conductorId, dateId) {
+    try {
+      const dateDocRef = doc(db, `conductors/${conductorId}/dailyTrips/${dateId}`);
+      const dateDocSnapshot = await getDoc(dateDocRef);
+      
+      if (!dateDocSnapshot.exists()) {
+        return [];
+      }
+      
+      const dateData = dateDocSnapshot.data();
+      const tripNames = [];
+      
+      // Look for all fields that start with "trip" and are objects (maps)
+      for (const [key, value] of Object.entries(dateData)) {
+        if (key.startsWith('trip') && typeof value === 'object' && value !== null) {
+          tripNames.push(key);
+        }
+      }
+      
+      return tripNames;
+    } catch (error) {
+      console.error(`Error getting trip names for ${conductorId}/${dateId}:`, error);
+      return [];
+    }
+  }
+
   async getTripSummary(filter = 'today', customDate = null) {
     try {
-      console.log('Fetching trip summary with filter:', filter, 'customDate:', customDate);
-      
-      const snapshot = await getDocs(collectionGroup(db, 'tickets'));
-      console.log('Total documents found:', snapshot.size);
+      // Get all conductors first (same pattern as ticketing.js)
+      const conductorsRef = collection(db, 'conductors');
+      const conductorsSnapshot = await getDocs(conductorsRef);
 
-      if (snapshot.empty) {
-        console.log('No documents found in tickets collection');
+      if (conductorsSnapshot.empty) {
         return {
           totalTrips: 0,
           totalFare: 0,
           avgPassengers: 0,
-          mostCommonRoute: 'No trips found'
+          mostCommonRoute: 'No conductors found'
         };
       }
 
-      let totalTrips = 0;
+      let totalTickets = 0;
       let totalFare = 0;
       let totalPassengers = 0;
+      let totalTrips = 0;
       const routeFrequency = {};
 
       const today = new Date().toLocaleDateString('en-CA');
       const selectedDate = customDate || today;
-      
-      console.log('Today:', today, 'Selected date:', selectedDate);
 
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        console.log('Processing document:', doc.id, data);
+      // Process each conductor's tickets (same structure as ticketing.js)
+      for (const conductorDoc of conductorsSnapshot.docs) {
+        const conductorId = conductorDoc.id;
+        
+        // Get all daily trips for this conductor
+        const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
+        const dailyTripsSnapshot = await getDocs(dailyTripsRef);
+        
+        for (const dateDoc of dailyTripsSnapshot.docs) {
+          const dateId = dateDoc.id;
+          
+          // Apply date filter
+          if (filter === 'today' && dateId !== today) {
+            continue;
+          }
+          if (filter === 'custom' && dateId !== selectedDate) {
+            continue;
+          }
+          
+          // Get all trip names for this date
+          const tripNames = await this.getAllTripNames(conductorId, dateId);
+          
+          for (const tripName of tripNames) {
+            try {
+              const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
+              const ticketsSnapshot = await getDocs(ticketsRef);
+              
+              if (ticketsSnapshot.docs.length > 0) {
+                totalTrips++; // Count each trip that has tickets
+              }
+              
+              // Process each ticket (includes all types: conductor, preTicket, preBooking)
+              ticketsSnapshot.forEach(ticketDoc => {
+                const data = ticketDoc.data();
+                
+                // Only process tickets with valid fare and quantity (same as daily revenue)
+                if (data.totalFare && data.quantity) {
+                  totalTickets++;
+                  
+                  // Convert totalFare to number in case it's stored as string (same as daily revenue)
+                  const fareValue = parseFloat(data.totalFare);
+                  totalFare += fareValue;
+                  totalPassengers += data.quantity || 0;
 
-        // Check for either 'timestamp' or 'createdAt' field
-        const dateField = data.timestamp || data.createdAt;
-        if (!dateField) {
-          console.log('Document missing timestamp/createdAt field:', doc.id);
-          return;
+                  const routeKey = `${data.from || 'Unknown'} → ${data.to || 'Unknown'}`;
+                  routeFrequency[routeKey] = (routeFrequency[routeKey] || 0) + 1;
+                }
+              });
+            } catch (error) {
+              // Normal - not all trips will have tickets
+              continue;
+            }
+          }
         }
-
-        // Handle both Firestore Timestamp and regular Date objects
-        let tripDate;
-        if (dateField.toDate) {
-          tripDate = dateField.toDate().toLocaleDateString('en-CA');
-        } else if (dateField instanceof Date) {
-          tripDate = dateField.toLocaleDateString('en-CA');
-        } else {
-          console.log('Invalid date format for document:', doc.id);
-          return;
-        }
-
-        console.log('Trip date:', tripDate);
-
-        // Apply filters
-        if (filter === 'today' && tripDate !== today) {
-          console.log('Skipping document - not today:', doc.id);
-          return;
-        }
-        if (filter === 'custom' && tripDate !== selectedDate) {
-          console.log('Skipping document - not selected date:', doc.id);
-          return;
-        }
-
-        console.log('Including document in summary:', doc.id);
-
-        totalTrips++;
-        // Convert totalFare to number in case it's stored as string
-        const fareValue = typeof data.totalFare === 'string' ? 
-          parseFloat(data.totalFare) : (data.totalFare || 0);
-        totalFare += fareValue;
-        totalPassengers += data.quantity || 0;
-
-        const routeKey = `${data.from || 'Unknown'} → ${data.to || 'Unknown'}`;
-        routeFrequency[routeKey] = (routeFrequency[routeKey] || 0) + 1;
-      });
+      }
 
       const mostCommonRoute = Object.entries(routeFrequency)
         .sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
@@ -82,13 +115,18 @@ class DashboardService {
       const avgPassengers = totalTrips === 0 ? 0 : (totalPassengers / totalTrips).toFixed(2);
 
       const result = {
-        totalTrips,
+        totalTrips: totalTrips, // Now shows actual trips (not tickets)
         totalFare,
         avgPassengers,
-        mostCommonRoute
+        mostCommonRoute,
+        // Additional breakdown for debugging
+        breakdown: {
+          actualTrips: totalTrips,
+          totalTickets: totalTickets,
+          conductorsProcessed: conductorsSnapshot.docs.length
+        }
       };
 
-      console.log('Final summary:', result);
       return result;
 
     } catch (error) {
@@ -99,13 +137,9 @@ class DashboardService {
 
    async getSOSRequestSummary(filter = 'today', customDate = null) {
     try {
-      console.log('Fetching SOS request summary with filter:', filter, 'customDate:', customDate);
-      
       const snapshot = await getDocs(collection(db, 'sosRequests'));
-      console.log('Total SOS documents found:', snapshot.size);
 
       if (snapshot.empty) {
-        console.log('No SOS requests found');
         return {
           totalRequests: 0,
           pendingRequests: 0,
@@ -128,11 +162,9 @@ class DashboardService {
 
       snapshot.forEach(doc => {
         const data = doc.data();
-        console.log('Processing SOS document:', doc.id, data);
 
         const dateField = data.timestamp || data.createdAt || data.requestedAt;
         if (!dateField) {
-          console.log('SOS Document missing timestamp field:', doc.id);
           return;
         }
 
@@ -142,7 +174,6 @@ class DashboardService {
         } else if (dateField instanceof Date) {
           requestDate = dateField.toLocaleDateString('en-CA');
         } else {
-          console.log('Invalid date format for SOS document:', doc.id);
           return;
         }
 
@@ -222,7 +253,6 @@ class DashboardService {
         recentRequests: recentRequests.slice(0, 5) // Show only 5 most recent
       };
 
-      console.log('SOS Summary:', result);
       return result;
 
     } catch (error) {
@@ -231,16 +261,186 @@ class DashboardService {
     }
   }
 
+  async getConductorsSummary() {
+    try {
+      const conductorsRef = collection(db, 'conductors');
+      const snapshot = await getDocs(conductorsRef);
+
+      if (snapshot.empty) {
+        return {
+          totalConductors: 0,
+          onlineConductors: 0,
+          offlineConductors: 0,
+          onlinePercentage: 0
+        };
+      }
+
+      let totalConductors = 0;
+      let onlineConductors = 0;
+
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        totalConductors++;
+        if (data.isOnline) {
+          onlineConductors++;
+        }
+      });
+
+      const offlineConductors = totalConductors - onlineConductors;
+      const onlinePercentage = totalConductors === 0 ? 0 : ((onlineConductors / totalConductors) * 100).toFixed(1);
+
+      return {
+        totalConductors,
+        onlineConductors,
+        offlineConductors,
+        onlinePercentage
+      };
+    } catch (error) {
+      console.error('Error fetching conductors summary:', error);
+      throw error;
+    }
+  }
+
+  async getIDVerificationSummary() {
+    try {
+      const usersRef = collection(db, 'users');
+      const snapshot = await getDocs(usersRef);
+
+      if (snapshot.empty) {
+        return {
+          totalUsers: 0,
+          pendingVerifications: 0,
+          verifiedUsers: 0,
+          verificationRate: 0
+        };
+      }
+
+      let totalUsers = 0;
+      let pendingVerifications = 0;
+      let verifiedUsers = 0;
+
+      for (const userDoc of snapshot.docs) {
+        totalUsers++;
+        
+        try {
+          const idDocRef = doc(db, 'users', userDoc.id, 'VerifyID', 'id');
+          const idSnapshot = await getDoc(idDocRef);
+          
+          if (idSnapshot.exists()) {
+            const idData = idSnapshot.data();
+            const status = idData.status || 'pending';
+            
+            if (status === 'verified') {
+              verifiedUsers++;
+            } else if (status === 'pending') {
+              pendingVerifications++;
+            }
+          } else {
+            pendingVerifications++;
+          }
+        } catch (error) {
+          // No ID verification data means pending
+          pendingVerifications++;
+        }
+      }
+
+      const verificationRate = totalUsers === 0 ? 0 : ((verifiedUsers / totalUsers) * 100).toFixed(1);
+
+      return {
+        totalUsers,
+        pendingVerifications,
+        verifiedUsers,
+        verificationRate
+      };
+    } catch (error) {
+      console.error('Error fetching ID verification summary:', error);
+      throw error;
+    }
+  }
+
+  async getRevenueTrend() {
+    try {
+      const today = new Date();
+      const revenueTrend = [];
+      
+      // Get revenue for the past 7 days
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        const dateString = date.toLocaleDateString('en-CA');
+        
+        let dayRevenue = 0;
+        
+        // Get all conductors
+        const conductorsRef = collection(db, 'conductors');
+        const conductorsSnapshot = await getDocs(conductorsRef);
+        
+        for (const conductorDoc of conductorsSnapshot.docs) {
+          const conductorId = conductorDoc.id;
+          
+          // Get daily trips for this conductor and date
+          const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
+          const dailyTripsSnapshot = await getDocs(dailyTripsRef);
+          
+          for (const dateDoc of dailyTripsSnapshot.docs) {
+            const dateId = dateDoc.id;
+            
+            // Only process if it matches our target date
+            if (dateId === dateString) {
+              // Get all trip names for this date
+              const tripNames = await this.getAllTripNames(conductorId, dateId);
+              
+              for (const tripName of tripNames) {
+                try {
+                  const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
+                  const ticketsSnapshot = await getDocs(ticketsRef);
+                  
+                  ticketsSnapshot.forEach(ticketDoc => {
+                    const data = ticketDoc.data();
+                    if (data.totalFare && data.quantity) {
+                      const fareValue = parseFloat(data.totalFare);
+                      dayRevenue += fareValue;
+                    }
+                  });
+                } catch (error) {
+                  // Normal - not all trips will have tickets
+                  continue;
+                }
+              }
+            }
+          }
+        }
+        
+        revenueTrend.push({
+          date: dateString,
+          day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+          revenue: dayRevenue
+        });
+      }
+      
+      return revenueTrend;
+    } catch (error) {
+      console.error('Error fetching revenue trend:', error);
+      throw error;
+    }
+  }
+
   async getDashboardData(filter = 'today', customDate = null) {
     try {
-      const [tripSummary, sosSummary] = await Promise.all([
+      const [tripSummary, sosSummary, conductorsSummary, idVerificationSummary, revenueTrend] = await Promise.all([
         this.getTripSummary(filter, customDate),
-        this.getSOSRequestSummary(filter, customDate)
+        this.getSOSRequestSummary(filter, customDate),
+        this.getConductorsSummary(),
+        this.getIDVerificationSummary(),
+        this.getRevenueTrend()
       ]);
 
       return {
         trips: tripSummary,
-        sos: sosSummary
+        sos: sosSummary,
+        conductors: conductorsSummary,
+        idVerification: idVerificationSummary,
+        revenueTrend: revenueTrend
       };
     } catch (error) {
       console.error('Error fetching dashboard data:', error);

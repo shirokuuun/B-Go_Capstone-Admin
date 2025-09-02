@@ -29,12 +29,62 @@ function Dashboard() {
   }, []);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      const service = new DashboardService();  
-      const data = await service.getDashboardData(filter, customDate);
-      setDashboardData(data);
+    let isSubscribed = true;
+    
+    const setupRealTimeData = async () => {
+      try {
+        setDashboardData(null); // Reset data while loading
+        
+        const service = new DashboardService();
+        const data = await service.getDashboardData(filter, customDate);
+        
+        // Only update state if component is still mounted
+        if (isSubscribed) {
+          setDashboardData(data);
+        }
+        
+      } catch (error) {
+        console.error('Error setting up dashboard data:', error);
+        if (isSubscribed) {
+          // Set empty data structure on error to prevent crashes
+          setDashboardData({
+            trips: {
+              totalTrips: 0,
+              totalFare: 0,
+              avgPassengers: 0,
+              mostCommonRoute: 'Error loading data'
+            },
+            sos: {
+              totalRequests: 0,
+              pendingRequests: 0,
+              receivedRequests: 0,
+              cancelledRequests: 0,
+              recentRequests: []
+            },
+            conductors: {
+              totalConductors: 0,
+              onlineConductors: 0,
+              offlineConductors: 0,
+              onlinePercentage: 0
+            },
+            idVerification: {
+              totalUsers: 0,
+              pendingVerifications: 0,
+              verifiedUsers: 0,
+              verificationRate: 0
+            },
+            revenueTrend: []
+          });
+        }
+      }
     };
-    fetchDashboardData();
+
+    setupRealTimeData();
+    
+    // Cleanup function
+    return () => {
+      isSubscribed = false;
+    };
   }, [filter, customDate]);
 
   const formatTime = (timestamp) => {
@@ -112,6 +162,38 @@ function Dashboard() {
         <p className="loading-text">Loading dashboard data...</p>
       ) : (
         <div className="dashboard-grid">
+          {/* Revenue Trend Card */}
+          <div className="revenue-trend-card">
+            <h3>7-Day Revenue Trend</h3>
+            <div className="revenue-chart">
+              <div className="chart-container">
+                {dashboardData.revenueTrend.map((day, index) => {
+                  const maxRevenue = Math.max(...dashboardData.revenueTrend.map(d => d.revenue));
+                  const height = maxRevenue === 0 ? 0 : (day.revenue / maxRevenue) * 100;
+                  
+                  return (
+                    <div key={index} className="chart-bar">
+                      <div className="bar-container">
+                        <div 
+                          className="bar-fill"
+                          style={{ height: `${height}%` }}
+                          title={`${day.day}: ₱${day.revenue.toFixed(2)}`}
+                        ></div>
+                      </div>
+                      <div className="bar-label">
+                        <span className="day">{day.day}</span>
+                        <span className="amount">₱{day.revenue.toFixed(0)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {dashboardData.revenueTrend.length === 0 && (
+                <div className="no-data">No revenue data available</div>
+              )}
+            </div>
+          </div>
+          
           {/* Trip Summary Card */}
           <div className="trip-summary-card">
             <h3>Trip Summary</h3>
@@ -154,6 +236,52 @@ function Dashboard() {
               <div className="summary-item cancelled">
                 <h4>Cancelled</h4>
                 <p>{dashboardData.sos.cancelledRequests}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Conductors Summary Card */}
+          <div className="conductors-summary-card">
+            <h3>Conductors Status</h3>
+            <div className="summary-grid">
+              <div className="summary-item">
+                <h4>Total Conductors</h4>
+                <p>{dashboardData.conductors.totalConductors}</p>
+              </div>
+              <div className="summary-item online">
+                <h4>Online</h4>
+                <p>{dashboardData.conductors.onlineConductors}</p>
+              </div>
+              <div className="summary-item offline">
+                <h4>Offline</h4>
+                <p>{dashboardData.conductors.offlineConductors}</p>
+              </div>
+              <div className="summary-item percentage">
+                <h4>Online Rate</h4>
+                <p>{dashboardData.conductors.onlinePercentage}%</p>
+              </div>
+            </div>
+          </div>
+
+          {/* ID Verification Summary Card */}
+          <div className="id-verification-summary-card">
+            <h3>ID Verification Status</h3>
+            <div className="summary-grid">
+              <div className="summary-item">
+                <h4>Total Users</h4>
+                <p>{dashboardData.idVerification.totalUsers}</p>
+              </div>
+              <div className="summary-item pending-verification">
+                <h4>Pending</h4>
+                <p>{dashboardData.idVerification.pendingVerifications}</p>
+              </div>
+              <div className="summary-item verified">
+                <h4>Verified</h4>
+                <p>{dashboardData.idVerification.verifiedUsers}</p>
+              </div>
+              <div className="summary-item verification-rate">
+                <h4>Verification Rate</h4>
+                <p>{dashboardData.idVerification.verificationRate}%</p>
               </div>
             </div>
           </div>
