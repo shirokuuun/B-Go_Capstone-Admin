@@ -341,6 +341,53 @@ export const checkBusAvailability = async (busId, date) => {
   }
 };
 
+// Update an existing bus
+export const updateBus = async (busId, busData) => {
+  try {
+    // Check if plate number already exists for a different bus
+    const busesCollection = collection(db, 'AvailableBuses');
+    const plateQuery = query(busesCollection, where('plateNumber', '==', busData.plateNumber));
+    const existingBuses = await getDocs(plateQuery);
+    
+    // If plate number exists and it's not the current bus being updated
+    if (!existingBuses.empty && existingBuses.docs[0].id !== busId) {
+      throw new Error('A bus with this plate number already exists');
+    }
+
+    // Prepare the updated bus document data
+    const updatedBusData = {
+      name: busData.name,
+      plateNumber: busData.plateNumber,
+      codingDays: busData.codingDays || [],
+      Price: busData.Price || 2000,
+      busID: busData.plateNumber,
+      updatedAt: Timestamp.fromDate(new Date())
+    };
+
+    // Update the bus document
+    const busRef = doc(db, 'AvailableBuses', busId);
+    await updateDoc(busRef, updatedBusData);
+
+    // Log the activity
+    await logActivity(
+      ACTIVITY_TYPES.DATA_UPDATE,
+      'Bus information updated',
+      {
+        busId,
+        busName: busData.name,
+        plateNumber: busData.plateNumber,
+        updatedFields: Object.keys(updatedBusData)
+      }
+    );
+
+    console.log('Bus updated successfully:', busId);
+    return { success: true, message: 'Bus updated successfully' };
+  } catch (error) {
+    console.error('Error updating bus:', error);
+    throw error;
+  }
+};
+
 // Delete a bus and its related reservations
 export const deleteBus = async (busId) => {
   try {

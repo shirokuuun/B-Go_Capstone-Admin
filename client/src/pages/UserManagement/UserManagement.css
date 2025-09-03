@@ -248,6 +248,35 @@
   cursor: not-allowed;
 }
 
+/* Settings-style admin delete button */
+.settings-admin-delete-btn {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: white;
+  border: none;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+}
+
+.settings-admin-delete-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #b91c1c, #991b1b);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+  transform: translateY(-2px);
+}
+
+.settings-admin-delete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .usermgmt-user-details-view {
   height: 100%;
   display: flex;

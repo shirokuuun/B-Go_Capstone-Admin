@@ -4,7 +4,7 @@ import { MdDeleteForever } from "react-icons/md";
 import { IoMdArrowDropdownCircle } from "react-icons/io";
 import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
 import { RiEdit2Fill } from "react-icons/ri";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '/src/firebase/firebase.js';
 import {
@@ -62,8 +62,6 @@ function Settings() {
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminUsersLoading, setAdminUsersLoading] = useState(false);
   const [adminUsersUnsubscribe, setAdminUsersUnsubscribe] = useState(null);
-  const [showDeleteUserModal, setShowDeleteUserModal] = useState(false);
-  const [userToDelete, setUserToDelete] = useState(null);
   const [isAdminUsersExpanded, setIsAdminUsersExpanded] = useState(false);
 
   useEffect(() => {
@@ -348,26 +346,29 @@ function Settings() {
   };
 
   // Handle admin user deletion
-  const handleDeleteUser = (user) => {
-    setUserToDelete(user);
-    setShowDeleteUserModal(true);
-  };
+  const handleDeleteUser = useCallback(async (user) => {
+    const confirmed = window.confirm(
+      `⚠️ Are you sure you want to delete admin user "${user.name || user.email}"?\n\nThis action cannot be undone.`
+    );
+    
+    if (!confirmed) {
+      return;
+    }
 
-  const confirmDeleteUser = async () => {
-    if (!userToDelete) return;
-
+    setLoading(true);
+    setError('');
+    setMessage('');
+    
     try {
-      setLoading(true);
-      await deleteAdminUser(userToDelete.id, userToDelete.email, userToDelete.name);
-      setMessage(`Admin user ${userToDelete.name} deleted successfully`);
-      setShowDeleteUserModal(false);
-      setUserToDelete(null);
+      await deleteAdminUser(user.id, user.email, user.name);
+      setMessage(`✅ Admin user "${user.name || user.email}" has been successfully deleted from the system.`);
     } catch (err) {
-      setError(err.message);
+      setError(`❌ Failed to delete admin user: ${err.message}. Please try again or contact support if the issue persists.`);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
 
   // Load logs when component mounts - for all admins
   useEffect(() => {
@@ -537,6 +538,7 @@ function Settings() {
                   required
                   className="settings-form-input"
                   placeholder="Enter current password"
+                  autoComplete="current-password"
                 />
               </div>
               <div className="settings-form-row">
@@ -550,6 +552,7 @@ function Settings() {
                     minLength={6}
                     className="settings-form-input"
                     placeholder="Enter new password"
+                    autoComplete="new-password"
                   />
                 </div>
                 <div className="settings-form-field">
@@ -562,6 +565,7 @@ function Settings() {
                     minLength={6}
                     className="settings-form-input"
                     placeholder="Confirm new password"
+                    autoComplete="new-password"
                   />
                 </div>
               </div>
@@ -644,12 +648,16 @@ function Settings() {
                       {user.createdAt ? new Date(user.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}
                     </span>
                     <span className="settings-admin-user-actions">
-                      {user.id !== userData.id && userData.role === 'superadmin' && (
+                      {user.id !== userData.id && (
                         <button
-                          onClick={() => handleDeleteUser(user)}
-                          className="settings-admin-delete-btn"
-                          disabled={loading}
-                          title={`Delete ${user.name || user.email}`}
+                          onClick={userData.role === 'superadmin' ? () => handleDeleteUser(user) : undefined}
+                          className={`settings-admin-delete-btn ${userData.role === 'admin' ? 'disabled' : ''}`}
+                          disabled={loading || userData.role === 'admin'}
+                          title={userData.role === 'admin' ? "Delete not allowed for admin users" : `Delete ${user.name || user.email}`}
+                          style={{
+                            color: userData.role === 'admin' ? '#999' : '',
+                            cursor: userData.role === 'admin' ? 'not-allowed' : 'pointer'
+                          }}
                         >
                           <MdDeleteForever />
                         </button>
@@ -771,9 +779,7 @@ function Settings() {
                         <span>Activity</span>
                         <span>Description</span>
                         <span>Severity</span>
-                        {userData.role === 'superadmin' && userData.isSuperAdmin === true && (
-                          <span>Actions</span>
-                        )}
+                        <span>Actions</span>
                       </div>
                       {activityLogs.map(log => (
                         <div key={log.id} className={`settings-log-row ${log.severity}`}>
@@ -792,18 +798,20 @@ function Settings() {
                           <span className={`settings-log-severity ${log.severity}`}>
                             {log.severity}
                           </span>
-                          {userData.role === 'superadmin' && userData.isSuperAdmin === true && (
-                            <span className="settings-log-actions">
-                              <button
-                                onClick={() => handleDeleteLog(log.id)}
-                                className="settings-log-delete-btn"
-                                disabled={loading}
-                                title="Delete log entry"
-                              >
-                                <MdDeleteForever />
-                              </button>
-                            </span>
-                          )}
+                          <span className="settings-log-actions">
+                            <button
+                              onClick={userData.role === 'superadmin' && userData.isSuperAdmin === true ? () => handleDeleteLog(log.id) : undefined}
+                              className={`settings-log-delete-btn ${userData.role === 'admin' && userData.isSuperAdmin !== true ? 'disabled' : ''}`}
+                              disabled={loading || (userData.role === 'admin' && userData.isSuperAdmin !== true)}
+                              title={userData.role === 'admin' && userData.isSuperAdmin !== true ? "Delete not allowed for admin users" : "Delete log entry"}
+                              style={{
+                                color: userData.role === 'admin' && userData.isSuperAdmin !== true ? '#999' : '',
+                                cursor: userData.role === 'admin' && userData.isSuperAdmin !== true ? 'not-allowed' : 'pointer'
+                              }}
+                            >
+                              <MdDeleteForever />
+                            </button>
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -814,6 +822,7 @@ function Settings() {
           </div>
         </div>
         )}
+
       </div>
     </div>
   );

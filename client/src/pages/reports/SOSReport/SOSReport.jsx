@@ -457,8 +457,8 @@ const SOSReport = () => {
       {/* Charts Section */}
       <div className="sos-charts-section">
         {/* Response Time Distribution */}
-        <div className="chart-container">
-          <h3>Response Time Distribution</h3>
+        <div className="sos-response-time-chart-container">
+          <h3 className="sos-response-time-title">Response Time Distribution</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={responseTimeDistribution}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -471,8 +471,8 @@ const SOSReport = () => {
         </div>
 
         {/* Monthly Trends */}
-        <div className="chart-container">
-          <h3>Monthly Trends</h3>
+        <div className="sos-monthly-trends-chart-container">
+          <h3 className="sos-monthly-trends-title">Monthly Trends</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={monthlyTrends}>
               <CartesianGrid strokeDasharray="3 3" />

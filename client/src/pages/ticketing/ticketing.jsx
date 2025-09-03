@@ -11,6 +11,9 @@ import {
 import { IoMdPeople } from "react-icons/io";
 import './ticketing.css';
 import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt } from 'react-icons/fa';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '/src/firebase/firebase.js';
+import { fetchCurrentUserData } from '/src/pages/settings/settings.js';
 
 const Ticketing = () => {
   const [activeSection, setActiveSection] = useState('overview');
@@ -31,9 +34,32 @@ const Ticketing = () => {
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTicketType, setSelectedTicketType] = useState('');
   const [selectedTripDirection, setSelectedTripDirection] = useState('');
+  
+  // User authentication state
+  const [userData, setUserData] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   // State for managing ticket subscriptions (declare before use)
   const [ticketUnsubscribe, setTicketUnsubscribe] = useState(null);
+
+  // Set up authentication listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const adminData = await fetchCurrentUserData();
+          setUserData(adminData);
+        } catch (err) {
+          console.error('Error fetching user data:', err);
+        }
+      } else {
+        setUserData(null);
+      }
+      setAuthLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Set up real-time listeners for conductors and stats
   useEffect(() => {
@@ -160,6 +186,12 @@ const Ticketing = () => {
   };
 
   const handleDeleteTicket = async (conductorId, ticketId) => {
+    // Check if user is authorized
+    if (!userData || userData.role !== 'superadmin' || userData.isSuperAdmin !== true) {
+      alert('Access denied: Only superadmin users can delete tickets. You are logged in as a regular admin.');
+      return;
+    }
+
     if (!window.confirm('Are you sure you want to delete this pre-ticket? This action cannot be undone.')) {
       return;
     }
@@ -178,7 +210,7 @@ const Ticketing = () => {
       alert('Ticket deleted successfully');
     } catch (error) {
       console.error('Error in handleDeleteTicket:', error);
-      alert('Failed to delete pre-ticket. Please try again.');
+      alert('Failed to delete pre-ticket: ' + error.message);
     }
   };
 
@@ -473,8 +505,16 @@ const Ticketing = () => {
 
                 <div className="ticketing-ticket-actions">
                   <button 
-                    className="ticketing-btn ticketing-btn-danger"
-                    onClick={() => handleDeleteTicket(selectedConductor.id, ticket.id)}
+                    className={`ticketing-btn ticketing-btn-danger ${userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? 'disabled' : ''}`}
+                    onClick={userData && userData.role === 'superadmin' && userData.isSuperAdmin === true ? () => handleDeleteTicket(selectedConductor.id, ticket.id) : undefined}
+                    disabled={!userData || (userData.role === 'admin' && userData.isSuperAdmin !== true)}
+                    title={userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? "Delete not allowed for admin users" : "Delete ticket"}
+                    style={{
+                      color: userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? '#999' : '',
+                      backgroundColor: userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? '#f5f5f5' : '',
+                      borderColor: userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? '#ccc' : '',
+                      cursor: userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? 'not-allowed' : 'pointer'
+                    }}
                   >
                     Delete
                   </button>
@@ -493,6 +533,14 @@ const Ticketing = () => {
     }
     return renderConductorsList();
   };
+
+  if (authLoading || !userData) {
+    return (
+      <div className="ticketing-container">
+        <div className="ticketing-loading-state">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="ticketing-container">

@@ -75,6 +75,12 @@ export const loginAdmin = async (email, password) => {
   if (userDocSnap.exists()) {
     const userData = userDocSnap.data();
     
+    // Check if account is deleted
+    if (userData.status === 'deleted') {
+      await signOut(auth);
+      throw new Error("This account has been deleted and is no longer accessible.");
+    }
+    
     // ✅ FIXED: Now accepts both 'admin' and 'superadmin' roles
     if (userData.role === "admin" || userData.role === "superadmin") {
       // Optional: Add role info to the returned user object

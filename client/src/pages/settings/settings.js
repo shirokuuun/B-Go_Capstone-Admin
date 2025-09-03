@@ -1,5 +1,5 @@
-import { updatePassword, EmailAuthProvider, reauthenticateWithCredential, deleteUser } from 'firebase/auth';
-import { doc, updateDoc, deleteDoc, collection, getDocs, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { updatePassword, EmailAuthProvider, reauthenticateWithCredential, deleteUser, updateEmail } from 'firebase/auth';
+import { doc, updateDoc, deleteDoc, collection, getDocs, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { auth, db } from '/src/firebase/firebase.js';
 import { getCurrentAdminData, isSuperAdmin } from '/src/pages/auth/authService.js';
@@ -208,8 +208,8 @@ export const fetchAllAdminUsers = async () => {
     const adminUsers = [];
     adminSnapshot.forEach((doc) => {
       const data = doc.data();
-      // Only include admin and superadmin users
-      if (data.role === 'admin' || data.role === 'superadmin') {
+      // Only include admin and superadmin users that are not deleted
+      if ((data.role === 'admin' || data.role === 'superadmin') && data.status !== 'deleted') {
         adminUsers.push({
           id: doc.id,
           ...data
@@ -239,8 +239,8 @@ export const subscribeToAdminUsers = (callback, errorCallback) => {
       const adminUsers = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
-        // Only include admin and superadmin users
-        if (data.role === 'admin' || data.role === 'superadmin') {
+        // Only include admin and superadmin users that are not deleted
+        if ((data.role === 'admin' || data.role === 'superadmin') && data.status !== 'deleted') {
           adminUsers.push({
             id: doc.id,
             ...data
@@ -291,29 +291,27 @@ export const deleteAdminUser = async (userId, userEmail, userName) => {
       throw new Error('Admin user not found');
     }
 
-    // Delete from Firestore first
+    // Pseudo-delete: Update Firestore document instead of deleting
     const userDocRef = doc(db, 'Admin', userId);
-    await deleteDoc(userDocRef);
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 8);
+    
+    await updateDoc(userDocRef, {
+      status: 'deleted',
+      originalEmail: userToDelete.email,
+      originalName: userToDelete.name,
+      email: `deleted_${timestamp}_${randomSuffix}@deleted.invalid`, // Use invalid domain
+      name: `[DELETED] ${userToDelete.name}`,
+      role: 'deleted',
+      originalRole: userToDelete.role,
+      deletedAt: serverTimestamp(),
+      deletedBy: auth.currentUser.uid,
+      deletedByEmail: auth.currentUser.email
+    });
 
-    // Try to delete from Authentication (this might fail due to permissions)
-    try {
-      // This would require Firebase Admin SDK on the backend
-      // For now, we'll use the API endpoint if available
-      const response = await fetch(`/api/users/delete/${userId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await auth.currentUser.getIdToken()}`
-        }
-      });
-
-      if (!response.ok) {
-        console.warn('Failed to delete from Authentication, but Firestore deletion succeeded');
-      }
-    } catch (authError) {
-      console.warn('Authentication deletion failed:', authError);
-      // Continue - Firestore deletion was successful
-    }
+    // Note: Firebase Authentication account remains active with original email
+    // The user can still technically log in but won't appear in admin lists
+    // The original email remains tied to the Firebase Auth account
 
     // Log the deletion activity
     await logActivity(

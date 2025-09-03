@@ -3,6 +3,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '/src/firebase/firebase.js';
 import { fetchCurrentUserData } from '/src/pages/settings/settings.js';
 import { fetchAllUsers, deleteUser, fetchUserById, subscribeToUsers } from './UserManagement.js';
+import { MdDeleteForever } from "react-icons/md";
 import './UserManagement.css';
 
 const UserManagement = () => {
@@ -387,24 +388,21 @@ const UserManagement = () => {
                       </p>
                     </div>
                   </div>
-                  {isSuperAdmin && (
-                    <button
-                      className="usermgmt-btn usermgmt-btn-delete-small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteClick(user);
-                      }}
-                      disabled={actionLoading}
-                      title="Delete user (Super Admin only)"
-                    >
-                      Delete
-                    </button>
-                  )}
-                  {!isSuperAdmin && (
-                    <span className="usermgmt-no-delete-permission" title="Only Super Administrators can delete users">
-                      🔒 Delete (Super Admin Only)
-                    </span>
-                  )}
+                  <button
+                    onClick={isSuperAdmin ? (e) => {
+                      e.stopPropagation();
+                      handleDeleteClick(user);
+                    } : undefined}
+                    className={`settings-admin-delete-btn ${!isSuperAdmin ? 'disabled' : ''}`}
+                    disabled={actionLoading || !isSuperAdmin}
+                    title={isSuperAdmin ? `Delete ${user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.name || user.displayName || user.email}` : "Delete not allowed for admin users"}
+                    style={{
+                      color: !isSuperAdmin ? '#999' : '',
+                      cursor: !isSuperAdmin ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    <MdDeleteForever />
+                  </button>
                 </div>
               ))}
             </div>

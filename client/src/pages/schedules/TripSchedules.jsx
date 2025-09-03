@@ -33,11 +33,10 @@ function TripSchedules() {
     const loadPermissions = async () => {
       if (user) {
         console.log('Loading permissions for user:', user.uid); // Debug log
-        const canDelete = await hasPermission(user.uid, 'delete_any_data');
         const canAdd = await hasPermission(user.uid, 'manage_trips');
         const canEdit = await hasPermission(user.uid, 'manage_trips'); // Same permission as add
-        console.log('Permissions loaded:', { canDelete, canAdd, canEdit }); // Debug log
-        setPermissions({ canDelete, canAdd, canEdit });
+        console.log('Permissions loaded:', { canAdd, canEdit }); // Debug log
+        setPermissions({ canDelete: true, canAdd, canEdit }); // canDelete is always true now
       }
     };
     loadPermissions();
@@ -201,16 +200,14 @@ function TripSchedules() {
                           <RiEdit2Fill />
                         </button>
                       )}
-                      {permissions.canDelete && (
-                        <button
-                          className="tripsch-action-btn tripsch-delete-btn"
-                          onClick={() => handleDeleteSchedule(schedule.id, schedule.route)}
-                          disabled={actionLoading}
-                          title="Delete schedule"
-                        >
-                          <FaTrash />
-                        </button>
-                      )}
+                      <button
+                        className="tripsch-action-btn tripsch-delete-btn"
+                        onClick={() => handleDeleteSchedule(schedule.id, schedule.route)}
+                        disabled={actionLoading}
+                        title="Delete schedule"
+                      >
+                        <FaTrash />
+                      </button>
                     </div>
                   </div>
                   
