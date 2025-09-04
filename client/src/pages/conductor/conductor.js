@@ -48,15 +48,21 @@ class ConductorService {
     }
   }
 
-  // Get all conductors with basic info
+  // Get all conductors with basic info (excluding deleted ones)
   async getAllConductors() {
     try {
       const conductorsRef = collection(db, 'conductors');
+      // Get all conductors and filter out deleted ones in code (handles missing status field)
       const snapshot = await getDocs(conductorsRef);
       
       const conductors = [];
       for (const doc of snapshot.docs) {
         const conductorData = doc.data();
+        
+        // Skip deleted conductors (handles missing status field)
+        if (conductorData.status === 'deleted') {
+          continue;
+        }
         
         // SAFE OPTIMIZATION: Use cached totalTrips when available
         let tripsCount;
@@ -379,7 +385,9 @@ class ConductorService {
         const conductors = [];
         
         // Process conductors in parallel for better performance
-        const conductorPromises = snapshot.docs.map(async (doc) => {
+        const conductorPromises = snapshot.docs
+          .filter(doc => doc.data().status !== 'deleted') // Filter out deleted
+          .map(async (doc) => {
           try {
             const conductorData = doc.data();
             
@@ -546,7 +554,7 @@ class ConductorService {
     return unsubscribe;
   }
 
-  // Get online conductors
+  // Get online conductors (excluding deleted ones)
   async getOnlineConductors() {
     try {
       const conductorsRef = collection(db, 'conductors');
@@ -555,9 +563,14 @@ class ConductorService {
       
       const onlineConductors = [];
       snapshot.docs.forEach(doc => {
+        const conductorData = doc.data();
+        // Skip deleted conductors
+        if (conductorData.status === 'deleted') {
+          return;
+        }
         onlineConductors.push({
           id: doc.id,
-          ...doc.data()
+          ...conductorData
         });
       });
       
@@ -772,6 +785,165 @@ class ConductorService {
     return email.split('@')[0].replace(/\./g, '_');
   }
 
+  // NEW: Delete all trips for a conductor (for fresh start on reactivation)
+  async deleteAllConductorTrips(conductorId) {
+    try {
+      console.log(`Deleting all trips for conductor: ${conductorId}`);
+      
+      // Get all daily trips dates
+      const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
+      const datesSnapshot = await getDocs(dailyTripsRef);
+      
+      if (datesSnapshot.empty) {
+        console.log('No trips found to delete');
+        return { success: true, deletedDates: 0, deletedTrips: 0 };
+      }
+      
+      let deletedDates = 0;
+      let deletedTrips = 0;
+      
+      // Process each date document
+      for (const dateDoc of datesSnapshot.docs) {
+        const dateId = dateDoc.id;
+        console.log(`Processing date: ${dateId}`);
+        
+        // Delete all trip subcollections for this date
+        const tripNames = ['trip1', 'trip2', 'trip3', 'trip4', 'trip5', 'trip6', 'trip7', 'trip8', 'trip9', 'trip10'];
+        
+        for (const tripName of tripNames) {
+          try {
+            // Check if trip exists and delete all tickets
+            const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
+            const ticketsSnapshot = await getDocs(ticketsRef);
+            
+            if (!ticketsSnapshot.empty) {
+              // Delete all ticket documents in this trip
+              const deletePromises = ticketsSnapshot.docs.map(ticketDoc => deleteDoc(ticketDoc.ref));
+              await Promise.all(deletePromises);
+              
+              deletedTrips += ticketsSnapshot.docs.length;
+              console.log(`Deleted ${ticketsSnapshot.docs.length} tickets from ${dateId}/${tripName}`);
+            }
+          } catch (tripError) {
+            // Trip doesn't exist, continue
+            continue;
+          }
+        }
+        
+        // Delete the date document itself
+        try {
+          await deleteDoc(dateDoc.ref);
+          deletedDates++;
+          console.log(`Deleted date document: ${dateId}`);
+        } catch (dateDeleteError) {
+          console.warn(`Error deleting date document ${dateId}:`, dateDeleteError);
+        }
+      }
+      
+      console.log(`Trip deletion complete. Deleted ${deletedDates} dates with ${deletedTrips} total trips`);
+      
+      return {
+        success: true,
+        deletedDates: deletedDates,
+        deletedTrips: deletedTrips
+      };
+      
+    } catch (error) {
+      console.error('Error deleting all conductor trips:', error);
+      return {
+        success: false,
+        error: error.message,
+        deletedDates: 0,
+        deletedTrips: 0
+      };
+    }
+  }
+
+  // NEW: Reactivate deleted conductor for re-registration
+  async reactivateDeletedConductor(email, conductorData) {
+    try {
+      // Search for deleted conductor with this original email
+      const conductorsRef = collection(db, 'conductors');
+      const deletedQuery = query(
+        conductorsRef, 
+        where('originalEmail', '==', email), 
+        where('status', '==', 'deleted')
+      );
+      const deletedSnapshot = await getDocs(deletedQuery);
+      
+      if (deletedSnapshot.empty) {
+        console.log(`No deleted conductor found with originalEmail: ${email}`);
+        return null;
+      }
+      
+      // Get the first deleted conductor document
+      const deletedDoc = deletedSnapshot.docs[0];
+      const deletedData = deletedDoc.data();
+      const conductorDocId = deletedDoc.id;
+      
+      console.log(`Found deleted conductor: ${conductorDocId}, reactivating...`);
+      
+      // Reactivate the conductor account by updating the document
+      const reactivatedData = {
+        uid: deletedData.uid, // Keep the original UID
+        busNumber: parseInt(conductorData.busNumber),
+        email: email, // Restore original email
+        name: conductorData.name, // Use new name from form
+        route: conductorData.route, // Use new route from form
+        password: conductorData.password, // Use new password from form
+        isOnline: false,
+        status: "active", // Change from "deleted" to "active"
+        createdAt: deletedData.createdAt || serverTimestamp(), // Preserve original creation date
+        reactivatedAt: serverTimestamp(), // Mark when it was reactivated
+        reactivatedBy: auth.currentUser?.uid || "system", // Track who reactivated
+        lastSeen: null,
+        currentLocation: null,
+        totalTrips: 0, // Reset trip counters
+        todayTrips: 0,
+        updatedAt: serverTimestamp(),
+        // Remove deleted fields
+        deletedAt: null,
+        deletedBy: null,
+        deletedByEmail: null,
+        originalEmail: null,
+        originalName: null
+      };
+      
+      // Update the existing document
+      await updateDoc(doc(db, 'conductors', conductorDocId), reactivatedData);
+      
+      // Log the reactivation
+      await logActivity(
+        ACTIVITY_TYPES.CONDUCTOR_CREATE,
+        `Reactivated deleted conductor during creation: ${email}`,
+        { 
+          reactivatedEmail: email,
+          reactivatedName: conductorData.name,
+          originalUID: deletedData.uid,
+          conductorDocId: conductorDocId,
+          action: 'conductor_reactivation'
+        }
+      );
+      
+      console.log(`Successfully reactivated conductor: ${email}`);
+      
+      return {
+        success: true,
+        data: {
+          id: conductorDocId,
+          uid: deletedData.uid,
+          ...reactivatedData
+        },
+        message: 'Conductor reactivated successfully',
+        reactivated: true
+      };
+      
+    } catch (error) {
+      console.error('Error reactivating deleted conductor:', error);
+      return null;
+    }
+  }
+
   // Create new conductor (matches your current implementation but with improvements)
   async createConductor(formData) {
     try {
@@ -793,11 +965,11 @@ class ConductorService {
         throw new Error('Password must be at least 6 characters long');
       }
 
-      // Check if conductor already exists
+      // Check if active conductor already exists (allow deleted conductors to be recreated)
       const documentId = this.extractDocumentId(email);
-      const existingConductor = await this.checkConductorExists(documentId);
+      const existingConductor = await this.checkActiveConductorExists(documentId);
       if (existingConductor) {
-        throw new Error('A conductor with this email already exists');
+        throw new Error('An active conductor with this email already exists');
       }
 
       // Create separate Firebase app instance to avoid affecting admin session
@@ -817,8 +989,42 @@ class ConductorService {
       const conductorDb = getFirestore(conductorApp);
 
       // Step 1: Create user in Firebase Authentication using separate app
-      const userCredential = await createUserWithEmailAndPassword(conductorAuth, email, password);
-      const user = userCredential.user;
+      let userCredential, user;
+      
+      try {
+        userCredential = await createUserWithEmailAndPassword(conductorAuth, email, password);
+        user = userCredential.user;
+      } catch (authError) {
+        if (authError.code === 'auth/email-already-in-use') {
+          console.log('Email already in use, attempting to reactivate deleted conductor...');
+          
+          // Try to reactivate a deleted conductor account
+          const reactivatedConductor = await this.reactivateDeletedConductor(email, {
+            busNumber,
+            name,
+            route,
+            password
+          });
+          
+          if (reactivatedConductor) {
+            // Successfully reactivated! Clean up and return
+            try {
+              await conductorApp.delete();
+            } catch (cleanupError) {
+              // Silent cleanup
+            }
+            return reactivatedConductor;
+          }
+          
+          // No deleted conductor found, throw helpful error
+          throw new Error(
+            'This email is already registered in Firebase Authentication. ' +
+            'No deleted conductor account was found to reactivate. ' +
+            'Please use a different email address or contact an administrator to resolve this manually.'
+          );
+        }
+        throw authError;
+      }
 
       // Step 2: Update user profile
       await updateProfile(user, {
@@ -922,6 +1128,25 @@ class ConductorService {
       return conductorDoc.exists();
     } catch (error) {
       console.error('Error checking conductor existence:', error);
+      return false;
+    }
+  }
+
+  // Check if active (non-deleted) conductor exists
+  async checkActiveConductorExists(documentId) {
+    try {
+      const conductorRef = doc(db, 'conductors', documentId);
+      const conductorDoc = await getDoc(conductorRef);
+      
+      if (!conductorDoc.exists()) {
+        return false;
+      }
+      
+      const conductorData = conductorDoc.data();
+      // Return true only if conductor exists AND is not deleted
+      return conductorData.status !== 'deleted';
+    } catch (error) {
+      console.error('Error checking active conductor existence:', error);
       return false;
     }
   }
@@ -1057,7 +1282,7 @@ class ConductorService {
 
   async deleteConductor(conductorId) {
     try {
-      // Get conductor data before deletion for logging and Auth deletion
+      // Get conductor data before deletion for logging
       const conductorRef = doc(db, 'conductors', conductorId);
       const conductorDoc = await getDoc(conductorRef);
       
@@ -1070,73 +1295,49 @@ class ConductorService {
         throw new Error('Conductor not found');
       }
 
-      // Delete from Firebase Auth if UID exists
-      let authDeletionSuccess = false;
-      let authDeletionError = null;
-      
-      if (conductorData?.uid && conductorData?.email) {
-        try {
-          
-          // Create separate Firebase app instance for deletion
-          const firebaseConfig = {
-            apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDjqLNklma1gr3IOwPxiMO5S38hu8UQ2Fc",
-            authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "it-capstone-6fe19.firebaseapp.com",
-            projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "it-capstone-6fe19",
-            storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "it-capstone-6fe19.firebasestorage.app",
-            messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "183068104612",
-            appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:183068104612:web:26109c8ebb28585e265331",
-            measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-0MW2KZMGR2"
-          };
+      // Generate a unique deleted email (similar to admin deletion)
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const deletedEmail = `deleted_${timestamp}_${randomId}@deleted.invalid`;
 
-          const tempApp = initializeApp(firebaseConfig, 'conductor-deletion-' + Date.now());
-          const tempAuth = getAuth(tempApp);
+      // Implement pseudo-delete by modifying the conductor document
+      const deletedConductorData = {
+        ...conductorData,
+        // Change email to deleted format
+        email: deletedEmail,
+        name: `[DELETED] ${conductorData.name}`,
+        status: "deleted",
+        
+        // Store original data
+        originalEmail: conductorData.email,
+        originalName: conductorData.name,
+        
+        // Add deletion metadata
+        deletedAt: serverTimestamp(),
+        deletedBy: auth.currentUser?.uid || 'unknown',
+        deletedByEmail: auth.currentUser?.email || 'unknown',
+        
+        // Keep all other data intact
+        isOnline: false
+      };
 
-          // Use stored password for authentication
-          const storedPassword = conductorData.password;
-          if (storedPassword) {
-            const conductorCredential = await signInWithEmailAndPassword(tempAuth, conductorData.email, storedPassword);
-            
-            await deleteUser(conductorCredential.user);
-            
-            authDeletionSuccess = true;
-          } else {
-          }
+      // Update the document instead of deleting it
+      await updateDoc(conductorRef, deletedConductorData);
 
-          // Clean up temporary app
-          try {
-            await tempApp.delete();
-          } catch (cleanupError) {
-            // Silent cleanup
-          }
-        } catch (authError) {
-          authDeletionError = authError;
-          console.error('Could not delete auth user:', authError);
-          
-          // Handle specific error types
-          if (authError.code === 'auth/user-not-found') {
-            // User already deleted - treat as success
-            authDeletionSuccess = true;
-            authDeletionError = null;
-          }
-        }
+      // Delete all trip data for fresh start on reactivation
+      let tripDeletionResult = { success: false, deletedDates: 0, deletedTrips: 0 };
+      try {
+        tripDeletionResult = await this.deleteAllConductorTrips(conductorId);
+        console.log(`Deleted all trips for conductor: ${conductorId}`, tripDeletionResult);
+      } catch (tripDeletionError) {
+        console.warn('Error deleting conductor trips:', tripDeletionError);
+        // Continue with deletion even if trip cleanup fails
       }
 
-      // Delete from Firestore
-      await deleteDoc(conductorRef);
-
-      // Log the activity with detailed information
-      let logMessage = `Deleted conductor: ${conductorData.name} (${conductorData.email})`;
-      if (authDeletionSuccess) {
-        logMessage += ' - Profile and login account deleted';
-      } else if (authDeletionError) {
-        logMessage += ` - Profile deleted, login deletion failed: ${authDeletionError.code || authDeletionError.message}`;
-      } else {
-        logMessage += ' - Profile deleted, no auth account found';
-      }
-
+      // Log the activity
       await logActivity(
         ACTIVITY_TYPES.CONDUCTOR_DELETE,
-        logMessage,
+        `Deleted conductor (pseudo-delete): ${conductorData.name} (${conductorData.email}) - Removed ${tripDeletionResult.deletedTrips} trips from ${tripDeletionResult.deletedDates} dates`,
         {
           conductorId: conductorId,
           conductorName: conductorData.name,
@@ -1144,20 +1345,24 @@ class ConductorService {
           route: conductorData.route,
           busNumber: conductorData.busNumber,
           uid: conductorData.uid,
-          authDeleted: authDeletionSuccess,
-          authError: authDeletionError?.code || null,
-          passwordStored: !!conductorData.password
+          deletionType: 'pseudo_delete_with_trips',
+          originalEmail: conductorData.email,
+          deletedEmail: deletedEmail,
+          tripsDeleted: tripDeletionResult.success,
+          deletedDates: tripDeletionResult.deletedDates,
+          deletedTrips: tripDeletionResult.deletedTrips
         }
       );
 
-      
       return {
         success: true,
-        authDeleted: authDeletionSuccess,
-        authError: authDeletionError,
-        message: authDeletionSuccess ? 
-          'Conductor and login account deleted completely' : 
-          'Conductor profile deleted' + (authDeletionError ? ` (login deletion failed: ${authDeletionError.code})` : '')
+        message: 'Conductor deleted successfully (pseudo-delete)',
+        originalEmail: conductorData.email,
+        deletedEmail: deletedEmail,
+        deletionType: 'pseudo_delete',
+        tripsDeleted: tripDeletionResult.success,
+        deletedTripsCount: tripDeletionResult.deletedTrips,
+        shouldRefreshList: true // Signal UI to refresh
       };
 
     } catch (error) {
@@ -1234,6 +1439,34 @@ class ConductorService {
     } catch (error) {
       console.error('Error creating conductor document:', error);
       throw error;
+    }
+  }
+
+  // NEW: Force refresh conductor list (call after deletion if real-time doesn't work)
+  async refreshConductorsList() {
+    try {
+      // Remove and recreate all listeners to force refresh
+      this.removeAllListeners();
+      
+      // Small delay to ensure cleanup
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Get fresh data
+      const conductors = await this.getAllConductors();
+      
+      return {
+        success: true,
+        conductors: conductors,
+        message: 'Conductor list refreshed successfully'
+      };
+      
+    } catch (error) {
+      console.error('Error refreshing conductors list:', error);
+      return {
+        success: false,
+        error: error.message,
+        conductors: []
+      };
     }
   }
 

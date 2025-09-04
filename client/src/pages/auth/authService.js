@@ -3,9 +3,108 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, query, where, getDocs, updateDoc, deleteDoc } from "firebase/firestore";
 import { auth, db } from "/src/firebase/firebase.js";
 import { logActivity, ACTIVITY_TYPES } from "/src/pages/settings/auditService.js";
+
+/**
+ * Finds and reactivates a deleted admin account for re-registration
+ * @param {string} email - The email to search for in deleted accounts
+ * @param {string} name - New name for the reactivated account
+ * @returns {Promise<Object|null>} The reactivated user data or null if not found
+ */
+const reactivateDeletedAdmin = async (email, name) => {
+  try {
+    // Search for deleted admin with this original email
+    const adminRef = collection(db, 'Admin');
+    const deletedQuery = query(
+      adminRef, 
+      where('originalEmail', '==', email), 
+      where('status', '==', 'deleted')
+    );
+    const deletedSnapshot = await getDocs(deletedQuery);
+    
+    if (deletedSnapshot.empty) {
+      console.log(`No deleted admin found with originalEmail: ${email}`);
+      return null;
+    }
+    
+    // Get the first deleted admin document
+    const deletedDoc = deletedSnapshot.docs[0];
+    const deletedData = deletedDoc.data();
+    const adminDocId = deletedDoc.id;
+    
+    console.log(`Found deleted admin: ${adminDocId}, reactivating...`);
+    
+    // Regular admin permissions (NO delete permissions)
+    const regularAdminPermissions = [
+      'read_all_users',
+      'write_all_users',
+      'manage_buses',
+      'manage_routes', 
+      'manage_conductors',
+      'view_all_reservations',
+      'manage_system_settings',
+      'view_analytics',
+      'manage_trips',
+      'scan_tickets',
+      'update_booking_status',
+      'view_payments',
+      'manage_notifications'
+    ];
+    
+    // Reactivate the admin account by updating the document
+    const reactivatedData = {
+      uid: deletedData.uid, // Keep the original UID
+      name: name, // Use new name provided during signup
+      email: email, // Restore original email
+      role: "admin", // Reset to regular admin
+      isSuperAdmin: false,
+      permissions: regularAdminPermissions,
+      isActive: true,
+      status: "active", // Change from "deleted" to "active"
+      createdAt: deletedData.createdAt || new Date(), // Preserve original creation date
+      reactivatedAt: new Date(), // Mark when it was reactivated
+      reactivatedBy: "system", // Track who reactivated
+      // Remove deleted fields
+      deletedAt: null,
+      deletedBy: null,
+      deletedByEmail: null,
+      originalEmail: null,
+      originalName: null,
+      originalRole: null
+    };
+    
+    // Update the existing document
+    await updateDoc(doc(db, 'Admin', adminDocId), reactivatedData);
+    
+    // Log the reactivation
+    await logActivity(
+      ACTIVITY_TYPES.USER_CREATE,
+      `Reactivated deleted admin account during signup: ${email}`,
+      { 
+        reactivatedEmail: email,
+        reactivatedName: name,
+        originalUID: deletedData.uid,
+        adminDocId: adminDocId,
+        action: 'account_reactivation'
+      }
+    );
+    
+    console.log(`Successfully reactivated admin account: ${email}`);
+    
+    return {
+      uid: deletedData.uid,
+      email: email,
+      displayName: name,
+      reactivated: true
+    };
+    
+  } catch (error) {
+    console.error('Error reactivating deleted admin:', error);
+    return null;
+  }
+};
 
 /**
  * Signs up an admin user and stores additional data in Firestore.
@@ -16,8 +115,9 @@ import { logActivity, ACTIVITY_TYPES } from "/src/pages/settings/auditService.js
  * @returns {Promise<Object>} The created Firebase user.
  */
 export const signupAdmin = async ({ name, email, password }) => {
-  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-  const user = userCredential.user;
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
 
   // Regular admin permissions (NO delete permissions)
   const regularAdminPermissions = [
@@ -42,20 +142,44 @@ export const signupAdmin = async ({ name, email, password }) => {
     // NO 'system_override' - only superadmin has override powers
   ];
 
-  await setDoc(doc(db, "Admin", user.uid), {
-    uid: user.uid,
-    name,
-    email,
-    role: "admin", // Regular admin by default
-    isSuperAdmin: false, // Explicitly not superadmin
-    permissions: regularAdminPermissions, // ✅ NEW: Explicit permissions
-    isActive: true,
-    createdAt: new Date(),
-    createdBy: "system", // Track who created this admin
-  });
+    await setDoc(doc(db, "Admin", user.uid), {
+      uid: user.uid,
+      name,
+      email,
+      role: "admin", // Regular admin by default
+      isSuperAdmin: false, // Explicitly not superadmin
+      permissions: regularAdminPermissions, // ✅ NEW: Explicit permissions
+      isActive: true,
+      createdAt: new Date(),
+      createdBy: "system", // Track who created this admin
+    });
 
-
-  return user;
+    return user;
+  } catch (error) {
+    // Handle the specific case of email already in use
+    if (error.code === 'auth/email-already-in-use') {
+      console.log('Email already in use, attempting to reactivate deleted account...');
+      
+      // Try to reactivate a deleted admin account
+      const reactivatedUser = await reactivateDeletedAdmin(email, name);
+      
+      if (reactivatedUser) {
+        // Successfully reactivated! Return the user object
+        console.log('Successfully reactivated deleted admin account');
+        return reactivatedUser;
+      }
+      
+      // No deleted account found, throw helpful error
+      throw new Error(
+        'This email is already registered in Firebase Authentication. ' +
+        'No deleted admin account was found to reactivate. ' +
+        'Please use a different email address or contact an administrator to resolve this manually.'
+      );
+    }
+    
+    // Re-throw the original error for other cases
+    throw error;
+  }
 };
 
 /**
