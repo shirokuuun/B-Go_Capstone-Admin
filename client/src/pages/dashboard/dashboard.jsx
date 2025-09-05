@@ -11,6 +11,7 @@ function Dashboard() {
   const [filter, setFilter] = useState('today');
   const [customDate, setCustomDate] = useState('');
   const [userData, setUserData] = useState(null);
+  const [isScrolling, setIsScrolling] = useState(false);
 
   // Authentication useEffect
   useEffect(() => {
@@ -87,6 +88,34 @@ function Dashboard() {
     };
   }, [filter, customDate]);
 
+  // Scroll performance optimization
+  useEffect(() => {
+    let scrollTimer = null;
+    
+    const handleScroll = () => {
+      setIsScrolling(true);
+      
+      // Clear existing timer
+      if (scrollTimer) {
+        clearTimeout(scrollTimer);
+      }
+      
+      // Set timer to re-enable animations after scrolling stops
+      scrollTimer = setTimeout(() => {
+        setIsScrolling(false);
+      }, 150);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (scrollTimer) {
+        clearTimeout(scrollTimer);
+      }
+    };
+  }, []);
+
   const formatTime = (timestamp) => {
     if (!timestamp) return 'Unknown time';
     const date = timestamp.toDate ? timestamp.toDate() : timestamp;
@@ -119,7 +148,7 @@ function Dashboard() {
   };
 
   return (
-    <div className="dashboard-container">
+    <div className={`dashboard-container ${isScrolling ? 'scrolling' : ''}`}>
       {/* Stylish Admin Greeting */}
       {userData && (
         <div className="dashboard-greeting">
@@ -197,6 +226,29 @@ function Dashboard() {
           {/* Trip Summary Card */}
           <div className="trip-summary-card">
             <h3>Trip Summary</h3>
+            
+            {/* Mini Sparkline Chart */}
+            <div className="chart-mini-container">
+              <div className="sparkline-chart">
+                {dashboardData.revenueTrend.slice(-7).map((day, index) => {
+                  const maxTrips = Math.max(...dashboardData.revenueTrend.slice(-7).map(d => d.trips || 0));
+                  const tripCount = day.trips || 0; // Use actual trip count from data
+                  const height = maxTrips === 0 ? 0 : (tripCount / maxTrips) * 100;
+                  
+                  return (
+                    <div key={index} className="sparkline-bar">
+                      <div 
+                        className="spark-fill"
+                        style={{ height: `${height}%` }}
+                        title={`${day.day}: ${tripCount} trips`}
+                      ></div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="chart-label">7-Day Trip Trend</p>
+            </div>
+
             <div className="summary-grid">
               <div className="summary-item">
                 <h4>Total Trips</h4>
@@ -220,6 +272,32 @@ function Dashboard() {
           {/* SOS Requests Summary Card */}
           <div className="sos-summary-card">
             <h3>SOS Requests</h3>
+            
+            {/* Mini Status Bar Chart */}
+            <div className="chart-mini-container sos-chart">
+              <div className="sos-status-bars">
+                <div className="status-bar">
+                  <div className="status-bar-fill pending-bar" 
+                       style={{ width: `${dashboardData.sos.totalRequests === 0 ? 0 : (dashboardData.sos.pendingRequests / dashboardData.sos.totalRequests) * 100}%` }}>
+                  </div>
+                  <span className="status-label">Pending: {dashboardData.sos.pendingRequests}</span>
+                </div>
+                <div className="status-bar">
+                  <div className="status-bar-fill received-bar" 
+                       style={{ width: `${dashboardData.sos.totalRequests === 0 ? 0 : (dashboardData.sos.receivedRequests / dashboardData.sos.totalRequests) * 100}%` }}>
+                  </div>
+                  <span className="status-label">Received: {dashboardData.sos.receivedRequests}</span>
+                </div>
+                <div className="status-bar">
+                  <div className="status-bar-fill completed-bar" 
+                       style={{ width: `${dashboardData.sos.totalRequests === 0 ? 0 : ((dashboardData.sos.totalRequests - dashboardData.sos.pendingRequests - dashboardData.sos.receivedRequests - dashboardData.sos.cancelledRequests) / dashboardData.sos.totalRequests) * 100}%` }}>
+                  </div>
+                  <span className="status-label">Completed: {dashboardData.sos.totalRequests - dashboardData.sos.pendingRequests - dashboardData.sos.receivedRequests - dashboardData.sos.cancelledRequests}</span>
+                </div>
+              </div>
+              <p className="chart-label">Request Status Distribution</p>
+            </div>
+
             <div className="summary-grid">
               <div className="summary-item">
                 <h4>Total Requests</h4>
@@ -243,6 +321,35 @@ function Dashboard() {
           {/* Conductors Summary Card */}
           <div className="conductors-summary-card">
             <h3>Conductors Status</h3>
+            
+            {/* Mini Donut Chart */}
+            <div className="chart-mini-container conductor-chart">
+              <div className="donut-chart-container">
+                <div className="donut-chart">
+                  <div 
+                    className="donut-segment online-segment"
+                    style={{
+                      background: `conic-gradient(from 0deg, #4caf50 0deg ${(dashboardData.conductors.onlinePercentage / 100) * 360}deg, transparent ${(dashboardData.conductors.onlinePercentage / 100) * 360}deg 360deg)`
+                    }}
+                  ></div>
+                  <div className="donut-center">
+                    <span className="donut-percentage">{dashboardData.conductors.onlinePercentage}%</span>
+                    <span className="donut-label">Online</span>
+                  </div>
+                </div>
+                <div className="donut-legend">
+                  <div className="legend-item">
+                    <div className="legend-dot online-dot"></div>
+                    <span>Online ({dashboardData.conductors.onlineConductors})</span>
+                  </div>
+                  <div className="legend-item">
+                    <div className="legend-dot offline-dot"></div>
+                    <span>Offline ({dashboardData.conductors.offlineConductors})</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="summary-grid">
               <div className="summary-item">
                 <h4>Total Conductors</h4>
@@ -266,6 +373,61 @@ function Dashboard() {
           {/* ID Verification Summary Card */}
           <div className="id-verification-summary-card">
             <h3>ID Verification Status</h3>
+            
+            {/* Mini Progress Ring Chart */}
+            <div className="chart-mini-container verification-chart">
+              <div className="progress-ring-container">
+                <div className="progress-ring">
+                  <svg className="progress-svg" viewBox="0 0 120 120">
+                    {/* Background circle */}
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="50"
+                      fill="none"
+                      stroke="rgba(156, 39, 176, 0.1)"
+                      strokeWidth="8"
+                    />
+                    {/* Progress circle */}
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="50"
+                      fill="none"
+                      stroke="url(#verificationGradient)"
+                      strokeWidth="8"
+                      strokeLinecap="round"
+                      strokeDasharray={`${2 * Math.PI * 50}`}
+                      strokeDashoffset={`${2 * Math.PI * 50 * (1 - dashboardData.idVerification.verificationRate / 100)}`}
+                      transform="rotate(-90 60 60)"
+                      className="progress-circle"
+                    />
+                    {/* Gradient definition */}
+                    <defs>
+                      <linearGradient id="verificationGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#9c27b0" />
+                        <stop offset="100%" stopColor="#ba68c8" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div className="progress-center">
+                    <span className="progress-percentage">{dashboardData.idVerification.verificationRate}%</span>
+                    <span className="progress-label">Verified</span>
+                  </div>
+                </div>
+                <div className="verification-stats">
+                  <div className="stat-item">
+                    <div className="stat-dot verified-dot"></div>
+                    <span className="stat-text">Verified: {dashboardData.idVerification.verifiedUsers}</span>
+                  </div>
+                  <div className="stat-item">
+                    <div className="stat-dot pending-dot"></div>
+                    <span className="stat-text">Pending: {dashboardData.idVerification.pendingVerifications}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="summary-grid">
               <div className="summary-item">
                 <h4>Total Users</h4>

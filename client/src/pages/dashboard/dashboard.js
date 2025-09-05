@@ -370,6 +370,7 @@ class DashboardService {
         const dateString = date.toLocaleDateString('en-CA');
         
         let dayRevenue = 0;
+        let dayTrips = 0;
         
         // Get all conductors
         const conductorsRef = collection(db, 'conductors');
@@ -395,6 +396,10 @@ class DashboardService {
                   const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
                   const ticketsSnapshot = await getDocs(ticketsRef);
                   
+                  if (ticketsSnapshot.docs.length > 0) {
+                    dayTrips++; // Count each trip that has tickets
+                  }
+                  
                   ticketsSnapshot.forEach(ticketDoc => {
                     const data = ticketDoc.data();
                     if (data.totalFare && data.quantity) {
@@ -414,7 +419,8 @@ class DashboardService {
         revenueTrend.push({
           date: dateString,
           day: date.toLocaleDateString('en-US', { weekday: 'short' }),
-          revenue: dayRevenue
+          revenue: dayRevenue,
+          trips: dayTrips
         });
       }
       

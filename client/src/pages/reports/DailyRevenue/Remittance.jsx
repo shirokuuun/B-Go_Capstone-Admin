@@ -818,21 +818,7 @@ const RemittanceReport = () => {
               </div>
               <div className="revenue-summary-card">
                 <h3 className="revenue-card-title">Total Trips</h3>
-                <p className="revenue-card-value">
-                  {(() => {
-                    // Count unique trips by combining conductorId, date, and tripNumber
-                    const uniqueTrips = new Set();
-                    
-                    filteredRemittanceData.forEach(trip => {
-                      if (trip.conductorId && trip.tripNumber) {
-                        const tripDate = trip.date || trip.createdAt || 'unknown-date';
-                        uniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripNumber}`);
-                      }
-                    });
-                    
-                    return uniqueTrips.size;
-                  })()}
-                </p>
+                <p className="revenue-card-value">{summary?.totalTrips || 0}</p>
               </div>
               <div className="revenue-summary-card">
                 <h3 className="revenue-card-title">Total Passengers</h3>
@@ -909,7 +895,9 @@ const RemittanceReport = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRemittanceData.map((trip, index) => (
+                    {filteredRemittanceData
+                      .filter(trip => trip.ticketCount > 0) // Only show trips with tickets
+                      .map((trip, index) => (
                       <tr key={index}>
                         <td className="revenue-trip-id">{trip.conductorId}</td>
                         <td className="revenue-trip-id" style={{ width: '60px', fontSize: '12px', textAlign: 'center', padding: '8px 4px' }}>{conductorData[trip.conductorId]?.busNumber || 'N/A'}</td>
@@ -934,13 +922,13 @@ const RemittanceReport = () => {
                     {/* Total Row */}
                     <tr style={{ backgroundColor: '#f8f9fa', fontWeight: 'bold', borderTop: '2px solid #dee2e6' }}>
                       <td colSpan="5" style={{ textAlign: 'right', padding: '12px', fontSize: '14px' }}>
-                        <strong>TOTAL ({filteredRemittanceData.length} trips):</strong>
+                        <strong>TOTAL ({filteredRemittanceData.filter(trip => trip.ticketCount > 0).length} trips):</strong>
                       </td>
                       <td style={{ textAlign: 'center', width: '40px', fontSize: '12px', padding: '12px 4px' }}>
-                        <strong>{filteredRemittanceData.reduce((sum, trip) => sum + trip.ticketCount, 0)}</strong>
+                        <strong>{filteredRemittanceData.filter(trip => trip.ticketCount > 0).reduce((sum, trip) => sum + trip.ticketCount, 0)}</strong>
                       </td>
                       <td className="revenue-fare-amount" style={{ width: '70px', fontSize: '12px', padding: '12px 4px' }}>
-                        <strong>{formatCurrency(filteredRemittanceData.reduce((sum, trip) => sum + trip.totalRevenue, 0))}</strong>
+                        <strong>{formatCurrency(filteredRemittanceData.filter(trip => trip.ticketCount > 0).reduce((sum, trip) => sum + trip.totalRevenue, 0))}</strong>
                       </td>
                     </tr>
                   </tbody>
@@ -999,7 +987,7 @@ const RemittanceReport = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {trips.filter(trip => trip.conductorId).map((trip, tripIndex) => (
+                          {trips.filter(trip => trip.conductorId && trip.ticketCount > 0).map((trip, tripIndex) => (
                             <tr key={tripIndex}>
                               <td className="revenue-trip-id">
                                 {trip.tripNumber}

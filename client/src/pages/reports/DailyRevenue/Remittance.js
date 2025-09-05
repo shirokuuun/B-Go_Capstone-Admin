@@ -404,31 +404,39 @@ export const loadRemittanceData = async (selectedDate) => {
 // Function to calculate remittance summary
 export const calculateRemittanceSummary = (remittanceData) => {
   // Count unique trips by combining conductorId, date, and tripNumber
+  // Only count trips that have tickets (ticketCount > 0)
   const uniqueTrips = new Set();
   
   const summary = remittanceData.reduce((acc, trip) => {
-    // Add to unique trips set with date to distinguish trips with same name on different days
-    if (trip.conductorId && trip.tripNumber) {
-      const tripDate = trip.date || trip.createdAt || 'unknown-date';
-      uniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripNumber}`);
+    // Only process trips that have tickets
+    if (trip.ticketCount > 0) {
+      // Add to unique trips set with date to distinguish trips with same name on different days
+      if (trip.conductorId && trip.tripNumber) {
+        const tripDate = trip.date || trip.createdAt || 'unknown-date';
+        uniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripNumber}`);
+      }
+      
+      return {
+        totalRevenue: acc.totalRevenue + trip.totalRevenue,
+        totalPassengers: acc.totalPassengers + trip.totalPassengers,
+        totalTickets: acc.totalTickets + trip.ticketCount
+      };
     }
     
-    return {
-      totalRevenue: acc.totalRevenue + trip.totalRevenue,
-      totalPassengers: acc.totalPassengers + trip.totalPassengers,
-      totalTickets: acc.totalTickets + trip.ticketCount
-    };
+    // Return unchanged accumulator for trips with 0 tickets
+    return acc;
   }, { 
     totalRevenue: 0, 
     totalPassengers: 0, 
     totalTickets: 0
   });
 
-  // Set totalTrips to the count of unique trips
+  // Set totalTrips to the count of unique trips with tickets
   summary.totalTrips = uniqueTrips.size;
   summary.averageFare = summary.totalPassengers > 0 ? summary.totalRevenue / summary.totalPassengers : 0;
   
   console.log('📊 Remittance summary calculated:', summary);
+  console.log(`📋 Excluded ${remittanceData.length - uniqueTrips.size} trips with 0 tickets`);
   return summary;
 };
 
