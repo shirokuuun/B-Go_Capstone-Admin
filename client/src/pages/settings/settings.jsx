@@ -1,6 +1,7 @@
 import '/src/pages/settings/settings.css';
 import Header from '/src/components/HeaderTemplate/header.jsx';
-import { MdDeleteForever, MdBackup, MdCloudDownload } from "react-icons/md";
+import { MdDeleteForever, MdBackup, MdCloudDownload, MdRestore } from "react-icons/md";
+import { FaDownload } from "react-icons/fa6";
 import { IoMdArrowDropdownCircle } from "react-icons/io";
 import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
 import { RiEdit2Fill } from "react-icons/ri";
@@ -31,6 +32,54 @@ import { onSnapshot, collection, query, orderBy, limit, where } from 'firebase/f
 import { db } from '/src/firebase/firebase.js';
 
 function Settings() {
+  // Helper function to safely render values in JSX
+// Updated safeRender function to handle all data types safely
+const safeRender = (value) => {
+  // Handle null/undefined
+  if (value === null || value === undefined) return '';
+  
+  // Handle primitive types that React can render directly
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+  
+  // Handle Date objects
+  if (value instanceof Date) {
+    return value.toLocaleString();
+  }
+  
+  // Handle arrays - render each element safely
+  if (Array.isArray(value)) {
+    return value.map((item, index) => (
+      <span key={index} style={{ display: 'block' }}>
+        {safeRender(item)}
+      </span>
+    ));
+  }
+  
+  // Handle objects - convert to readable string format
+  if (typeof value === 'object') {
+    try {
+      // For objects, create a more readable format
+      if (Object.keys(value).length === 0) {
+        return '{}';
+      }
+      
+      // Create a formatted string representation
+      const formatted = Object.entries(value)
+        .map(([key, val]) => `${key}: ${JSON.stringify(val)}`)
+        .join(', ');
+      
+      return `{${formatted}}`;
+    } catch (error) {
+      return '[Object - cannot display]';
+    }
+  }
+  
+  // Fallback for any other type
+  return String(value);
+};
+
   const [collapsed, setCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('account');
   const [adminTab, setAdminTab] = useState('logs'); // 'logs', 'users', or 'backup'
@@ -74,6 +123,16 @@ function Settings() {
   const [selectedCollections, setSelectedCollections] = useState([]);
   const [backupFiles, setBackupFiles] = useState([]);
   const [backupFilesLoading, setBackupFilesLoading] = useState(false);
+
+  // Restore system state
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [selectedBackupFile, setSelectedBackupFile] = useState(null);
+  const [restoreMode, setRestoreMode] = useState('missing_only');
+  const [restoreProgress, setRestoreProgress] = useState(null);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [showRestoreConfirmation, setShowRestoreConfirmation] = useState(false);
+  const [restoreConfirmationText, setRestoreConfirmationText] = useState('');
+  const [uploadedBackupFile, setUploadedBackupFile] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -521,6 +580,143 @@ function Settings() {
     }
   }, [adminTab, userData]);
 
+  // Restore handlers
+  const handleRestoreClick = (file, event) => {
+    setSelectedBackupFile(file);
+    
+    // Calculate position relative to the clicked button
+    if (event && event.target) {
+      const buttonRect = event.target.getBoundingClientRect();
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      
+      // Position modal near the button (with some offset)
+      const modalTop = Math.max(50, buttonRect.top + scrollTop - 100);
+      
+      // Set CSS custom property for modal positioning
+      document.documentElement.style.setProperty('--restore-modal-top', `${modalTop}px`);
+    }
+    
+    setShowRestoreModal(true);
+  };
+
+  const handleRestoreConfirm = () => {
+    setShowRestoreModal(false);
+    setShowRestoreConfirmation(true);
+  };
+
+  const handleRestoreCancel = () => {
+    setShowRestoreModal(false);
+    setSelectedBackupFile(null);
+    setRestoreMode('missing_only');
+    setRestoreConfirmationText('');
+  };
+
+  const handleRestoreExecute = async () => {
+    setShowRestoreConfirmation(false);
+    setIsRestoring(true);
+    setRestoreProgress({
+      phase: 'initializing',
+      totalConductors: 0,
+      processedConductors: 0,
+      totalSubcollections: 0,
+      processedSubcollections: 0,
+      totalDocuments: 0,
+      processedDocuments: 0,
+      errors: [],
+      currentConductor: null,
+      currentCollection: null,
+      startTime: Date.now(),
+      estimatedTimeRemaining: null
+    });
+
+    try {
+      // Determine which backup file to use - prioritize uploaded file
+      const backupFileToUse = uploadedBackupFile || selectedBackupFile;
+      
+      if (!backupFileToUse) {
+        throw new Error('No backup file selected or uploaded');
+      }
+      
+      // Use the real restore logic from backupService
+      const result = await backupService.restoreFromBackup(backupFileToUse, {
+        mode: restoreMode,
+        progressCallback: (progress) => setRestoreProgress(progress)
+      });
+      
+      if (result.success) {
+        const docsRestored = typeof result.documentsRestored === 'number' ? result.documentsRestored : 'unknown';
+        setMessage(`✅ Data restored successfully! ${docsRestored} documents processed.`);
+        if (result.errors && result.errors.length > 0) {
+          setError(`⚠️ Restore completed with ${result.errors.length} errors. Check the error log for details.`);
+        }
+      } else {
+        const errorMsg = typeof result.error === 'string' ? result.error : JSON.stringify(result.error);
+        throw new Error(errorMsg);
+      }
+      
+      setTimeout(() => {
+        setIsRestoring(false);
+        setRestoreProgress(null);
+        setSelectedBackupFile(null);
+      }, 3000);
+      
+    } catch (err) {
+      setError(`❌ Restore failed: ${err.message}`);
+      setIsRestoring(false);
+      setRestoreProgress(null);
+    }
+  };
+
+
+  const handleRestoreCancelProgress = () => {
+    // TODO: Implement cancel logic
+    setIsRestoring(false);
+    setRestoreProgress(null);
+    setError('Restore operation cancelled');
+  };
+
+  // Upload backup file handlers
+  const handleUploadBackupFile = async (file) => {
+    try {
+      setError('');
+      setMessage('');
+
+      const result = await backupService.parseUploadedBackup(file);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      const uploadedData = result.data;
+      const backupInfo = {
+        fileName: file.name,
+        createdAt: uploadedData.metadata?.createdAt || new Date().toISOString(),
+        collections: uploadedData.metadata?.collections || [],
+        totalDocuments: Object.values(uploadedData.data || {}).reduce((sum, collection) => {
+          return sum + (collection.count || collection.documents?.length || 0);
+        }, 0),
+        uploadedData: uploadedData
+      };
+
+      setUploadedBackupFile(backupInfo);
+      setSelectedBackupFile(backupInfo);
+      setMessage(`✅ Backup file "${file.name}" loaded successfully! Click restore to proceed.`);
+    } catch (error) {
+      setError(`❌ Failed to upload backup file: ${error.message}`);
+    }
+  };
+
+  const handleFileInputChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+        setError('Please select a JSON backup file');
+        return;
+      }
+      handleUploadBackupFile(file);
+    }
+  };
+
+
   if (authLoading || !userData) {
     return <div className="settings-loading-container">Loading...</div>;
   }
@@ -528,8 +724,8 @@ function Settings() {
   return (
     <div className="settings-container">
       {/* Messages */}
-      {message && <div className="settings-message-success">{message}</div>}
-      {error && <div className="settings-message-error">{error}</div>}
+      {message && <div className="settings-message-success">{safeRender(message)}</div>}
+      {error && <div className="settings-message-error">{safeRender(error)}</div>}
 
       <div className="settings-grid">
         {/* Account & Profile Section */}
@@ -571,7 +767,7 @@ function Settings() {
                   </div>
                 ) : (
                   <div className="settings-username-display">
-                    <span className="settings-info-value">{userData.name}</span>
+                    <span className="settings-info-value">{safeRender(userData.name)}</span>
                     <button
                       onClick={handleUsernameEdit}
                       className="settings-username-edit-btn"
@@ -583,7 +779,7 @@ function Settings() {
               </div>
               <div className="settings-info-row">
                 <span className="settings-info-label">Email</span>
-                <span className="settings-info-value">{userData.email}</span>
+                <span className="settings-info-value">{safeRender(userData.email)}</span>
               </div>
               <div className="settings-info-row">
                 <span className="settings-info-label">Role</span>
@@ -798,7 +994,7 @@ function Settings() {
                           {user.name || 'N/A'}
                           {user.id === userData.id && <span className="settings-current-badge"> (You)</span>}
                         </span>
-                        <span className="settings-admin-user-email">{user.email}</span>
+                        <span className="settings-admin-user-email">{safeRender(user.email)}</span>
                         <span className={`settings-admin-user-role role-${user.role}`}>
                           {user.role === 'superadmin' ? ' SuperAdmin' : ' Admin'}
                         </span>
@@ -945,7 +1141,7 @@ function Settings() {
                                 {log.activityType.replace(/_/g, ' ')}
                               </span>
                               <span className="settings-log-description">
-                                {log.description}
+                                {safeRender(log.description)}
                               </span>
                               <span className={`settings-log-severity ${log.severity}`}>
                                 {log.severity}
@@ -1058,7 +1254,7 @@ function Settings() {
                 <div className="backup-section">
                   <div className="backup-section-header">
                     <MdCloudDownload size={24} />
-                    <h3>Existing Backups</h3>
+                    <h3>Backup Files Management</h3>
                   </div>
                   {backupFilesLoading ? (
                     <div className="backup-loading">Loading backup files...</div>
@@ -1113,14 +1309,16 @@ function Settings() {
                               <button
                                 onClick={() => handleDownloadBackup(file.fileName)}
                                 className="backup-download-btn"
-                                title="Download backup"
+                                title="Download backup file"
+                                disabled={isRestoring}
                               >
-                                <MdCloudDownload size={18} />
+                                <FaDownload size={16} />
                               </button>
                               <button
                                 onClick={() => handleDeleteBackup(file.id || file.backupId, file.fileName)}
                                 className="backup-delete-btn"
-                                title="Delete backup"
+                                title="Delete backup from storage"
+                                disabled={isRestoring}
                               >
                                 <MdDeleteForever size={18} />
                               </button>
@@ -1130,6 +1328,81 @@ function Settings() {
                       })}
                     </div>
                   )}
+                </div>
+
+                {/* Restore and Upload Grid */}
+                <div className="backup-grid">
+                  {/* Restore Data Section */}
+                  <div className="backup-section">
+                    <div className="backup-section-header">
+                      <MdRestore size={24} />
+                      <h3>Restore Data from Backup</h3>
+                    </div>
+                    <div className="restore-info-container">
+                      <p>To restore data from a backup file:</p>
+                      <ol className="restore-steps">
+                        <li>Download a backup file from below</li>
+                        <li>Upload it using the section on the right</li>
+                        <li>Choose your restore mode and click "Restore"</li>
+                      </ol>
+                      {uploadedBackupFile && (
+                        <div className="restore-ready-notice">
+                          <div className="restore-ready-header">
+                            <span>✅ Ready to Restore</span>
+                            <button 
+                              onClick={() => {
+                                setUploadedBackupFile(null);
+                                setMessage('📤 Uploaded backup file cleared.');
+                              }}
+                              className="clear-uploaded-btn"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                          <div className="restore-ready-details">
+                            <span>File: {uploadedBackupFile.fileName}</span>
+                            <span>Collections: {uploadedBackupFile.collections?.length || 0}</span>
+                            <span>Documents: ~{uploadedBackupFile.totalDocuments || 0}</span>
+                          </div>
+                          <button 
+                            onClick={() => setShowRestoreModal(true)}
+                            className="restore-execute-btn"
+                            disabled={isRestoring}
+                          >
+                            <MdRestore size={18} />
+                            Restore Now
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Upload Backup File Section */}
+                  <div className="backup-section">
+                    <div className="backup-section-header">
+                      <MdBackup size={24} />
+                      <h3>Upload Backup File</h3>
+                    </div>
+                    <div className="backup-upload-container">
+                      <p>Select a backup JSON file from your computer:</p>
+                      <div className="backup-upload-actions">
+                        {/* Inline File Upload */}
+                        <div className="backup-upload-input-container">
+                          <input
+                            type="file"
+                            accept=".json"
+                            onChange={handleFileInputChange}
+                            className="backup-upload-input"
+                            id="backup-file-input"
+                          />
+                          <label htmlFor="backup-file-input" className="backup-upload-label">
+                            <MdRestore size={20} />
+                            Choose JSON Backup File
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Backup Info Section */}
@@ -1150,6 +1423,371 @@ function Settings() {
         </div>
         )}
 
+        {/* Restore Modal */}
+        {showRestoreModal && uploadedBackupFile && (
+          <div className="restore-modal-overlay">
+            <div className="restore-modal">
+              <div className="restore-modal-header">
+                <h2>🔄 Restore Data from Backup</h2>
+                <button onClick={handleRestoreCancel} className="restore-modal-close">✕</button>
+              </div>
+              
+              <div className="restore-modal-content">
+                <div className="restore-backup-info">
+                  <h3>📁 Backup File</h3>
+                  <div className="restore-backup-details">
+                    <div className="restore-backup-item">
+                      <span className="restore-backup-label">File:</span>
+                      <span className="restore-backup-value">{safeRender(uploadedBackupFile.fileName)}</span>
+                    </div>
+                    <div className="restore-backup-item">
+                      <span className="restore-backup-label">Created:</span>
+                      <span className="restore-backup-value">{new Date(uploadedBackupFile.createdAt).toLocaleString()}</span>
+                    </div>
+                    <div className="restore-backup-item">
+                      <span className="restore-backup-label">Collections:</span>
+                      <span className="restore-backup-value">
+                        <div className="restore-collections-tags">
+                          {(uploadedBackupFile.collections || []).map(collection => (
+                            <span key={collection} className="restore-collection-tag">
+                              {BACKUP_COLLECTIONS[collection.toUpperCase()]?.name || collection}
+                            </span>
+                          ))}
+                        </div>
+                      </span>
+                    </div>
+                    <div className="restore-backup-item">
+                      <span className="restore-backup-label">Documents:</span>
+                      <span className="restore-backup-value">{uploadedBackupFile.totalDocuments || 'Unknown'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="restore-mode-section">
+                  <h3>⚙️ Restore Mode</h3>
+                  <div className="restore-mode-options">
+                    <label className={`restore-mode-option ${restoreMode === 'missing_only' ? 'selected' : ''}`}>
+                      <input
+                        type="radio"
+                        name="restoreMode"
+                        value="missing_only"
+                        checked={restoreMode === 'missing_only'}
+                        onChange={(e) => setRestoreMode(e.target.value)}
+                      />
+                      <div className="restore-mode-content">
+                        <div className="restore-mode-title">
+                          <span className="restore-mode-icon">➕</span>
+                          <strong>Missing Only (Recommended)</strong>
+                        </div>
+                        <div className="restore-mode-description">
+                          Only restore documents that don't exist. Keeps your existing data safe.
+                        </div>
+                      </div>
+                    </label>
+
+                    <label className={`restore-mode-option ${restoreMode === 'merge' ? 'selected' : ''}`}>
+                      <input
+                        type="radio"
+                        name="restoreMode"
+                        value="merge"
+                        checked={restoreMode === 'merge'}
+                        onChange={(e) => setRestoreMode(e.target.value)}
+                      />
+                      <div className="restore-mode-content">
+                        <div className="restore-mode-title">
+                          <span className="restore-mode-icon">🔄</span>
+                          <strong>Merge Data</strong>
+                        </div>
+                        <div className="restore-mode-description">
+                          Combine backup data with existing data. Backup data takes precedence on conflicts.
+                        </div>
+                      </div>
+                    </label>
+
+                    <label className={`restore-mode-option ${restoreMode === 'overwrite' ? 'selected' : ''}`}>
+                      <input
+                        type="radio"
+                        name="restoreMode"
+                        value="overwrite"
+                        checked={restoreMode === 'overwrite'}
+                        onChange={(e) => setRestoreMode(e.target.value)}
+                      />
+                      <div className="restore-mode-content">
+                        <div className="restore-mode-title">
+                          <span className="restore-mode-icon">⚠️</span>
+                          <strong>Overwrite All</strong>
+                        </div>
+                        <div className="restore-mode-description">
+                          Replace all existing data with backup data. <span className="restore-warning">Use with caution!</span>
+                        </div>
+                      </div>
+                    </label>
+
+                    <label className={`restore-mode-option ${restoreMode === 'backup_first' ? 'selected' : ''}`}>
+                      <input
+                        type="radio"
+                        name="restoreMode"
+                        value="backup_first"
+                        checked={restoreMode === 'backup_first'}
+                        onChange={(e) => setRestoreMode(e.target.value)}
+                      />
+                      <div className="restore-mode-content">
+                        <div className="restore-mode-title">
+                          <span className="restore-mode-icon">💾</span>
+                          <strong>Backup First</strong>
+                        </div>
+                        <div className="restore-mode-description">
+                          Create a backup of current data before overwriting. Safest option for full restore.
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="restore-warning-section">
+                  <div className="restore-warning-box">
+                    <span className="restore-warning-icon">⚠️</span>
+                    <div className="restore-warning-content">
+                      <strong>Important:</strong> This operation cannot be undone. Make sure you have selected the correct restore mode.
+                      {restoreMode === 'overwrite' && (
+                        <div className="restore-critical-warning">
+                          <strong>CRITICAL:</strong> Overwrite mode will replace ALL existing data!
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="restore-modal-actions">
+                <button onClick={handleRestoreCancel} className="restore-btn-cancel">
+                  Cancel
+                </button>
+                <button onClick={handleRestoreConfirm} className="restore-btn-confirm">
+                  Continue to Confirmation
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Restore Confirmation Dialog */}
+        {showRestoreConfirmation && selectedBackupFile && (
+          <div className="restore-modal-overlay">
+            <div className="restore-confirmation-modal">
+              <div className="restore-confirmation-header">
+                <h2>🚨 Final Confirmation</h2>
+              </div>
+              
+              <div className="restore-confirmation-content">
+                <div className="restore-confirmation-summary">
+                  <h3>You are about to restore:</h3>
+                  <div className="restore-confirmation-details">
+                    <div className="restore-confirmation-item">
+                      <strong>File:</strong> {selectedBackupFile.fileName}
+                    </div>
+                    <div className="restore-confirmation-item">
+                      <strong>Mode:</strong> 
+                      <span className={`restore-mode-badge ${restoreMode}`}>
+                        {restoreMode === 'missing_only' && '➕ Missing Only'}
+                        {restoreMode === 'merge' && '🔄 Merge Data'}
+                        {restoreMode === 'overwrite' && '⚠️ Overwrite All'}
+                        {restoreMode === 'backup_first' && '💾 Backup First'}
+                      </span>
+                    </div>
+                    <div className="restore-confirmation-item">
+                      <strong>Collections:</strong> {(selectedBackupFile.collections || []).length} collections
+                    </div>
+                    <div className="restore-confirmation-item">
+                      <strong>Documents:</strong> ~{selectedBackupFile.totalDocuments || 'Unknown'} documents
+                    </div>
+                  </div>
+                </div>
+
+                <div className="restore-confirmation-warning">
+                  <div className="restore-confirmation-warning-box">
+                    <span className="restore-warning-icon">⚠️</span>
+                    <div>
+                      <strong>This action cannot be undone!</strong>
+                      <p>Type "RESTORE" to confirm you want to proceed:</p>
+                    </div>
+                  </div>
+                  <input
+                    type="text"
+                    className="restore-confirmation-input"
+                    placeholder="Type RESTORE to confirm"
+                    value={restoreConfirmationText}
+                    onChange={(e) => setRestoreConfirmationText(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="restore-confirmation-actions">
+                <button 
+                  onClick={() => {
+                    setShowRestoreConfirmation(false);
+                    setRestoreConfirmationText('');
+                  }} 
+                  className="restore-btn-cancel"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleRestoreExecute} 
+                  className="restore-btn-execute"
+                  disabled={restoreConfirmationText !== 'RESTORE'}
+                >
+                  Execute Restore
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Restore Progress Modal */}
+        {isRestoring && restoreProgress && (
+          <div className="restore-modal-overlay">
+            <div className="restore-progress-modal">
+              <div className="restore-progress-header">
+                <h2>
+                  {restoreProgress.phase === 'analyzing' && '🔍 Analyzing Backup Data'}
+                  {restoreProgress.phase === 'restoring' && '📥 Restoring Data'}
+                  {restoreProgress.phase === 'completed' && '✅ Restore Completed'}
+                  {restoreProgress.phase === 'failed' && '❌ Restore Failed'}
+                  {restoreProgress.phase === 'initializing' && '⏳ Initializing'}
+                </h2>
+                {restoreProgress.phase === 'restoring' && (
+                  <button onClick={handleRestoreCancelProgress} className="restore-cancel-btn">
+                    Cancel
+                  </button>
+                )}
+              </div>
+
+              <div className="restore-progress-content">
+                {/* Overall Progress */}
+                <div className="restore-progress-section">
+                  <div className="restore-progress-info">
+                    <span>Overall Progress</span>
+                    <span>{restoreProgress.processedDocuments}/{restoreProgress.totalDocuments} documents</span>
+                  </div>
+                  <div className="restore-progress-bar">
+                    <div 
+                      className="restore-progress-fill"
+                      style={{ 
+                        width: `${restoreProgress.totalDocuments > 0 ? (restoreProgress.processedDocuments / restoreProgress.totalDocuments) * 100 : 0}%` 
+                      }}
+                    />
+                  </div>
+                  <div className="restore-progress-percentage">
+                    {restoreProgress.totalDocuments > 0 ? Math.round((restoreProgress.processedDocuments / restoreProgress.totalDocuments) * 100) : 0}%
+                  </div>
+                </div>
+
+                {/* Conductors Progress */}
+                {restoreProgress.totalConductors > 0 && (
+                  <div className="restore-progress-section">
+                    <div className="restore-progress-info">
+                      <span>Conductors</span>
+                      <span>{restoreProgress.processedConductors}/{restoreProgress.totalConductors}</span>
+                    </div>
+                    <div className="restore-progress-bar">
+                      <div 
+                        className="restore-progress-fill conductor"
+                        style={{ 
+                          width: `${(restoreProgress.processedConductors / restoreProgress.totalConductors) * 100}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Subcollections Progress */}
+                {restoreProgress.totalSubcollections > 0 && (
+                  <div className="restore-progress-section">
+                    <div className="restore-progress-info">
+                      <span>Subcollections</span>
+                      <span>{restoreProgress.processedSubcollections}/{restoreProgress.totalSubcollections}</span>
+                    </div>
+                    <div className="restore-progress-bar">
+                      <div 
+                        className="restore-progress-fill subcollection"
+                        style={{ 
+                          width: `${(restoreProgress.processedSubcollections / restoreProgress.totalSubcollections) * 100}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Current Status */}
+                <div className="restore-status-section">
+                {restoreProgress.currentConductor && (
+                  <div className="restore-current-status">
+                    <span className="restore-current-label">Current conductor:</span>
+                    <span className="restore-current-value">
+                      {safeRender(restoreProgress.currentConductor)}
+                    </span>
+                  </div>
+                )}
+
+                {restoreProgress.currentCollection && (
+                  <div className="restore-current-status">
+                    <span className="restore-current-label">Status:</span>
+                    <span className="restore-current-value">
+                      {safeRender(restoreProgress.currentCollection)}
+                    </span>
+                  </div>
+                )}
+
+                {restoreProgress.errors && restoreProgress.errors.length > 0 && (
+                  <div className="restore-errors">
+                    <h4>⚠️ Errors ({restoreProgress.errors.length}):</h4>
+                    <ul>
+                      {restoreProgress.errors.slice(-3).map((error, index) => (
+                        <li key={index}>{safeRender(error)}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+
+                {/* Completion Actions */}
+                {(restoreProgress.phase === 'completed' || restoreProgress.phase === 'failed') && (
+                  <div className="restore-completion-actions">
+                    <button 
+                      onClick={() => {
+                        setIsRestoring(false);
+                        setRestoreProgress(null);
+                        setSelectedBackupFile(null);
+                      }} 
+                      className="restore-close-btn"
+                    >
+                      Close
+                    </button>
+                    {restoreProgress.errors && restoreProgress.errors.length > 0 && (
+                      <button 
+                        onClick={() => {
+                          const errorLog = restoreProgress.errors.join('\n');
+                          const blob = new Blob([errorLog], { type: 'text/plain' });
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `restore-errors-${new Date().toISOString().split('T')[0]}.txt`;
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                        }} 
+                        className="restore-export-errors-btn"
+                      >
+                        Export Error Log
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          </div>
+        )}
 
 
       </div>

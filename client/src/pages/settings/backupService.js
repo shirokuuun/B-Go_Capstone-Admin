@@ -7,16 +7,20 @@ import {
   deleteDoc,
   query,
   where,
-  orderBy 
+  orderBy,
+  getDoc,
+  writeBatch,
+  runTransaction 
 } from 'firebase/firestore';
 import { 
   ref, 
   uploadBytes, 
   listAll, 
   deleteObject,
-  getDownloadURL 
+  getDownloadURL,
+  getBytes 
 } from 'firebase/storage';
-import { db, storage } from '/src/firebase/firebase.js';
+import { db, storage, auth } from '/src/firebase/firebase.js';
 import { logActivity, ACTIVITY_TYPES } from './auditService.js';
 
 // Available data collections for backup
@@ -569,6 +573,385 @@ class BackupService {
       this.cleanupExpiredBackups();
     }, 24 * 60 * 60 * 1000);
   }
+
+  /**
+   * Restore data from a backup file
+   * @param {Object} backupFile - The backup file metadata
+   * @param {Object} options - Restore options
+   * @param {string} options.mode - Restore mode: 'missing_only', 'merge', 'overwrite', 'backup_first'
+   * @param {Function} options.progressCallback - Progress callback function
+   * @returns {Promise<Object>} Restore result
+   */
+  async restoreFromBackup(backupFile, options = {}) {
+    const { mode = 'missing_only', progressCallback } = options;
+    
+    try {
+      // Initialize progress
+      const progress = {
+        phase: 'initializing',
+        totalConductors: 0,
+        processedConductors: 0,
+        totalSubcollections: 0,
+        processedSubcollections: 0,
+        totalDocuments: 0,
+        processedDocuments: 0,
+        errors: [],
+        currentConductor: null,
+        currentCollection: null,
+        startTime: Date.now(),
+        estimatedTimeRemaining: null
+      };
+
+      if (progressCallback) progressCallback(progress);
+
+      // First, fetch the backup data
+      progress.phase = 'analyzing';
+      progress.currentCollection = 'Loading backup data...';
+      if (progressCallback) progressCallback(progress);
+
+      const backupData = await this.getBackupData(backupFile);
+      if (!backupData.success) {
+        throw new Error(backupData.error);
+      }
+
+      // Analyze backup to get totals for progress tracking
+      const analysisResult = this.analyzeBackupData(backupData.data);
+      progress.totalDocuments = analysisResult.totalDocuments;
+      progress.totalConductors = analysisResult.totalConductors;
+      progress.totalSubcollections = analysisResult.totalSubcollections;
+
+      // Handle backup_first mode
+      if (mode === 'backup_first') {
+        progress.phase = 'creating_backup';
+        progress.currentCollection = 'Creating backup of current data...';
+        if (progressCallback) progressCallback(progress);
+
+        const preBackupResult = await this.createBackup(
+          backupData.data.metadata.collections,
+          `pre-restore-backup-${Date.now()}`
+        );
+        
+        if (!preBackupResult.success) {
+          throw new Error(`Failed to create pre-restore backup: ${preBackupResult.error}`);
+        }
+      }
+
+      // Start restoration process
+      progress.phase = 'restoring';
+      if (progressCallback) progressCallback(progress);
+
+      // Restore based on mode
+      switch (mode) {
+        case 'missing_only':
+          await this.restoreMissingOnly(backupData.data, progress, progressCallback);
+          break;
+        case 'merge':
+          await this.restoreMerge(backupData.data, progress, progressCallback);
+          break;
+        case 'overwrite':
+          await this.restoreOverwrite(backupData.data, progress, progressCallback);
+          break;
+        case 'backup_first':
+          // After creating backup, proceed with overwrite
+          await this.restoreOverwrite(backupData.data, progress, progressCallback);
+          break;
+        default:
+          throw new Error(`Unknown restore mode: ${mode}`);
+      }
+
+      progress.phase = 'completed';
+      progress.currentCollection = 'Restore completed successfully!';
+      if (progressCallback) progressCallback(progress);
+
+      // Log the restoration
+      await logActivity(
+        ACTIVITY_TYPES.SYSTEM_BACKUP,
+        `Restored data from backup: ${backupFile.fileName} (mode: ${mode})`,
+        {
+          backupFile: backupFile.fileName,
+          mode,
+          documentsRestored: progress.processedDocuments,
+          errors: progress.errors.length
+        }
+      );
+
+      return {
+        success: true,
+        documentsRestored: progress.processedDocuments,
+        errors: progress.errors
+      };
+
+    } catch (error) {
+      console.error('Restore failed:', error);
+      
+      await logActivity(
+        ACTIVITY_TYPES.SYSTEM_ERROR,
+        `Restore failed: ${error.message}`,
+        {
+          backupFile: backupFile.fileName,
+          mode,
+          error: error.message
+        }
+      );
+
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Get backup data from file or uploaded JSON
+   * @param {Object} backupFile - Backup file metadata or uploaded file data
+   * @returns {Promise<Object>} Backup data
+   */
+  async getBackupData(backupFile) {
+    try {
+      // If backupFile has uploadedData, use it directly
+      if (backupFile.uploadedData) {
+        return { success: true, data: backupFile.uploadedData };
+      }
+
+      const { collection, getDocs, query, where } = await import('firebase/firestore');
+      
+      // Fetch backup metadata
+      const backupsRef = collection(db, 'systemBackups');
+      const snapshot = await getDocs(query(backupsRef, where('fileName', '==', backupFile.fileName)));
+      
+      if (snapshot.empty) {
+        throw new Error('Backup metadata not found');
+      }
+
+      const backupMetadata = snapshot.docs[0].data();
+      
+      // Try to download from Firebase Storage first
+      try {
+        const storageRef = ref(storage, `${this.backupFolder}/${backupFile.fileName}`);
+        
+        // Try using the stored download URL from metadata
+        if (backupMetadata.downloadURL) {
+          // Create a temporary link to download the file
+          const link = document.createElement('a');
+          link.href = backupMetadata.downloadURL;
+          link.download = backupFile.fileName;
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          
+          // Prompt user to download and upload the file manually
+          throw new Error('Please download the backup file manually and upload it using the file input below');
+        }
+      } catch (storageError) {
+        console.log('Firebase Storage access failed, falling back to manual upload');
+        throw new Error('Cannot access backup file from Firebase Storage. Please upload the backup file manually.');
+      }
+
+      return { success: false, error: 'Backup file not accessible' };
+      
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Parse uploaded backup file
+   * @param {File} file - The uploaded backup file
+   * @returns {Promise<Object>} Parsed backup data
+   */
+  async parseUploadedBackup(file) {
+    try {
+      const text = await file.text();
+      const backupData = JSON.parse(text);
+      
+      // Validate backup structure
+      if (!backupData.metadata || !backupData.data) {
+        throw new Error('Invalid backup file format');
+      }
+      
+      return { success: true, data: backupData };
+    } catch (error) {
+      return { success: false, error: `Failed to parse backup file: ${error.message}` };
+    }
+  }
+
+  /**
+   * Analyze backup data to get document counts
+   * @param {Object} backupData - The backup data
+   * @returns {Object} Analysis results
+   */
+  analyzeBackupData(backupData) {
+    let totalDocuments = 0;
+    let totalConductors = 0;
+    let totalSubcollections = 0;
+
+    // Since we're using current data, estimate based on collection types
+    if (backupData.metadata.collections.includes('CONDUCTOR_DATA')) {
+      totalConductors = 25; // Estimate
+      totalSubcollections = 150; // Estimate
+      totalDocuments = 2500; // Estimate
+    } else {
+      totalDocuments = backupData.metadata.collections.length * 100; // Estimate
+    }
+
+    return { totalDocuments, totalConductors, totalSubcollections };
+  }
+
+  /**
+   * Restore only missing documents
+   * @param {Object} backupData - The backup data
+   * @param {Object} progress - Progress object
+   * @param {Function} progressCallback - Progress callback
+   */
+  async restoreMissingOnly(backupData, progress, progressCallback) {
+    const { collection: firestoreCollection, doc, getDoc, setDoc } = await import('firebase/firestore');
+    
+    // Debug logging
+    console.log('BACKUP_COLLECTIONS available:', typeof BACKUP_COLLECTIONS, !!BACKUP_COLLECTIONS);
+    console.log('Backup data structure:', {
+      metadata: backupData.metadata,
+      data: backupData.data,
+      dataType: Array.isArray(backupData.data) ? 'array' : typeof backupData.data,
+      BACKUP_COLLECTIONS_keys: BACKUP_COLLECTIONS ? Object.keys(BACKUP_COLLECTIONS) : 'undefined'
+    });
+    
+    // Process each collection in the backup
+    for (const collectionKey of backupData.metadata.collections) {
+      console.log(`Processing collection: ${collectionKey}, looking for: ${collectionKey.toUpperCase()}`);
+      const collectionInfo = BACKUP_COLLECTIONS[collectionKey.toUpperCase()];
+      console.log('Collection info found:', collectionInfo);
+      
+      if (!collectionInfo || !backupData.data[collectionKey]) {
+        console.log(`Skipping collection ${collectionKey}: info=${!!collectionInfo}, data=${!!backupData.data[collectionKey]}`);
+        continue;
+      }
+
+      progress.currentCollection = `Checking missing documents in ${collectionInfo.name}`;
+      if (progressCallback) progressCallback(progress);
+
+      const collectionData = backupData.data[collectionKey];
+      
+      // Handle different backup data formats
+      let documentsToProcess = [];
+      if (collectionData.documents && Array.isArray(collectionData.documents)) {
+        // Standard backup format
+        documentsToProcess = collectionData.documents;
+      } else if (typeof collectionData === 'object') {
+        // Direct object format
+        documentsToProcess = Object.entries(collectionData).map(([id, data]) => ({ id, data }));
+      }
+      
+      // Process each document in this collection
+      for (const docItem of documentsToProcess) {
+        const docId = docItem.id;
+        const docData = docItem.data;
+        
+        try {
+          // Check if document exists in Firestore
+          const docRef = doc(db, collectionInfo.collection, docId);
+          const docSnap = await getDoc(docRef);
+          
+          if (!docSnap.exists()) {
+            // Document is missing, restore it
+            await setDoc(docRef, docData);
+            progress.processedDocuments++;
+            
+            progress.currentConductor = `Restored document: ${docId}`;
+            if (progressCallback) progressCallback(progress);
+            
+            console.log(`Restored missing document: ${docId} to collection: ${collectionInfo.collection}`);
+          } else {
+            console.log(`Document ${docId} already exists, skipping`);
+          }
+        } catch (error) {
+          console.error(`Failed to restore document ${docId}:`, error);
+          progress.errors.push(`Failed to restore document ${docId}: ${error.message}`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Restore with merge strategy
+   * @param {Object} backupData - The backup data
+   * @param {Object} progress - Progress object
+   * @param {Function} progressCallback - Progress callback
+   */
+  async restoreMerge(backupData, progress, progressCallback) {
+    const { collection: firestoreCollection, doc, getDoc, setDoc, updateDoc } = await import('firebase/firestore');
+    
+    // Process each collection in the backup
+    for (const collectionKey of backupData.metadata.collections) {
+      const collectionInfo = BACKUP_COLLECTIONS[collectionKey.toUpperCase()];
+      if (!collectionInfo || !backupData.collections[collectionKey]) continue;
+
+      progress.currentCollection = `Merging ${collectionInfo.name}`;
+      if (progressCallback) progressCallback(progress);
+
+      const collectionData = backupData.collections[collectionKey];
+      
+      // Process each document in this collection
+      for (const [docId, docData] of Object.entries(collectionData)) {
+        try {
+          // Check if document exists in Firestore
+          const docRef = doc(db, collectionInfo.collection, docId);
+          const docSnap = await getDoc(docRef);
+          
+          if (docSnap.exists()) {
+            // Document exists, merge data (backup data takes precedence)
+            const existingData = docSnap.data();
+            const mergedData = { ...existingData, ...docData };
+            await updateDoc(docRef, mergedData);
+          } else {
+            // Document doesn't exist, create it
+            await setDoc(docRef, docData);
+          }
+          
+          progress.processedDocuments++;
+          progress.currentConductor = `Merged document: ${docId}`;
+          if (progressCallback) progressCallback(progress);
+        } catch (error) {
+          progress.errors.push(`Failed to merge document ${docId}: ${error.message}`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Restore with overwrite strategy
+   * @param {Object} backupData - The backup data
+   * @param {Object} progress - Progress object
+   * @param {Function} progressCallback - Progress callback
+   */
+  async restoreOverwrite(backupData, progress, progressCallback) {
+    const { collection: firestoreCollection, doc, setDoc } = await import('firebase/firestore');
+    
+    // Process each collection in the backup
+    for (const collectionKey of backupData.metadata.collections) {
+      const collectionInfo = BACKUP_COLLECTIONS[collectionKey.toUpperCase()];
+      if (!collectionInfo || !backupData.collections[collectionKey]) continue;
+
+      progress.currentCollection = `Overwriting ${collectionInfo.name}`;
+      if (progressCallback) progressCallback(progress);
+
+      const collectionData = backupData.collections[collectionKey];
+      
+      // Process each document in this collection
+      for (const [docId, docData] of Object.entries(collectionData)) {
+        try {
+          // Overwrite document (creates if doesn't exist, replaces if exists)
+          const docRef = doc(db, collectionInfo.collection, docId);
+          await setDoc(docRef, docData);
+          
+          progress.processedDocuments++;
+          progress.currentConductor = `Overwritten document: ${docId}`;
+          if (progressCallback) progressCallback(progress);
+        } catch (error) {
+          progress.errors.push(`Failed to overwrite document ${docId}: ${error.message}`);
+        }
+      }
+    }
+  }
+
 }
 
 export const backupService = new BackupService();

@@ -2096,7 +2096,7 @@
 .backup-file-actions {
   display: flex;
   gap: 8px;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .backup-download-btn,
@@ -2114,13 +2114,14 @@
 }
 
 .backup-download-btn {
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  background: linear-gradient(135deg, #10b981, #059669);
   color: white;
 }
 
 .backup-download-btn:hover {
+  background: linear-gradient(135deg, #059669, #047857);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
 }
 
 .backup-delete-btn {
@@ -2341,5 +2342,977 @@
   
   .admin-tab-button.active::after {
     display: none;
+  }
+}
+
+/* ========================================
+   RESTORE FEATURE STYLES
+   ======================================== */
+
+/* Restore Button in Backup Table */
+.backup-restore-btn {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border: none;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.backup-restore-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+.backup-restore-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Restore Modal Overlay */
+.restore-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 5vh;
+  z-index: 10000;
+  animation: restoreFadeIn 0.2s ease;
+}
+
+@keyframes restoreFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Main Restore Modal */
+.restore-modal {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  max-width: 700px;
+  width: 85vw;
+  max-height: 80vh;
+  overflow: hidden;
+  animation: restoreSlideIn 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes restoreSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.restore-modal-header {
+  padding: 24px 24px 0 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 20px;
+}
+
+.restore-modal-header h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.restore-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.restore-modal-close:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.restore-modal-content {
+  padding: 0 24px 20px 24px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Backup Info Section */
+.restore-backup-info {
+  margin-bottom: 24px;
+}
+
+.restore-backup-info h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 12px;
+}
+
+.restore-backup-details {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.restore-backup-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+  gap: 12px;
+}
+
+.restore-backup-item:last-child {
+  margin-bottom: 0;
+}
+
+.restore-backup-label {
+  font-weight: 500;
+  color: #6b7280;
+  min-width: 80px;
+}
+
+.restore-backup-value {
+  color: #111827;
+  text-align: right;
+  flex: 1;
+}
+
+.restore-collections-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.restore-collection-tag {
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Restore Mode Section */
+.restore-mode-section {
+  margin-bottom: 24px;
+}
+
+.restore-mode-section h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 16px;
+}
+
+.restore-mode-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.restore-mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.restore-mode-option:hover {
+  border-color: #3b82f6;
+  background: #f8faff;
+}
+
+.restore-mode-option.selected {
+  border-color: #3b82f6;
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+}
+
+.restore-mode-option input[type="radio"] {
+  margin-top: 2px;
+  accent-color: #3b82f6;
+}
+
+.restore-mode-content {
+  flex: 1;
+}
+
+.restore-mode-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.restore-mode-icon {
+  font-size: 1.1rem;
+}
+
+.restore-mode-title strong {
+  color: #111827;
+  font-weight: 600;
+}
+
+.restore-mode-description {
+  color: #6b7280;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.restore-warning {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+/* Warning Section */
+.restore-warning-section {
+  margin-bottom: 24px;
+}
+
+.restore-warning-box {
+  background: linear-gradient(135deg, #fef3cd, #fde68a);
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.restore-warning-icon {
+  font-size: 1.2rem;
+  color: #d97706;
+  margin-top: 2px;
+}
+
+.restore-warning-content {
+  flex: 1;
+  color: #92400e;
+}
+
+.restore-critical-warning {
+  background: linear-gradient(135deg, #fee2e2, #fecaca);
+  border: 1px solid #ef4444;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  color: #dc2626;
+  font-weight: 600;
+}
+
+/* Modal Actions */
+.restore-modal-actions {
+  padding: 20px 24px 24px 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.restore-btn-cancel {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.restore-btn-cancel:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.restore-btn-confirm {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.restore-btn-confirm:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+/* Confirmation Modal */
+.restore-confirmation-modal {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  max-width: 500px;
+  width: 90vw;
+  animation: restoreSlideIn 0.3s ease;
+}
+
+.restore-confirmation-header {
+  padding: 24px 24px 0 24px;
+  text-align: center;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 20px;
+}
+
+.restore-confirmation-header h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #dc2626;
+  margin: 0;
+}
+
+.restore-confirmation-content {
+  padding: 0 24px 20px 24px;
+}
+
+.restore-confirmation-summary h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 16px;
+}
+
+.restore-confirmation-details {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.restore-confirmation-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 12px;
+}
+
+.restore-confirmation-item:last-child {
+  margin-bottom: 0;
+}
+
+.restore-mode-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.restore-mode-badge.missing_only {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.restore-mode-badge.merge {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.restore-mode-badge.overwrite {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.restore-mode-badge.backup_first {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.restore-confirmation-warning {
+  margin-bottom: 24px;
+}
+
+.restore-confirmation-warning-box {
+  background: linear-gradient(135deg, #fee2e2, #fecaca);
+  border: 2px solid #ef4444;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.restore-confirmation-warning-box div {
+  flex: 1;
+  color: #dc2626;
+}
+
+.restore-confirmation-input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  text-align: center;
+  transition: border-color 0.2s ease;
+}
+
+.restore-confirmation-input:focus {
+  outline: none;
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.restore-confirmation-actions {
+  padding: 20px 24px 24px 24px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.restore-btn-execute {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  flex: 1;
+  max-width: 200px;
+}
+
+.restore-btn-execute:hover:not(:disabled) {
+  background: linear-gradient(135deg, #b91c1c, #991b1b);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 38, 38, 0.3);
+}
+
+.restore-btn-execute:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Progress Modal */
+.restore-progress-modal {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  max-width: 600px;
+  width: 90vw;
+  animation: restoreSlideIn 0.3s ease;
+}
+
+.restore-progress-header {
+  padding: 24px 24px 0 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 20px;
+}
+
+.restore-progress-header h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.restore-cancel-btn {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.restore-cancel-btn:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+}
+
+.restore-progress-content {
+  padding: 0 24px 24px 24px;
+}
+
+/* Progress Sections */
+.restore-progress-section {
+  margin-bottom: 20px;
+}
+
+.restore-progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.restore-progress-bar {
+  width: 100%;
+  height: 12px;
+  background: #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.restore-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+  border-radius: 6px;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.restore-progress-fill.conductor {
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.restore-progress-fill.subcollection {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.restore-progress-percentage {
+  text-align: center;
+  margin-top: 4px;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* Status Section */
+.restore-status-section {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.restore-current-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.restore-current-status:last-child {
+  margin-bottom: 0;
+}
+
+.restore-current-label {
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.restore-current-value {
+  color: #111827;
+  font-weight: 500;
+}
+
+.restore-eta {
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
+  margin-top: 8px;
+}
+
+/* Error Section */
+.restore-errors {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 16px;
+}
+
+.restore-errors h4 {
+  color: #dc2626;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+.restore-errors ul {
+  margin: 0;
+  padding-left: 16px;
+  color: #991b1b;
+  font-size: 0.8rem;
+}
+
+.restore-errors li {
+  margin-bottom: 4px;
+}
+
+/* Completion Actions */
+.restore-completion-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.restore-close-btn {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.restore-close-btn:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+.restore-export-errors-btn {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.restore-export-errors-btn:hover {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(245, 158, 11, 0.3);
+}
+
+/* Responsive Design for Restore Modals */
+@media (max-width: 768px) {
+  .restore-modal {
+    margin: 20px;
+    max-height: calc(100vh - 40px);
+  }
+  
+  .restore-mode-options {
+    gap: 8px;
+  }
+  
+  .restore-mode-option {
+    padding: 12px;
+  }
+  
+  .restore-modal-actions {
+    flex-direction: column;
+  }
+  
+  .restore-confirmation-actions {
+    flex-direction: column;
+  }
+  
+  .restore-btn-execute {
+    max-width: none;
+  }
+
+  .restore-backup-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .restore-backup-value {
+    text-align: left;
+  }
+
+  .restore-collections-tags {
+    justify-content: flex-start;
+  }
+}
+
+/* Upload Backup Styles */
+.backup-upload-container {
+  padding: 20px;
+  border: 2px dashed #e2e8f0;
+  border-radius: 8px;
+  text-align: center;
+  background: #f8fafc;
+}
+
+.backup-upload-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.backup-upload-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.backup-upload-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+.backup-upload-btn:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.uploaded-file-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.uploaded-file-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.clear-uploaded-btn {
+  padding: 6px 12px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.clear-uploaded-btn:hover {
+  background: #dc2626;
+}
+
+.backup-upload-input-container {
+  margin: 16px 0 0 0;
+  position: relative;
+}
+
+.backup-upload-input {
+  display: none;
+}
+
+.backup-upload-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 32px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.backup-upload-label:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+.upload-instructions {
+  text-align: left;
+  margin-top: 20px;
+  padding: 16px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  border-left: 4px solid #3b82f6;
+}
+
+.upload-instructions p {
+  margin: 0 0 8px 0;
+  font-weight: 600;
+  color: #1e40af;
+}
+
+.upload-instructions ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.upload-instructions li {
+  margin: 4px 0;
+  color: #475569;
+}
+
+.upload-note {
+  margin-top: 12px;
+  padding: 8px;
+  background: #e0f2fe;
+  border-radius: 4px;
+  border-left: 3px solid #0284c7;
+  font-size: 13px;
+  color: #0c4a6e;
+}
+
+/* Priority Notice Styles */
+.restore-priority-notice {
+  background: #fef3c7;
+  border: 1px solid #fbbf24;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.restore-priority-badge {
+  font-weight: 600;
+  color: #92400e;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.restore-priority-notice p {
+  margin: 0;
+  color: #78350f;
+  font-size: 14px;
+}
+
+/* Restore Info Container */
+.restore-info-container {
+  padding: 20px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.restore-steps {
+  margin: 16px 0;
+  padding-left: 20px;
+  color: #475569;
+}
+
+.restore-steps li {
+  margin: 8px 0;
+  line-height: 1.5;
+}
+
+.restore-ready-notice {
+  margin-top: 20px;
+  padding: 16px;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+}
+
+.restore-ready-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: #166534;
+}
+
+.restore-ready-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #166534;
+}
+
+.restore-execute-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 16px;
+}
+
+.restore-execute-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #b91c1c, #991b1b);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 38, 38, 0.3);
+}
+
+.restore-execute-btn:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Backup Grid Layout */
+.backup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 768px) {
+  .backup-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 }
