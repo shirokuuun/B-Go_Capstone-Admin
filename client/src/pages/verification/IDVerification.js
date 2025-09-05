@@ -98,8 +98,6 @@ export const fetchUsers = async () => {
       
       users.push(userData);
     }
-    
-    console.log('All users with verification status:', users);
     return users;
   } catch (error) {
     console.error("Error fetching users:", error);
@@ -121,7 +119,6 @@ export const fetchUserIDData = async (userId) => {
         ...data
       };
     } else {
-      console.log(`No ID document found for user ${userId}`);
       throw new Error('No ID data found for this user');
     }
   } catch (error) {
@@ -174,8 +171,6 @@ export const updateIDVerificationStatus = async (userId, status, adminInfo = nul
           previousStatus: userData?.idVerificationStatus || 'pending'
         }
       );
-
-      console.log(`ID verification revoked and date fields removed for user ${userId}`);
     } else {
       // For verified status, update the ID document
       const idDocRef = doc(db, 'users', userId, 'VerifyID', 'id');
@@ -207,8 +202,6 @@ export const updateIDVerificationStatus = async (userId, status, adminInfo = nul
           verifiedBy: adminInfo?.name || adminInfo?.email || 'admin'
         }
       );
-
-      console.log(`ID verification status updated to ${status} for user ${userId} by ${adminInfo?.name || 'admin'}`);
     }
     
     return true;

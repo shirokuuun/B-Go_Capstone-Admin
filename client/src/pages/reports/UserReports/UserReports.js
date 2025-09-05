@@ -45,17 +45,10 @@ export const formatUserForDisplay = (user) => {
  * @returns {Object} User statistics
  */
 export const getUserStats = (users) => {
-  // Debug: log users data to see what fields are available
-  console.log('Users data for stats:', users.slice(0, 2));
-  
   const stats = {
     total: users.length,
     emailVerified: users.filter(user => {
       const isVerified = user.emailVerified === true || user.isEmailVerified === true;
-      // Debug: log verification status
-      if (isVerified) {
-        console.log('Verified user found:', user.email, 'emailVerified:', user.emailVerified, 'isEmailVerified:', user.isEmailVerified);
-      }
       return isVerified;
     }).length,
     idVerified: users.filter(user => user.idVerificationStatus === 'verified').length,
@@ -67,8 +60,6 @@ export const getUserStats = (users) => {
       return createdDate > thirtyDaysAgo;
     }).length
   };
-
-  console.log('Email verification stats:', stats.emailVerified, 'out of', stats.total);
 
   stats.emailVerificationRate = stats.total > 0 ? ((stats.emailVerified / stats.total) * 100).toFixed(1) : 0;
   stats.idVerificationRate = stats.total > 0 ? ((stats.idVerified / stats.total) * 100).toFixed(1) : 0;

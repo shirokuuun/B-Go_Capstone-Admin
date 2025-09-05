@@ -1,4 +1,3 @@
-// API functions and utility functions for Ticket Analytics Dashboard
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '/src/firebase/firebase.js';
 
@@ -23,7 +22,7 @@ export const getAvailableTimeRanges = async () => {
   ];
 };
 
-// Get available routes from the database - Uses same logic as Daily Revenue
+// Get available routes from the database (Uses same logic as Daily Revenue)
 export const getAvailableRoutes = async () => {
   try {
     const conductorsRef = collection(db, 'conductors');
@@ -196,7 +195,7 @@ export const getTicketAnalyticsData = async (timeRange, route, ticketType = '') 
     // Use DailyRevenue's calculateRevenueMetrics function with filtered data
     const metrics = calculateRevenueMetrics(filteredConductorTrips, filteredPreBookingTrips, filteredPreTicketing);
     
-    // Business metrics (configurable)
+    // Business metrics
     const marketShare = 23.8;
     const customerSatisfactionScore = 4.2;
     const onTimePerformance = 91.5;
@@ -355,7 +354,7 @@ export const getDemandPatternsData = async (timeRange, route, ticketType = '') =
     const seasonalTrends = Object.entries(datePatterns)
       .map(([day, data]) => ({
         period: day,
-        change: data.tickets, // Show ticket count, not passengers
+        change: data.tickets, 
         indicator: 'up',
         reason: `${data.tickets} tickets, ${data.passengers} passengers`
       }))
@@ -490,15 +489,6 @@ export const getRoutePerformanceData = async (timeRange, route, ticketType = '')
         const allTrips = [...rawData.conductorTrips, ...rawData.preBookingTrips, ...rawData.preTicketing];
         const routeTrips = allTrips.filter(trip => trip.tripDirection === routeData.route);
         
-        if (routeTrips.length === 0) {
-          // More intelligent fallback based on common route patterns
-          const routeName = routeData.route.toLowerCase();
-          if (routeName.includes('cebu') && routeName.includes('talisay')) return 35;
-          if (routeName.includes('cebu') && routeName.includes('minglanilla')) return 25;
-          if (routeName.includes('talisay') && routeName.includes('minglanilla')) return 15;
-          return 30; // Default for unknown routes
-        }
-        
         // Use totalKm from tickets if available
         const tripsWithDistance = routeTrips.filter(trip => trip.totalKm && trip.totalKm > 0);
         if (tripsWithDistance.length > 0) {
@@ -606,7 +596,7 @@ export const getTicketTypeData = async (timeRange, route, ticketType = '') => {
         revenue: preTicketingRevenue,
         customerSegment: 'Digital Users'
       }
-    ].filter(type => type.volume > 0); // Only include types with actual data
+    ].filter(type => type.volume > 0); 
     
     // Add margin level to each ticket type based on its performance
     const ticketTypes = ticketTypesData.map(type => ({
@@ -836,7 +826,7 @@ export const exportAnalyticsData = (data, format = 'json') => {
   }
 };
 
-// Helper function to convert data to CSV (simplified version)
+// Helper function to convert data to CSV 
 const convertToCSV = (data) => {
   let csv = '';
   

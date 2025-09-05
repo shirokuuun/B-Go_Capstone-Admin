@@ -70,8 +70,6 @@ class BackupService {
       const backupId = `backup_${timestamp.getTime()}`;
       const fileName = backupName || `system-backup-${timestamp.toISOString().split('T')[0]}-${timestamp.getTime()}`;
       
-      console.log('Starting backup process...', { selectedCollections, backupId });
-      
       // Collect data from selected collections
       const backupData = {
         metadata: {
@@ -90,15 +88,12 @@ class BackupService {
           console.warn(`Unknown collection: ${collectionKey}`);
           continue;
         }
-
-        console.log(`Backing up collection: ${collectionInfo.collection}`);
         
         try {
           // Special handling for CONDUCTOR_DATA to include all subcollections
           if (collectionKey.toUpperCase() === 'CONDUCTOR_DATA') {
             const conductorsData = await this.backupCompleteCondutorData();
             backupData.data[collectionKey] = conductorsData;
-            console.log(`Collected complete conductor data: ${conductorsData.totalDocuments} documents`);
           } else {
             // Standard collection backup
             const collectionRef = collection(db, collectionInfo.collection);
@@ -117,8 +112,6 @@ class BackupService {
               count: documents.length,
               documents: documents
             };
-
-            console.log(`Collected ${documents.length} documents from ${collectionInfo.collection}`);
           }
         } catch (collectionError) {
           console.error(`Error backing up collection ${collectionInfo.collection}:`, collectionError);
@@ -228,8 +221,6 @@ class BackupService {
             remittance: {}
           }
         };
-
-        console.log(`Backing up conductor: ${conductorId}`);
 
         // Backup dailyTrips subcollection
         try {
@@ -345,7 +336,6 @@ class BackupService {
    */
   async cleanupExpiredBackups() {
     try {
-      console.log('Starting cleanup of expired backups...');
       
       const backupsRef = collection(db, 'systemBackups');
       const snapshot = await getDocs(
@@ -357,7 +347,6 @@ class BackupService {
 
       snapshot.forEach(doc => {
         const data = doc.data();
-        console.log(`Deleting expired backup: ${data.fileName}`);
         
         // Delete from Storage
         const storageRef = ref(storage, `${this.backupFolder}/${data.fileName}`);
@@ -385,8 +374,6 @@ class BackupService {
           { deletedCount }
         );
       }
-
-      console.log(`Cleanup completed. Deleted ${deletedCount} expired backups.`);
       
       return { success: true, deletedCount };
     } catch (error) {

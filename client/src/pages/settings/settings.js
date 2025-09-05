@@ -309,7 +309,7 @@ export const deleteAdminUser = async (userId, userEmail, userName) => {
       deletedByEmail: auth.currentUser.email
     });
 
-    // Note: Firebase Authentication account remains active with original email
+    // Firebase Authentication account remains active with original email
     // The user can still technically log in but won't appear in admin lists
     // The original email remains tied to the Firebase Auth account
 

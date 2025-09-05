@@ -230,8 +230,6 @@ export const updateBusStatuses = async () => {
             completedAt: Timestamp.fromDate(new Date()),
             updatedAt: Timestamp.fromDate(new Date())
           });
-          
-          console.log(`Bus ${bus.name} returned to Available after completing reservation`);
         }
         // Check if reservation date is in the future
         else if (reservationDate.getTime() > today.getTime()) {
@@ -241,7 +239,6 @@ export const updateBusStatuses = async () => {
               status: 'reserved',
               updatedAt: Timestamp.fromDate(new Date())
             });
-            console.log(`Bus ${bus.name} set to Reserved for future reservation`);
           }
         }
       } else {
@@ -256,12 +253,9 @@ export const updateBusStatuses = async () => {
             reservationDate: null,
             updatedAt: Timestamp.fromDate(new Date())
           });
-          console.log(`Bus ${bus.name} set to Available (no reservations)`);
         }
       }
     }
-    
-    console.log('Bus status update completed');
   } catch (error) {
     console.error("Error updating bus statuses:", error);
     throw error;
@@ -443,8 +437,6 @@ export const deleteBus = async (busId) => {
         deletedReservations: allReservations.size
       }
     );
-
-    console.log(`Successfully deleted bus ${bus.name} and ${allReservations.size} reservations`);
     
     return {
       success: true,

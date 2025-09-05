@@ -92,7 +92,7 @@ export const getTripDataFromDailyTrips = async (conductorId, date) => {
           totalPassengers: ticketDetails.totalPassengers,
           ticketCount: ticketDetails.tickets.length,
           tickets: ticketDetails.tickets,
-          documentType: tripDocumentType, // Trip-level documentType
+          documentType: tripDocumentType,
           data: value // Original trip data from dailyTrips
         });
 
@@ -212,37 +212,33 @@ export const getConductorDetails = async (conductorId) => {
         ...data
       };
       
-      // ✅ FIX: Check if bus number is in the main document
+      // Check if bus number is in the main document
       if (data.busNumber) {
         conductorData.busNumber = data.busNumber.toString(); // Convert to string to be safe
-        console.log(`✅ Found bus number in main document for ${conductorId}: ${conductorData.busNumber}`);
+        console.log(`Found bus number in main document for ${conductorId}: ${conductorData.busNumber}`);
         return conductorData; // Return early since we found it
       }
       
       // Also check alternative field names just in case
       if (data.bus) {
         conductorData.busNumber = data.bus.toString();
-        console.log(`✅ Found bus number (as 'bus') in main document for ${conductorId}: ${conductorData.busNumber}`);
+        console.log(`Found bus number (as 'bus') in main document for ${conductorId}: ${conductorData.busNumber}`);
         return conductorData;
       }
       
       if (data.number) {
         conductorData.busNumber = data.number.toString();
-        console.log(`✅ Found bus number (as 'number') in main document for ${conductorId}: ${conductorData.busNumber}`);
+        console.log(` Found bus number (as 'number') in main document for ${conductorId}: ${conductorData.busNumber}`);
         return conductorData;
       }
     } else {
-      console.log(`❌ Conductor document does not exist for ${conductorId}`);
+      console.log(`Conductor document does not exist for ${conductorId}`);
     }
     
-    // Only try subcollection if not found in main document
-    console.log(`🔍 Bus number not found in main document, trying subcollection...`);
     
     try {
       const busNumberRef = collection(db, `conductors/${conductorId}/busNumber`);
       const busNumberSnapshot = await getDocs(busNumberRef);
-      
-      console.log(`🚌 Found ${busNumberSnapshot.docs.length} bus number documents in subcollection for conductor ${conductorId}`);
       
       if (!busNumberSnapshot.empty) {
         const busDoc = busNumberSnapshot.docs[0];
@@ -251,14 +247,13 @@ export const getConductorDetails = async (conductorId) => {
         // Try different possible field names for bus number
         const busNumber = busData.busNumber || busData.number || busData.bus || busDoc.id || 'N/A';
         conductorData.busNumber = busNumber.toString();
-        
-        console.log(`✅ Found bus number in subcollection for ${conductorId}: ${busNumber}`);
+      
       } else {
-        console.log(`⚠️ No bus number documents found in subcollection for conductor ${conductorId}`);
+        console.log(`No bus number documents found in subcollection for conductor ${conductorId}`);
       }
     } catch (busError) {
       if (busError.code === 'permission-denied') {
-        console.log(`⚠️ No permission to access bus number subcollection for conductor ${conductorId}`);
+        console.log(`No permission to access bus number subcollection for conductor ${conductorId}`);
       } else {
         console.error(`Error fetching bus number from subcollection for conductor ${conductorId}:`, busError);
       }
@@ -294,40 +289,29 @@ export const getAllConductorDetails = async () => {
   }
 };
 
-// UPDATED: Main function to load remittance data using dailyTrips as source
+// Main function to load remittance data using dailyTrips as source
 export const loadRemittanceData = async (selectedDate) => {
   if (!selectedDate) {
-    console.log('❌ No date selected');
     return [];
   }
   
   try {
-    console.log('\n🚀 Loading remittance data for date:', selectedDate);
-    console.log('📋 Data flow: DailyTrips (trip info) → DailyTrips (ticket details) → Combined Result');
-    
     const conductorsRef = collection(db, 'conductors');
     const conductorsSnapshot = await getDocs(conductorsRef);
     const allRemittanceData = [];
 
-    console.log(`👥 Found ${conductorsSnapshot.docs.length} conductors total`);
-
     for (const conductorDoc of conductorsSnapshot.docs) {
       const conductorId = conductorDoc.id;
-      console.log(`\n📍 Processing conductor: ${conductorId}`);
       
       try {
         // Check if remittance date exists (for verification)
         const remittanceCheck = await getDoc(doc(db, `conductors/${conductorId}/remittance/${selectedDate}`));
         const hasRemittance = remittanceCheck.exists();
-        console.log(`  📋 Remittance document exists: ${hasRemittance}`);
         
         // Get trip info from dailyTrips (since that's where trip maps are)
         const tripData = await getTripDataFromDailyTrips(conductorId, selectedDate);
         
-        console.log(`📦 Got ${tripData.length} trips for conductor ${conductorId}`);
-        
         for (const trip of tripData) {
-          console.log(`📋 Creating final entry for trip ${trip.tripNumber} (conductor: ${conductorId})`);
           
           // Get remittance summary data if available
           const remittanceSummary = hasRemittance ? await getRemittanceSummaryData(conductorId, selectedDate) : null;
@@ -344,17 +328,16 @@ export const loadRemittanceData = async (selectedDate) => {
             totalPassengers: trip.totalPassengers, // Passengers from dailyTrips tickets
             ticketCount: trip.ticketCount, // Ticket count from dailyTrips
             tickets: trip.tickets, // Tickets array from dailyTrips
-            documentType: trip.documentType, // ADD THIS LINE - Trip-level documentType
+            documentType: trip.documentType, // Trip-level documentType
             isComplete: trip.isComplete, // Status from dailyTrips
             startTime: trip.startTime, // Time from dailyTrips
             endTime: trip.endTime, // Time from dailyTrips
             placeCollection: trip.placeCollection, // Place info from dailyTrips
             tripData: trip.data, // Original dailyTrips trip data
-            remittanceSummary: remittanceSummary // Summary from remittance (if available)
+            remittanceSummary: remittanceSummary
           };
           
           allRemittanceData.push(remittanceEntry);
-          console.log(`✅ Added remittance entry for ${conductorId}/${trip.tripNumber}`);
         }
       } catch (error) {
         console.error(`Error processing remittance for conductor ${conductorId}:`, error);
@@ -370,28 +353,11 @@ export const loadRemittanceData = async (selectedDate) => {
       const bNum = parseInt(b.tripNumber.replace(/\D/g, '')) || 0;
       return aNum - bNum;
     });
-
-    console.log('\n📊 FINAL RESULTS:');
-    console.log(`📊 Remittance data loaded: ${allRemittanceData.length} trips found`);
     
     if (allRemittanceData.length > 0) {
-      console.log('📋 Sample remittance entry:', allRemittanceData[0]);
-      console.log('📋 All trips summary:', 
-        allRemittanceData.map(trip => ({
-          conductor: trip.conductorId,
-          trip: trip.tripNumber,
-          direction: trip.tripDirection,
-          revenue: trip.totalRevenue,
-          passengers: trip.totalPassengers,
-          tickets: trip.ticketCount
-        }))
-      );
+      console.log(' Sample remittance entry:', allRemittanceData[0]);
     } else {
-      console.log('❌ No remittance data found for date:', selectedDate);
-      console.log('💡 This could mean:');
-      console.log('  1. No dailyTrips document exists for this date');
-      console.log('  2. No trip maps found in dailyTrips document');
-      console.log('  3. No tickets found in dailyTrips ticket collections');
+      console.log(' No remittance data found for date:', selectedDate);
     }
     
     return allRemittanceData;
@@ -435,8 +401,6 @@ export const calculateRemittanceSummary = (remittanceData) => {
   summary.totalTrips = uniqueTrips.size;
   summary.averageFare = summary.totalPassengers > 0 ? summary.totalRevenue / summary.totalPassengers : 0;
   
-  console.log('📊 Remittance summary calculated:', summary);
-  console.log(`📋 Excluded ${remittanceData.length - uniqueTrips.size} trips with 0 tickets`);
   return summary;
 };
 

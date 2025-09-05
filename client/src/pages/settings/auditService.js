@@ -19,12 +19,7 @@ export const ACTIVITY_TYPES = {
   BUS_CREATE: 'BUS_CREATE',
   BUS_UPDATE: 'BUS_UPDATE',
   BUS_DELETE: 'BUS_DELETE',
-  ROUTE_CREATE: 'ROUTE_CREATE',
-  ROUTE_UPDATE: 'ROUTE_UPDATE',
-  ROUTE_DELETE: 'ROUTE_DELETE',
   TICKET_SCAN: 'TICKET_SCAN',
-  TICKET_CREATE: 'TICKET_CREATE',
-  TICKET_UPDATE: 'TICKET_UPDATE', 
   TICKET_DELETE: 'TICKET_DELETE',
   BOOKING_STATUS_UPDATE: 'BOOKING_STATUS_UPDATE',
   ID_VERIFICATION_APPROVE: 'ID_VERIFICATION_APPROVE',
@@ -32,7 +27,6 @@ export const ACTIVITY_TYPES = {
   SCHEDULE_CREATE: 'SCHEDULE_CREATE',
   SCHEDULE_UPDATE: 'SCHEDULE_UPDATE',
   SCHEDULE_DELETE: 'SCHEDULE_DELETE',
-  SOS_CREATE: 'SOS_CREATE',
   SOS_MARK_RECEIVED: 'SOS_MARK_RECEIVED',
   SOS_DELETE: 'SOS_DELETE',
   SYSTEM_ERROR: 'SYSTEM_ERROR',
@@ -100,7 +94,6 @@ export const logActivity = async (activityType, description, metadata = {}, seve
       severity,
       timestamp: serverTimestamp(),
       userAgent: navigator.userAgent,
-      ipAddress: null // Would need backend service to get real IP
     };
 
     const docRef = await addDoc(collection(db, 'AuditLogs'), auditLogData);

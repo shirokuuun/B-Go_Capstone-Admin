@@ -80,7 +80,6 @@ export const calculateMonthlyGrowth = async (selectedMonth, selectedRoute, curre
     return growthPercentage;
     
   } catch (error) {
-    console.error('Error calculating monthly growth:', error);
     // Fallback to simple growth calculation if previous month data is unavailable
     return calculateSimpleGrowth(currentMonthRevenue);
   }
@@ -243,7 +242,7 @@ export const loadMonthlyData = async (selectedMonth, selectedRoute, setMonthlyDa
     const averageMonthlyFare = totalMonthlyPassengers > 0 ? totalMonthlyRevenue / totalMonthlyPassengers : 0;
     const averageDailyRevenue = dailyBreakdown.length > 0 ? totalMonthlyRevenue / dailyBreakdown.length : 0;
     
-    // Calculate growth with real data instead of random values
+    // Calculate growth with real data
     let monthlyGrowth = 0;
     try {
       monthlyGrowth = await calculateMonthlyGrowth(selectedMonth, selectedRoute, totalMonthlyRevenue, selectedTicketType);

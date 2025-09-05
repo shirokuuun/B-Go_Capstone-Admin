@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import conductorService from '/src/pages/conductor/conductor.js';
 import './conductor.css';
 import { IoMdAdd } from "react-icons/io";
-import { FaSync } from "react-icons/fa";
 import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaTrash } from 'react-icons/fa';
 
 const Conductor = () => {
@@ -14,7 +13,6 @@ const Conductor = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState('name');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     // Clean up any existing listeners first
@@ -99,28 +97,6 @@ const Conductor = () => {
 
 
 
-  // NEW: Handle sync all trip counts
-  const handleSyncTripCounts = async () => {
-    if (!window.confirm("This will update trip counts for all conductors. Continue?")) {
-      return;
-    }
-
-    try {
-      setIsSyncing(true);
-      const result = await conductorService.syncAllConductorTripCounts();
-      
-      if (result.success) {
-        alert(`${result.message}`);
-      } else {
-        alert(`Error syncing trip counts: ${result.error}`);
-      }
-    } catch (error) {
-      console.error('Error syncing trip counts:', error);
-      alert('Failed to sync trip counts. Please try again.');
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   const filteredAndSortedConductors = () => {
     let filtered = conductors.filter(conductor => {
@@ -192,15 +168,6 @@ const Conductor = () => {
 
             {/* Action Buttons */}
             <div className="conductor-action-buttons">
-              <button 
-                onClick={handleSyncTripCounts}
-                className="conductor-sync-btn"
-                disabled={isSyncing}
-                title="Sync trip counts for all conductors"
-              >
-                <FaSync className={`mr-2 ${isSyncing ? 'animate-spin': ''}`}/>
-                {isSyncing ? 'Syncing...' : 'Sync Trips'}
-              </button>
               <button 
                 onClick={() => setShowAddModal(true)}
                 className="conductor-add-btn"

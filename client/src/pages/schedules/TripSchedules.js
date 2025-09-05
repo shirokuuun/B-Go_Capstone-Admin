@@ -115,13 +115,11 @@ export const subscribeToTripSchedules = (callback, errorCallback) => {
     const unsubscribe = onSnapshot(
       collection(db, TRIP_SCHEDULES_COLLECTION),
       (querySnapshot) => {
-        console.log('Query snapshot received, size:', querySnapshot.size); // Debug log
         const schedules = [];
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          console.log('Document data:', doc.id, data); // Debug log
           schedules.push({
-            id: doc.id, // This will be the conductor ID (batangas, kahoy, etc.)
+            id: doc.id, // This will be the conductor ID 
             conductorId: doc.id, // Store conductor ID explicitly
             ...data,
             // Parse schedules string to array for consistent handling
@@ -137,7 +135,6 @@ export const subscribeToTripSchedules = (callback, errorCallback) => {
           return a.id.localeCompare(b.id);
         });
         
-        console.log('Final schedules array:', schedules); // Debug log
         callback(schedules);
       },
       (error) => {
@@ -236,8 +233,6 @@ export const addTripSchedule = async (scheduleData) => {
       updatedAt: serverTimestamp()
     };
 
-    console.log('Adding trip schedule:', docData);
-
     // Add to Firestore using conductor ID as document ID
     const conductorId = scheduleData.conductorId.trim();
     const docRef = doc(db, TRIP_SCHEDULES_COLLECTION, conductorId);
@@ -246,7 +241,6 @@ export const addTripSchedule = async (scheduleData) => {
     // Log the activity
     await logActivity(
       ACTIVITY_TYPES.SCHEDULE_CREATE,
-      `Created trip schedule for ${docData.route} (${conductorId})`,
       {
         scheduleId: conductorId,
         route: docData.route,
@@ -257,8 +251,7 @@ export const addTripSchedule = async (scheduleData) => {
         formattedSchedules: formatSchedulesForStorage(sortedSchedules)
       }
     );
-    
-    console.log('Trip schedule added successfully with ID:', conductorId);
+  
     return conductorId;
 
   } catch (error) {
@@ -339,8 +332,6 @@ export const updateTripSchedule = async (scheduleId, updateData) => {
       updatedAt: serverTimestamp()
     };
 
-    console.log('Updating trip schedule:', scheduleId, docData);
-
     // Get current schedule data before update for activity logging
     const scheduleRef = doc(db, TRIP_SCHEDULES_COLLECTION, scheduleId);
     const currentDoc = await getDoc(scheduleRef);
@@ -353,7 +344,6 @@ export const updateTripSchedule = async (scheduleId, updateData) => {
     const changedFields = Object.keys(processedData).filter(key => key !== 'updatedAt');
     await logActivity(
       ACTIVITY_TYPES.SCHEDULE_UPDATE,
-      `Updated trip schedule for ${currentData?.route || processedData.route || 'Unknown Route'} (${scheduleId})`,
       {
         scheduleId: scheduleId,
         route: currentData?.route || processedData.route || 'Unknown Route',
@@ -373,8 +363,6 @@ export const updateTripSchedule = async (scheduleId, updateData) => {
       }
     );
 
-    console.log('Trip schedule updated successfully');
-
   } catch (error) {
     console.error('Error updating trip schedule:', error);
     throw new Error(`Failed to update trip schedule: ${error.message}`);
@@ -392,8 +380,6 @@ export const deleteTripSchedule = async (scheduleId) => {
       throw new Error('Schedule ID is required');
     }
 
-    console.log('Deleting trip schedule:', scheduleId);
-
     // Get schedule data before deletion for activity logging
     const scheduleRef = doc(db, TRIP_SCHEDULES_COLLECTION, scheduleId);
     const scheduleDoc = await getDoc(scheduleRef);
@@ -405,7 +391,6 @@ export const deleteTripSchedule = async (scheduleId) => {
     // Log the deletion activity
     await logActivity(
       ACTIVITY_TYPES.SCHEDULE_DELETE,
-      `Deleted trip schedule for ${scheduleData?.route || 'Unknown Route'} (${scheduleId})`,
       {
         scheduleId: scheduleId,
         route: scheduleData?.route || 'Unknown Route',
@@ -416,8 +401,6 @@ export const deleteTripSchedule = async (scheduleId) => {
         deletedAt: new Date().toISOString()
       }
     );
-
-    console.log('Trip schedule deleted successfully');
 
   } catch (error) {
     console.error('Error deleting trip schedule:', error);
@@ -467,8 +450,6 @@ export const toggleScheduleStatus = async (scheduleId, currentStatus) => {
   try {
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
     await updateTripSchedule(scheduleId, { status: newStatus });
-    
-    console.log(`Schedule status changed from ${currentStatus} to ${newStatus}`);
 
   } catch (error) {
     console.error('Error toggling schedule status:', error);

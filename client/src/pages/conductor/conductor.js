@@ -64,22 +64,16 @@ class ConductorService {
           continue;
         }
         
-        // SAFE OPTIMIZATION: Use cached totalTrips when available
+        // Use remittance-based counting logic for accurate trip counts
         let tripsCount;
         
-        if (conductorData.totalTrips !== undefined && conductorData.totalTrips !== null) {
-          // Use cached count for fast performance
-          tripsCount = conductorData.totalTrips;
-          console.log(`📊 Using cached trips count for ${doc.id}: ${tripsCount}`);
-        } else {
-          // Only calculate real count if cache is missing (new conductors)
-          console.log(`🔄 Cache missing for ${doc.id}, calculating actual trips count...`);
-          tripsCount = await this.getConductorTripsCount(doc.id);
-          
-          // Update the cache for next time
+        // Always calculate using the new remittance logic for accuracy
+        tripsCount = await this.getConductorTripsCount(doc.id);
+        
+        // Update the cache in the background for consistency
+        if (conductorData.totalTrips !== tripsCount) {
           try {
             await this.updateConductorTripsCount(doc.id);
-            console.log(`✅ Updated trips count cache for ${doc.id}: ${tripsCount}`);
           } catch (updateError) {
             console.warn(`⚠️ Failed to update cache for ${doc.id}:`, updateError);
           }
@@ -99,7 +93,7 @@ class ConductorService {
     }
   }
 
-  // Get detailed conductor information
+  // Get detailed conductor information (using remittance counting logic)
   async getConductorDetails(conductorId) {
     try {
       const conductorRef = doc(db, 'conductors', conductorId);
@@ -113,12 +107,43 @@ class ConductorService {
       const { allTrips } = await this.getConductorTrips(conductorId);
       const tripsArray = Array.isArray(allTrips) ? allTrips : Object.values(allTrips || {});
 
+      // Use remittance counting logic for trip counts
+      const totalTrips = await this.getConductorTripsCount(conductorId);
+      
+      // Calculate today trips using remittance logic
+      const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
+      const today = new Date().toISOString().split('T')[0];
+      let todayTrips = 0;
+      
+      try {
+        const todayDocRef = doc(db, 'conductors', conductorId, 'dailyTrips', today);
+        const todayDoc = await getDoc(todayDocRef);
+        
+        if (todayDoc.exists()) {
+          const tripNames = ['trip1', 'trip2', 'trip3', 'trip4', 'trip5', 'trip6', 'trip7', 'trip8', 'trip9', 'trip10'];
+          
+          for (const tripName of tripNames) {
+            try {
+              const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', today, tripName, 'tickets', 'tickets');
+              const ticketsSnapshot = await getDocs(ticketsRef);
+              
+              if (ticketsSnapshot.docs.length > 0) {
+                todayTrips++;
+              }
+            } catch (tripError) {
+              continue;
+            }
+          }
+        }
+      } catch (error) {
+      }
+
       return {
         id: conductorDoc.id,
         ...conductorData,
         trips: tripsArray,
-        totalTrips: tripsArray.length,
-        todayTrips: tripsArray.filter(trip => this.isToday(trip.date)).length
+        totalTrips: totalTrips,
+        todayTrips: todayTrips
       };
     } catch (error) {
       console.error('Error fetching conductor details:', error);
@@ -194,11 +219,38 @@ class ConductorService {
     }
   }
 
-  // Get trips count for a conductor
+  // Get trips count for a conductor (using remittance counting logic)
   async getConductorTripsCount(conductorId) {
     try {
-      const { allTrips } = await this.getConductorTrips(conductorId);
-      return allTrips.length;
+      const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
+      const datesSnapshot = await getDocs(dailyTripsRef);
+      
+      let tripCount = 0;
+      
+      for (const dateDoc of datesSnapshot.docs) {
+        const dateId = dateDoc.id;
+        
+        // Process trip subcollections (trip1, trip2, etc.)
+        const tripNames = ['trip1', 'trip2', 'trip3', 'trip4', 'trip5', 'trip6', 'trip7', 'trip8', 'trip9', 'trip10'];
+        
+        for (const tripName of tripNames) {
+          try {
+            // Check for tickets in: /conductors/{conductorId}/dailyTrips/{dateId}/{tripName}/tickets/tickets/
+            const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
+            const ticketsSnapshot = await getDocs(ticketsRef);
+            
+            if (ticketsSnapshot.docs.length > 0) {
+              // This trip has tickets, so count it
+              tripCount++;
+            }
+          } catch (tripError) {
+            // Normal - not all trip numbers will exist
+            continue;
+          }
+        }
+      }
+      
+      return tripCount;
     } catch (error) {
       console.error('Error getting trips count:', error);
       return 0;
@@ -318,7 +370,6 @@ class ConductorService {
           const dateDocRef = doc(db, 'conductors', conductorId, 'dailyTrips', date);
           await deleteDoc(dateDocRef);
         } catch (deleteError) {
-          console.warn('Could not delete date document:', deleteError);
         }
       }
 
@@ -341,15 +392,48 @@ class ConductorService {
     }
   }
 
-  // NEW: Update conductor's total trips count after deletion
+  // NEW: Update conductor's total trips count after deletion (using remittance counting logic)
   async updateConductorTripsCount(conductorId) {
     try {
-      const { allTrips } = await this.getConductorTrips(conductorId);
-      const conductorRef = doc(db, 'conductors', conductorId);
+      const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
+      const datesSnapshot = await getDocs(dailyTripsRef);
       
+      let totalTrips = 0;
+      let todayTrips = 0;
+      const today = new Date().toISOString().split('T')[0];
+      
+      for (const dateDoc of datesSnapshot.docs) {
+        const dateId = dateDoc.id;
+        
+        // Process trip subcollections (trip1, trip2, etc.)
+        const tripNames = ['trip1', 'trip2', 'trip3', 'trip4', 'trip5', 'trip6', 'trip7', 'trip8', 'trip9', 'trip10'];
+        
+        for (const tripName of tripNames) {
+          try {
+            // Check for tickets in: /conductors/{conductorId}/dailyTrips/{dateId}/{tripName}/tickets/tickets/
+            const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
+            const ticketsSnapshot = await getDocs(ticketsRef);
+            
+            if (ticketsSnapshot.docs.length > 0) {
+              // This trip has tickets, so count it
+              totalTrips++;
+              
+              // Check if it's today
+              if (dateId === today) {
+                todayTrips++;
+              }
+            }
+          } catch (tripError) {
+            // Normal - not all trip numbers will exist
+            continue;
+          }
+        }
+      }
+      
+      const conductorRef = doc(db, 'conductors', conductorId);
       const updateData = {
-        totalTrips: allTrips.length,
-        todayTrips: allTrips.filter(trip => this.isToday(trip.date)).length,
+        totalTrips: totalTrips,
+        todayTrips: todayTrips,
         updatedAt: serverTimestamp()
       };
 
@@ -357,7 +441,7 @@ class ConductorService {
       
       return {
         success: true,
-        totalTrips: allTrips.length
+        totalTrips: totalTrips
       };
     } catch (error) {
       console.error('Error updating trips count:', error);
@@ -391,22 +475,16 @@ class ConductorService {
           try {
             const conductorData = doc.data();
             
-            // SAFE OPTIMIZATION: Use cached totalTrips when available
+            // Use remittance-based counting logic for accurate trip counts
             let tripsCount;
             
-            if (conductorData.totalTrips !== undefined && conductorData.totalTrips !== null) {
-              // Use cached count for fast performance
-              tripsCount = conductorData.totalTrips;
-              console.log(`📊 Using cached trips count for ${doc.id}: ${tripsCount}`);
-            } else {
-              // Only calculate real count if cache is missing (new conductors)
-              console.log(`🔄 Cache missing for ${doc.id}, calculating actual trips count...`);
-              tripsCount = await this.getConductorTripsCount(doc.id);
-              
-              // Update the cache for next time
+            // Always calculate using the new remittance logic for accuracy
+            tripsCount = await this.getConductorTripsCount(doc.id);
+            
+            // Update the cache in the background for consistency
+            if (conductorData.totalTrips !== tripsCount) {
               try {
                 await this.updateConductorTripsCount(doc.id);
-                console.log(`✅ Updated trips count cache for ${doc.id}: ${tripsCount}`);
               } catch (updateError) {
                 console.warn(`⚠️ Failed to update cache for ${doc.id}:`, updateError);
               }
@@ -459,7 +537,7 @@ class ConductorService {
     return unsubscribe;
   }
 
-  // FIXED: Real-time listener for specific conductor with trips
+  // FIXED: Real-time listener for specific conductor with trips (using remittance counting logic)
   setupConductorDetailsListener(conductorId, callback) {
     // Remove existing listener for this conductor if it exists
     this.removeConductorDetailsListener(conductorId);
@@ -479,12 +557,42 @@ class ConductorService {
           // Get trips data when conductor data changes
           const { allTrips } = await this.getConductorTrips(conductorId, 10); // Latest 10 trips
           
+          // Use remittance counting logic for trip counts
+          const totalTrips = await this.getConductorTripsCount(conductorId);
+          
+          // Calculate today trips using remittance logic
+          const today = new Date().toISOString().split('T')[0];
+          let todayTrips = 0;
+          
+          try {
+            const todayDocRef = doc(db, 'conductors', conductorId, 'dailyTrips', today);
+            const todayDoc = await getDoc(todayDocRef);
+            
+            if (todayDoc.exists()) {
+              const tripNames = ['trip1', 'trip2', 'trip3', 'trip4', 'trip5', 'trip6', 'trip7', 'trip8', 'trip9', 'trip10'];
+              
+              for (const tripName of tripNames) {
+                try {
+                  const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', today, tripName, 'tickets', 'tickets');
+                  const ticketsSnapshot = await getDocs(ticketsRef);
+                  
+                  if (ticketsSnapshot.docs.length > 0) {
+                    todayTrips++;
+                  }
+                } catch (tripError) {
+                  continue;
+                }
+              }
+            }
+          } catch (error) {
+            }
+          
           callback({
             id: doc.id,
             ...conductorData,
-            trips: allTrips, // ✅ FIXED: Use allTrips instead of undefined 'trips'
-            totalTrips: allTrips.length,
-            todayTrips: allTrips.filter(trip => this.isToday(trip.date)).length
+            trips: allTrips,
+            totalTrips: totalTrips,
+            todayTrips: todayTrips
           });
         } else {
           callback(null);

@@ -24,7 +24,6 @@ class DashboardService {
       
       return tripNames;
     } catch (error) {
-      console.error(`Error getting trip names for ${conductorId}/${dateId}:`, error);
       return [];
     }
   }
@@ -115,7 +114,7 @@ class DashboardService {
       const avgPassengers = totalTrips === 0 ? 0 : (totalPassengers / totalTrips).toFixed(2);
 
       const result = {
-        totalTrips: totalTrips, // Now shows actual trips (not tickets)
+        totalTrips: totalTrips,
         totalFare,
         avgPassengers,
         mostCommonRoute,
@@ -130,7 +129,6 @@ class DashboardService {
       return result;
 
     } catch (error) {
-      console.error('Error fetching trip summary:', error);
       throw error;
     }
   }
@@ -193,7 +191,6 @@ class DashboardService {
             pendingRequests++;
             break;
           case 'received':
-          case 'acknowledged':
           case 'in_progress':
             receivedRequests++;
             break;
@@ -203,7 +200,6 @@ class DashboardService {
             break;
           case 'completed':
           case 'resolved':
-          case 'closed':
             completedRequests++;
             break;
         }
@@ -256,7 +252,6 @@ class DashboardService {
       return result;
 
     } catch (error) {
-      console.error('Error fetching SOS request summary:', error);
       throw error;
     }
   }
@@ -296,7 +291,6 @@ class DashboardService {
         onlinePercentage
       };
     } catch (error) {
-      console.error('Error fetching conductors summary:', error);
       throw error;
     }
   }
@@ -353,7 +347,6 @@ class DashboardService {
         verificationRate
       };
     } catch (error) {
-      console.error('Error fetching ID verification summary:', error);
       throw error;
     }
   }

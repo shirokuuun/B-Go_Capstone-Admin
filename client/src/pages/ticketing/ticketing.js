@@ -1,4 +1,3 @@
-// Firebase imports
 import { getFirestore, collection, getDocs, doc, getDoc, query, orderBy, limit as limitQuery, updateDoc, deleteDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { auth } from '/src/firebase/firebase.js';
 import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
@@ -24,23 +23,16 @@ const getTripDirection = async (conductorId, dateId, tripName) => {
         if (tripMap.direction && typeof tripMap.direction === 'string') {
           const direction = tripMap.direction.trim();
           if (direction.length > 0) {
-            console.log(`✅ Found direction for ${tripName}: "${direction}"`);
             return direction;
           }
         }
-        
-        console.log(`❌ No direction found in trip map ${tripName}. Available fields:`, Object.keys(tripMap));
         return null;
       } else {
-        console.log(`❌ Trip map ${tripName} not found in date document ${dateId}`);
         return null;
       }
     }
-    
-    console.log(`❌ Date document ${dateId} does not exist`);
     return null;
   } catch (error) {
-    console.error(`❌ Could not get direction for trip ${tripName}:`, error);
     return null;
   }
 };
@@ -55,7 +47,6 @@ const getAllTripNames = async (conductorId, dateId) => {
     const dateDocSnapshot = await getDoc(dateDocRef);
     
     if (!dateDocSnapshot.exists()) {
-      console.log(`❌ Date document ${dateId} does not exist`);
       return [];
     }
     
@@ -68,8 +59,6 @@ const getAllTripNames = async (conductorId, dateId) => {
         tripNames.push(key);
       }
     }
-    
-    console.log(`✅ Found ${tripNames.length} trip maps in ${conductorId}/${dateId}: ${tripNames.join(', ')}`);
     return tripNames;
   } catch (error) {
     console.error(`Error getting trip names for ${conductorId}/${dateId}:`, error);
@@ -83,24 +72,17 @@ const getAllTripNames = async (conductorId, dateId) => {
  */
 export const getConductorsWithPreTickets = async () => {
   try {
-    console.log('🔍 Starting getConductorsWithPreTickets...');
     const conductorsRef = collection(db, 'conductors');
     const conductorsSnapshot = await getDocs(conductorsRef);
-    
-    console.log(`👥 Found ${conductorsSnapshot.docs.length} conductors in database`);
     const conductorsWithTickets = [];
     
     for (const conductorDoc of conductorsSnapshot.docs) {
       const conductorData = conductorDoc.data();
       const conductorId = conductorDoc.id;
       
-      console.log(`\n🔍 Checking conductor: ${conductorId} (${conductorData.name})`);
-      
       // Get all daily trips for this conductor
       const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
       const dailyTripsSnapshot = await getDocs(dailyTripsRef);
-      
-      console.log(`📅 Found ${dailyTripsSnapshot.docs.length} daily trip documents for ${conductorId}`);
       
       let preTicketCount = 0; // Count pre-tickets
       let preBookingCount = 0; // Count pre-bookings  
@@ -110,25 +92,19 @@ export const getConductorsWithPreTickets = async () => {
       // Count tickets across all dates and trips
       for (const dateDoc of dailyTripsSnapshot.docs) {
         const dateId = dateDoc.id;
-        console.log(`📅 Processing date: ${dateId}`);
         
         // Get all trip names for this date
         const tripNames = await getAllTripNames(conductorId, dateId);
-        console.log(`🚌 Found trips for ${dateId}: ${tripNames.join(', ')}`);
         
         for (const tripName of tripNames) {
           try {
             const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
             const ticketsSnapshot = await getDocs(ticketsRef);
             
-            console.log(`🎫 Found ${ticketsSnapshot.docs.length} tickets in ${tripName}`);
-            
             // Count all tickets and check their types
             ticketsSnapshot.forEach(ticketDoc => {
               const ticketData = ticketDoc.data();
               allTicketCount++;
-              
-              console.log(`🎫 Ticket ${ticketDoc.id}: type="${ticketData.ticketType}", documentType="${ticketData.documentType}", from="${ticketData.from}", to="${ticketData.to}"`);
               
               // Count tickets by type - prioritize documentType for pre-tickets and pre-bookings
               if (ticketData.documentType === 'preTicket') {
@@ -150,16 +126,12 @@ export const getConductorsWithPreTickets = async () => {
       // Calculate total tickets
       allTicketCount = preTicketCount + preBookingCount + conductorTicketCount;
       
-      console.log(`📊 ${conductorId} summary: ${preTicketCount} preTickets, ${preBookingCount} preBookings, ${conductorTicketCount} conductorTickets, ${allTicketCount} total`);
-      
       // Include conductor if they have any tickets
       if (allTicketCount > 0) {
-        console.log(`✅ Adding conductor ${conductorId} to list`);
         conductorsWithTickets.push({
           id: conductorId,
           ...conductorData,
-          // Fix for ticket count display: UI uses preTicketsCount to show total tickets
-          preTicketsCount: allTicketCount, // UI expects this field - now shows ALL tickets (conductor + pre-tickets + pre-bookings)
+          preTicketsCount: allTicketCount, // now shows ALL tickets (conductor + pre-tickets + pre-bookings)
           totalTicketsCount: allTicketCount, // Total ticket count (same as above)
           preTicketsOnly: preTicketCount, // Actual pre-tickets count for statistics
           stats: {
@@ -169,19 +141,8 @@ export const getConductorsWithPreTickets = async () => {
             totalTickets: allTicketCount
           }
         });
-      } else {
-        console.log(`❌ Skipping conductor ${conductorId} (no tickets found)`);
-      }
+      } 
     }
-    
-    console.log(`\n🎯 Final result: ${conductorsWithTickets.length} conductors with tickets`);
-    console.log('👥 Conductors found:', conductorsWithTickets.map(c => ({ 
-      id: c.id, 
-      name: c.name, 
-      displayCount: c.preTicketsCount, // What UI will show (total tickets)
-      breakdown: c.stats // Detailed breakdown
-    })));
-    
     return conductorsWithTickets;
   } catch (error) {
     console.error('Error fetching conductors with tickets:', error);
@@ -373,7 +334,6 @@ export const getPreTicketingStats = async () => {
       preBookings,
       conductorTickets,
       onlineTickets: conductorsWithTickets,
-      offlineTickets: 0, // Not applicable for this structure
       totalTrips
     };
   } catch (error) {
@@ -480,30 +440,23 @@ export const getAllRecentPreTickets = async (limitParam = 50) => {
  */
 export const getPreTicketById = async (conductorId, ticketId) => {
   try {
-    console.log('🔍 Searching for ticket:', ticketId, 'for conductor:', conductorId);
     
     // We need to search through all dates and trips to find the ticket
     const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
     const dailyTripsSnapshot = await getDocs(dailyTripsRef);
     
-    console.log(`📅 Found ${dailyTripsSnapshot.docs.length} daily trip documents`);
-    
     for (const dateDoc of dailyTripsSnapshot.docs) {
       const dateId = dateDoc.id;
-      console.log(`📅 Checking date: ${dateId}`);
       
       // Get all trip names for this date
       const tripNames = await getAllTripNames(conductorId, dateId);
-      console.log(`🚌 Found trips for ${dateId}:`, tripNames);
       
       for (const tripName of tripNames) {
         try {
-          console.log(`🔍 Checking trip ${tripName} for ticket ${ticketId}`);
           const ticketRef = doc(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets', ticketId);
           const ticketSnapshot = await getDoc(ticketRef);
           
           if (ticketSnapshot.exists()) {
-            console.log(`✅ Found ticket ${ticketId} in ${tripName} on ${dateId}`);
             const ticketData = ticketSnapshot.data();
             const conductorRef = doc(db, 'conductors', conductorId);
             const conductorSnapshot = await getDoc(conductorRef);
@@ -534,9 +487,7 @@ export const getPreTicketById = async (conductorId, ticketId) => {
               time: ticketData.timestamp ? new Date(ticketData.timestamp.seconds * 1000).toLocaleTimeString() : '',
               dateFormatted: ticketData.timestamp ? new Date(ticketData.timestamp.seconds * 1000).toLocaleDateString() : dateId
             };
-          } else {
-            console.log(`❌ Ticket ${ticketId} not found in ${tripName}`);
-          }
+          } 
         } catch (error) {
           console.log(`⚠️ Error checking trip ${tripName}:`, error.message);
           // Continue searching in other trips
@@ -544,8 +495,6 @@ export const getPreTicketById = async (conductorId, ticketId) => {
         }
       }
     }
-    
-    console.log(`❌ Ticket ${ticketId} not found anywhere`);
     throw new Error('Ticket not found');
   } catch (error) {
     console.error('❌ Error fetching ticket:', error);
@@ -704,8 +653,6 @@ export const subscribeToConductorsWithTickets = (onUpdate) => {
     const conductorsRef = collection(db, 'conductors');
     
     const unsubscribe = onSnapshot(conductorsRef, async (snapshot) => {
-      console.log('🔄 Real-time update: Conductors collection changed');
-      
       try {
         // Process the conductors data using existing logic
         const conductorsWithTickets = [];
@@ -713,8 +660,6 @@ export const subscribeToConductorsWithTickets = (onUpdate) => {
         for (const conductorDoc of snapshot.docs) {
           const conductorData = conductorDoc.data();
           const conductorId = conductorDoc.id;
-          
-          console.log(`🔍 Processing conductor: ${conductorId}`);
           
           // Get all daily trips for this conductor
           const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
@@ -776,8 +721,6 @@ export const subscribeToConductorsWithTickets = (onUpdate) => {
             });
           }
         }
-        
-        console.log(`📊 Real-time update: ${conductorsWithTickets.length} conductors with tickets`);
         onUpdate(conductorsWithTickets);
         
       } catch (error) {
@@ -807,8 +750,6 @@ export const subscribeToTicketsByConductor = (conductorId, onUpdate) => {
     const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
     
     const unsubscribe = onSnapshot(dailyTripsRef, async (snapshot) => {
-      console.log(`🔄 Real-time update: Tickets changed for conductor ${conductorId}`);
-      
       try {
         const allTickets = [];
         
@@ -869,8 +810,6 @@ export const subscribeToTicketsByConductor = (conductorId, onUpdate) => {
             return bTime - aTime;
           })
           .slice(0, 50); // Limit to 50 tickets
-        
-        console.log(`🎫 Real-time update: ${sortedTickets.length} tickets for conductor ${conductorId}`);
         onUpdate(sortedTickets);
         
       } catch (error) {

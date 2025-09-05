@@ -34,7 +34,6 @@ const getAllTripNamesFromTickets = async (conductorId, dateId) => {
     
     return tripNames;
   } catch (error) {
-    console.error(`Error getting trip names from tickets for ${conductorId}/${dateId}:`, error);
     return [];
   }
 };
@@ -62,7 +61,6 @@ const getAllTripNames = async (conductorId, dateId) => {
     
     return tripNames;
   } catch (error) {
-    console.error(`Error getting trip names for ${conductorId}/${dateId}:`, error);
     return [];
   }
 };
@@ -87,8 +85,6 @@ const getAllTripMapsFromDate = async (conductorId, dateId) => {
         tripNames.push(key);
       }
     }
-    
-    console.log(`🗺️ Found ${tripNames.length} trip maps in date ${dateId}: ${tripNames.join(', ')}`);
     return tripNames;
   } catch (error) {
     console.error(`Error getting trip maps for ${conductorId}/${dateId}:`, error);
@@ -133,14 +129,13 @@ export const getAvailableRoutes = async () => {
           }
         }
       } catch (conductorError) {
-        console.error(`❌ Error fetching routes for conductor ${conductorId}:`, conductorError);
         continue;
       }
     }
 
     return Array.from(availableRoutes).sort();
   } catch (error) {
-    console.error('❌ Error fetching available routes:', error);
+    console.error('Error fetching available routes:', error);
     return [];
   }
 };
@@ -208,14 +203,14 @@ export const getAvailableDates = async () => {
           }
         }
       } catch (conductorError) {
-        console.error(`❌ Error fetching dates for conductor ${conductorId}:`, conductorError);
+        console.error(`Error fetching dates for conductor ${conductorId}:`, conductorError);
         continue;
       }
     }
 
     return Array.from(availableDates).sort((a, b) => new Date(b) - new Date(a));
   } catch (error) {
-    console.error('❌ Error fetching available dates:', error);
+    console.error('Error fetching available dates:', error);
     return [];
   }
 };
@@ -249,7 +244,6 @@ const getTripDirection = async (conductorId, dateId, tripName) => {
     
     return null;
   } catch (error) {
-    console.error(`❌ Could not get direction for trip ${tripName}:`, error);
     return null;
   }
 };
@@ -282,7 +276,6 @@ export const fetchConductorTripsAndPreBooking = async (date, selectedRoute = nul
           await processTripsForDate(conductorId, date, conductorTrips, preBookingTrips, date, selectedRoute);
         }
       } catch (conductorError) {
-        console.error(`Error processing conductor ${conductorId}:`, conductorError);
         continue;
       }
     }
@@ -290,7 +283,6 @@ export const fetchConductorTripsAndPreBooking = async (date, selectedRoute = nul
     
     return { conductorTrips, preBookingTrips };
   } catch (error) {
-    console.error('Error fetching conductor trips and pre-booking:', error);
     return { conductorTrips: [], preBookingTrips: [] };
   }
 };
@@ -347,7 +339,7 @@ const processTripsForDate = async (conductorId, dateId, conductorTrips, preBooki
                 id: ticketId,
                 conductorId: conductorId,
                 tripId: tripName,
-                tripDirection: tripDirection, // Add trip direction to ticket data
+                tripDirection: tripDirection, 
                 totalFare: parseFloat(ticketData.totalFare),
                 quantity: ticketData.quantity || 1,
                 from: ticketData.from,
@@ -355,7 +347,7 @@ const processTripsForDate = async (conductorId, dateId, conductorTrips, preBooki
                 timestamp: ticketData.timestamp,
                 discountAmount: parseFloat(ticketData.discountAmount || 0),
                 ticketType: ticketData.ticketType || ticketData.documentType || null,
-                documentType: ticketData.documentType || ticketData.ticketType || null, // Add documentType for consistency
+                documentType: ticketData.documentType || ticketData.ticketType || null, 
                 date: dateId,
                 startKm: ticketData.startKm,
                 endKm: ticketData.endKm,
@@ -375,7 +367,7 @@ const processTripsForDate = async (conductorId, dateId, conductorTrips, preBooki
                   source: 'Pre-booking'
                 });
               } else if (ticketData.documentType === 'preTicket') {
-                // Note: Pre-ticketing will be handled separately in fetchPreTicketing function
+                // Pre-ticketing will be handled separately in fetchPreTicketing function
                 // This is here for completeness but won't be used in the current flow
               } else {
                 // conductorTicket or no documentType = Conductor trips
@@ -392,7 +384,6 @@ const processTripsForDate = async (conductorId, dateId, conductorTrips, preBooki
       }
     }
   } catch (error) {
-    console.error(`Error processing trips for conductor ${conductorId} on date ${dateId}:`, error);
   }
 };
 
@@ -425,7 +416,7 @@ export const fetchPreTicketing = async (date, selectedRoute = null) => {
         }
         
       } catch (conductorError) {
-        console.error(`❌ Error fetching pre-tickets for conductor ${conductorId}:`, conductorError);
+        console.error(`Error fetching pre-tickets for conductor ${conductorId}:`, conductorError);
         continue;
       }
     }
@@ -433,7 +424,6 @@ export const fetchPreTicketing = async (date, selectedRoute = null) => {
     
     return allPreTickets;
   } catch (error) {
-    console.error('❌ CRITICAL ERROR in fetchPreTicketing:', error);
     console.error('Error details:', {
       code: error.code,
       message: error.message,
@@ -497,7 +487,7 @@ const processPreTicketsForDate = async (conductorId, dateId, allPreTickets, filt
                   id: ticketId,
                   conductorId: conductorId,
                   tripId: tripName,
-                  tripDirection: tripDirection, // Add trip direction to ticket data
+                  tripDirection: tripDirection,
                   totalFare: parseFloat(ticketData.totalFare),
                   quantity: ticketData.quantity,
                   from: ticketData.from,
@@ -514,7 +504,7 @@ const processPreTicketsForDate = async (conductorId, dateId, allPreTickets, filt
                   active: ticketData.active,
                   source: 'Pre-ticketing',
                   ticketType: ticketData.ticketType || ticketData.documentType,
-                  documentType: ticketData.documentType || ticketData.ticketType // Add for consistency
+                  documentType: ticketData.documentType || ticketData.ticketType
                 });
               }
             }
@@ -596,7 +586,7 @@ export const prepareRouteRevenueData = (conductorTrips, preBookingTrips, preTick
           route, 
           revenue: 0, 
           passengers: 0,
-          tripDirection: trip.tripDirection || 'N/A', // Keep trip direction for reference
+          tripDirection: trip.tripDirection || 'N/A', 
           sources: {
             conductorTrips: 0,
             preBooking: 0,

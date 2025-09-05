@@ -148,7 +148,7 @@ export const signupAdmin = async ({ name, email, password }) => {
       email,
       role: "admin", // Regular admin by default
       isSuperAdmin: false, // Explicitly not superadmin
-      permissions: regularAdminPermissions, // ✅ NEW: Explicit permissions
+      permissions: regularAdminPermissions, //NEW: Explicit permissions
       isActive: true,
       createdAt: new Date(),
       createdBy: "system", // Track who created this admin
@@ -205,7 +205,7 @@ export const loginAdmin = async (email, password) => {
       throw new Error("This account has been deleted and is no longer accessible.");
     }
     
-    // ✅ FIXED: Now accepts both 'admin' and 'superadmin' roles
+    // Now accepts both 'admin' and 'superadmin' roles
     if (userData.role === "admin" || userData.role === "superadmin") {
       // Optional: Add role info to the returned user object
       user.adminRole = userData.role;
