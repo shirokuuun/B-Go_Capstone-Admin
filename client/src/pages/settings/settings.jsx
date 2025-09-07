@@ -1,11 +1,13 @@
 import '/src/pages/settings/settings.css';
 import Header from '/src/components/HeaderTemplate/header.jsx';
-import { MdDeleteForever, MdBackup, MdCloudDownload, MdRestore } from "react-icons/md";
-import { FaDownload } from "react-icons/fa6";
-import { IoMdArrowDropdownCircle } from "react-icons/io";
+import { MdDeleteForever, MdBackup, MdCloudDownload, MdRestore  } from "react-icons/md";
+import { FaDownload, FaMagnifyingGlass } from "react-icons/fa6";
+import { MdOutlineSecurity } from "react-icons/md";
+import { FaCheckCircle, FaPlusCircle, FaTimesCircle, FaExclamationTriangle, FaCog, FaUpload, FaFolder } from "react-icons/fa";
 import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
 import { RiEdit2Fill } from "react-icons/ri";
 import { HiDatabase } from "react-icons/hi";
+import { IoSettings, IoWarning  } from "react-icons/io5";
 import { useState, useEffect, useCallback } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '/src/firebase/firebase.js';
@@ -80,6 +82,64 @@ const safeRender = (value) => {
   return String(value);
 };
 
+// Format activity log descriptions for better readability
+const formatLogDescription = (description) => {
+  if (!description) return 'No description available';
+  
+  // Handle object descriptions (legacy or malformed logs)
+  if (typeof description === 'object') {
+    try {
+      // Try to extract useful info from the object
+      if (description.route) {
+        return `Deleted schedule: ${description.route} (${description.schedulesCount || 0} trips)`;
+      }
+      if (description.scheduleId) {
+        return `Deleted schedule: ID ${description.scheduleId}`;
+      }
+      // Fallback for other objects
+      return 'Schedule operation completed';
+    } catch (error) {
+      return 'Schedule operation (details unavailable)';
+    }
+  }
+  
+  let formatted = String(description);
+  
+  // Make descriptions more direct and readable
+  formatted = formatted
+    // User actions
+    .replace(/User successfully changed their password/g, 'Changed password')
+    .replace(/User uploaded a new profile picture/g, 'Updated profile picture')
+    .replace(/User updated username from "([^"]*)" to "([^"]*)"/g, 'Changed username: $1 → $2')
+    .replace(/User updated username from/g, 'Changed username from')
+    
+    // Admin actions
+    .replace(/Admin user "([^"]*)" has been successfully deleted from the system/g, 'Deleted administrator: $1')
+    .replace(/Superadmin deleted admin user: ([^(]*) \([^)]*\)/g, 'Deleted administrator: $1')
+    .replace(/Superadmin deleted their own account: ([^(]*)/g, 'Deleted own account')
+    
+    // Backup operations
+    .replace(/Created system backup: ([^\s]*)/g, 'Created backup: $1')
+    .replace(/Downloaded backup file: ([^\s]*)/g, 'Downloaded: $1')
+    .replace(/Deleted backup file: ([^\s]*)/g, 'Deleted backup: $1')
+    .replace(/Restored data from backup: ([^\s]*) \(mode: ([^)]*)\)/g, 'Restored from $1 ($2 mode)')
+    .replace(/Data restored successfully! (\d+) documents processed/g, 'Successfully restored $1 documents')
+    
+    // Schedule operations
+    .replace(/Deleted trip schedule for ([^(]*) \((\d+) trips\)/g, 'Deleted schedule: $1 ($2 trips)')
+    
+    // System operations
+    .replace(/Cleaned up (\d+) expired backup\(s\)/g, 'Cleaned up $1 expired backups')
+    .replace(/Activity log deleted successfully/g, 'Deleted activity log')
+    
+    // Clean up formatting
+    .replace(/"/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  return formatted;
+};
+
   const [collapsed, setCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('account');
   const [adminTab, setAdminTab] = useState('logs'); // 'logs', 'users', or 'backup'
@@ -123,6 +183,7 @@ const safeRender = (value) => {
   const [selectedCollections, setSelectedCollections] = useState([]);
   const [backupFiles, setBackupFiles] = useState([]);
   const [backupFilesLoading, setBackupFilesLoading] = useState(false);
+  const [backupProgress, setBackupProgress] = useState(null);
 
   // Restore system state
   const [showRestoreModal, setShowRestoreModal] = useState(false);
@@ -167,7 +228,7 @@ const safeRender = (value) => {
       const successMessage = await changeUserPassword(currentPassword, newPassword, confirmPassword);
       
       // Show browser alert for immediate feedback
-      alert('Password changed successfully! ✅');
+      alert('Password changed successfully!');
       
       // Also set the message state for UI feedback
       setMessage(successMessage);
@@ -236,7 +297,7 @@ const safeRender = (value) => {
       const successMessage = await updateUsername(editedUsername);
       
       // Show browser alert for immediate feedback
-      alert('Username updated successfully! ✅');
+      alert('Username updated successfully!');
       
       // Update local state
       setUserData(prev => ({ ...prev, name: editedUsername.trim() }));
@@ -258,7 +319,8 @@ const safeRender = (value) => {
 
   const handleDeleteLog = async (logId) => {
     const confirmed = window.confirm(
-      '⚠️ Are you sure you want to delete this log entry? This action cannot be undone.'
+      <IoWarning size={20}/> +
+      ' Are you sure you want to delete this log entry? This action cannot be undone.'
     );
     
     if (!confirmed) {
@@ -418,7 +480,8 @@ const safeRender = (value) => {
   // Handle admin user deletion
   const handleDeleteUser = useCallback(async (user) => {
     const confirmed = window.confirm(
-      `⚠️ Are you sure you want to delete admin user "${user.name || user.email}"?\n\nThis action cannot be undone.`
+      <IoWarning size={20}/> +
+      ` Are you sure you want to delete admin user "${user.name || user.email}"?\n\nThis action cannot be undone.`
     );
     
     if (!confirmed) {
@@ -431,7 +494,7 @@ const safeRender = (value) => {
     
     try {
       await deleteAdminUser(user.id, user.email, user.name);
-      setMessage(`✅ Admin user "${user.name || user.email}" has been successfully deleted from the system.`);
+      setMessage(<><FaCheckCircle style={{ color: 'green', marginRight: '8px' }} />Admin user "{user.name || user.email}" has been successfully deleted from the system.</>);
     } catch (err) {
       setError(`❌ Failed to delete admin user: ${err.message}. Please try again or contact support if the issue persists.`);
     } finally {
@@ -497,24 +560,51 @@ const safeRender = (value) => {
     }
 
     setBackupLoading(true);
+    setBackupProgress({ percentage: 0, message: 'Starting backup...' });
     setError('');
     setMessage('');
 
     try {
-      const result = await backupService.createBackup(selectedCollections);
+      const result = await backupService.createBackup(
+        selectedCollections, 
+        null, // default backup name
+        (progress) => {
+          // Update progress state, but don't override completed state
+          setBackupProgress(current => {
+            if (current?.completed) return current; // Don't override completed state
+            return progress;
+          });
+        }
+      );
+      
       if (result.success) {
+        // Set final success state
+        setBackupProgress({
+          percentage: 100,
+          message: `✅ Backup Created: ${result.fileName}`,
+          completed: true,
+          fileName: result.fileName
+        });
+        
         setMessage(`✅ Backup created successfully! File: ${result.fileName}`);
         setSelectedCollections([]);
         // Refresh backup files list
         loadBackupFiles();
+        setBackupLoading(false);
       } else {
         setError(`❌ Failed to create backup: ${result.error}`);
+        setBackupProgress(null);
+        setBackupLoading(false);
       }
     } catch (err) {
       setError(`❌ Failed to create backup: ${err.message}`);
-    } finally {
+      setBackupProgress(null);
       setBackupLoading(false);
     }
+  };
+
+  const handleCloseBackupProgress = () => {
+    setBackupProgress(null);
   };
 
   const handleDownloadBackup = async (fileName) => {
@@ -532,7 +622,8 @@ const safeRender = (value) => {
 
   const handleDeleteBackup = async (backupId, fileName) => {
     const confirmed = window.confirm(
-      `⚠️ Are you sure you want to delete backup "${fileName}"?\n\nThis action cannot be undone.`
+      <IoWarning size={20}/> +
+      ` Are you sure you want to delete backup "${fileName}"?\n\nThis action cannot be undone.`
     );
 
     if (!confirmed) {
@@ -644,6 +735,17 @@ const safeRender = (value) => {
       });
       
       if (result.success) {
+        // Force 100% completion when restore is successful
+        setRestoreProgress(prev => ({
+          ...prev,
+          phase: 'completed',
+          processedDocuments: prev.totalDocuments,
+          currentCollection: 'Restore completed successfully!'
+        }));
+        
+        // Clear the uploaded backup file after successful restore
+        setUploadedBackupFile(null);
+        
         const docsRestored = typeof result.documentsRestored === 'number' ? result.documentsRestored : 'unknown';
         setMessage(`✅ Data restored successfully! ${docsRestored} documents processed.`);
         if (result.errors && result.errors.length > 0) {
@@ -1141,7 +1243,7 @@ const safeRender = (value) => {
                                 {log.activityType.replace(/_/g, ' ')}
                               </span>
                               <span className="settings-log-description">
-                                {safeRender(log.description)}
+                                {formatLogDescription(log.description)}
                               </span>
                               <span className={`settings-log-severity ${log.severity}`}>
                                 {log.severity}
@@ -1230,6 +1332,30 @@ const safeRender = (value) => {
                     ))}
                   </div>
                   <div className="backup-create-actions">
+                    {backupProgress && (
+                      <div className="backup-progress-container">
+                        <div className="backup-progress-header">
+                          <div className="backup-progress-info">
+                            <span>{backupProgress.message}</span>
+                            <span>{backupProgress.percentage}%</span>
+                          </div>
+                          {backupProgress.completed && (
+                            <button 
+                              onClick={handleCloseBackupProgress} 
+                              className="backup-progress-close"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                        <div className="backup-progress-bar">
+                          <div 
+                            className="backup-progress-fill"
+                            style={{ width: `${backupProgress.percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
                     <button
                       onClick={handleCreateBackup}
                       disabled={backupLoading || selectedCollections.length === 0}
@@ -1335,24 +1461,27 @@ const safeRender = (value) => {
                   {/* Restore Data Section */}
                   <div className="backup-section">
                     <div className="backup-section-header">
-                      <MdRestore size={24} />
                       <h3>Restore Data from Backup</h3>
                     </div>
                     <div className="restore-info-container">
-                      <p>To restore data from a backup file:</p>
-                      <ol className="restore-steps">
-                        <li>Download a backup file from below</li>
-                        <li>Upload it using the section on the right</li>
-                        <li>Choose your restore mode and click "Restore"</li>
-                      </ol>
+                      {!uploadedBackupFile && (
+                        <>
+                          <p>To restore data from a backup file:</p>
+                          <ol className="restore-steps">
+                            <li>Download a backup file from below</li>
+                            <li>Upload it using the section on the right</li>
+                            <li>Choose your restore mode and click "Restore"</li>
+                          </ol>
+                        </>
+                      )}
                       {uploadedBackupFile && (
                         <div className="restore-ready-notice">
                           <div className="restore-ready-header">
-                            <span>✅ Ready to Restore</span>
+                            <span><FaCheckCircle style={{ marginRight: '8px' }} /> Ready to Restore</span>
                             <button 
                               onClick={() => {
                                 setUploadedBackupFile(null);
-                                setMessage('📤 Uploaded backup file cleared.');
+                                setMessage(<><FaUpload style={{ marginRight: '8px' }} />Uploaded backup file cleared.</>);
                               }}
                               className="clear-uploaded-btn"
                             >
@@ -1408,7 +1537,7 @@ const safeRender = (value) => {
                 {/* Backup Info Section */}
                 <div className="backup-info-section">
                   <div className="backup-info-card">
-                    <h4>🔒 Security & Privacy</h4>
+                    <h4><MdOutlineSecurity size={20}/> Security & Privacy</h4>
                     <ul>
                       <li>Backups are stored securely in Firebase Cloud Storage</li>
                       <li>All data is encrypted in transit and at rest</li>
@@ -1428,13 +1557,13 @@ const safeRender = (value) => {
           <div className="restore-modal-overlay">
             <div className="restore-modal">
               <div className="restore-modal-header">
-                <h2>🔄 Restore Data from Backup</h2>
+                <h2>Restore Data from Backup</h2>
                 <button onClick={handleRestoreCancel} className="restore-modal-close">✕</button>
               </div>
               
               <div className="restore-modal-content">
                 <div className="restore-backup-info">
-                  <h3>📁 Backup File</h3>
+                  <h3><FaFolder style={{ marginRight: '8px' }} />Backup File</h3>
                   <div className="restore-backup-details">
                     <div className="restore-backup-item">
                       <span className="restore-backup-label">File:</span>
@@ -1464,7 +1593,7 @@ const safeRender = (value) => {
                 </div>
 
                 <div className="restore-mode-section">
-                  <h3>⚙️ Restore Mode</h3>
+                  <h3><IoSettings style={{ marginRight: '8px', verticalAlign: 'middle' }} />Restore Mode</h3>
                   <div className="restore-mode-options">
                     <label className={`restore-mode-option ${restoreMode === 'missing_only' ? 'selected' : ''}`}>
                       <input
@@ -1476,30 +1605,11 @@ const safeRender = (value) => {
                       />
                       <div className="restore-mode-content">
                         <div className="restore-mode-title">
-                          <span className="restore-mode-icon">➕</span>
+                          <span className="restore-mode-icon"><FaPlusCircle size={20}/></span>
                           <strong>Missing Only (Recommended)</strong>
                         </div>
                         <div className="restore-mode-description">
                           Only restore documents that don't exist. Keeps your existing data safe.
-                        </div>
-                      </div>
-                    </label>
-
-                    <label className={`restore-mode-option ${restoreMode === 'merge' ? 'selected' : ''}`}>
-                      <input
-                        type="radio"
-                        name="restoreMode"
-                        value="merge"
-                        checked={restoreMode === 'merge'}
-                        onChange={(e) => setRestoreMode(e.target.value)}
-                      />
-                      <div className="restore-mode-content">
-                        <div className="restore-mode-title">
-                          <span className="restore-mode-icon">🔄</span>
-                          <strong>Merge Data</strong>
-                        </div>
-                        <div className="restore-mode-description">
-                          Combine backup data with existing data. Backup data takes precedence on conflicts.
                         </div>
                       </div>
                     </label>
@@ -1514,7 +1624,7 @@ const safeRender = (value) => {
                       />
                       <div className="restore-mode-content">
                         <div className="restore-mode-title">
-                          <span className="restore-mode-icon">⚠️</span>
+                          <span className="restore-mode-icon"><IoWarning size={20}/></span>
                           <strong>Overwrite All</strong>
                         </div>
                         <div className="restore-mode-description">
@@ -1523,30 +1633,12 @@ const safeRender = (value) => {
                       </div>
                     </label>
 
-                    <label className={`restore-mode-option ${restoreMode === 'backup_first' ? 'selected' : ''}`}>
-                      <input
-                        type="radio"
-                        name="restoreMode"
-                        value="backup_first"
-                        checked={restoreMode === 'backup_first'}
-                        onChange={(e) => setRestoreMode(e.target.value)}
-                      />
-                      <div className="restore-mode-content">
-                        <div className="restore-mode-title">
-                          <span className="restore-mode-icon">💾</span>
-                          <strong>Backup First</strong>
-                        </div>
-                        <div className="restore-mode-description">
-                          Create a backup of current data before overwriting. Safest option for full restore.
-                        </div>
-                      </div>
-                    </label>
                   </div>
                 </div>
 
                 <div className="restore-warning-section">
                   <div className="restore-warning-box">
-                    <span className="restore-warning-icon">⚠️</span>
+                    <span className="restore-warning-icon"><IoWarning size={20}/></span>
                     <div className="restore-warning-content">
                       <strong>Important:</strong> This operation cannot be undone. Make sure you have selected the correct restore mode.
                       {restoreMode === 'overwrite' && (
@@ -1576,7 +1668,7 @@ const safeRender = (value) => {
           <div className="restore-modal-overlay">
             <div className="restore-confirmation-modal">
               <div className="restore-confirmation-header">
-                <h2>🚨 Final Confirmation</h2>
+                <h2>Final Confirmation</h2>
               </div>
               
               <div className="restore-confirmation-content">
@@ -1589,10 +1681,8 @@ const safeRender = (value) => {
                     <div className="restore-confirmation-item">
                       <strong>Mode:</strong> 
                       <span className={`restore-mode-badge ${restoreMode}`}>
-                        {restoreMode === 'missing_only' && '➕ Missing Only'}
-                        {restoreMode === 'merge' && '🔄 Merge Data'}
-                        {restoreMode === 'overwrite' && '⚠️ Overwrite All'}
-                        {restoreMode === 'backup_first' && '💾 Backup First'}
+                        {restoreMode === 'missing_only' && 'Missing Only'}
+                        {restoreMode === 'overwrite' && 'Overwrite All'}
                       </span>
                     </div>
                     <div className="restore-confirmation-item">
@@ -1606,7 +1696,7 @@ const safeRender = (value) => {
 
                 <div className="restore-confirmation-warning">
                   <div className="restore-confirmation-warning-box">
-                    <span className="restore-warning-icon">⚠️</span>
+                    <span className="restore-warning-icon"><IoWarning size={20}/></span>
                     <div>
                       <strong>This action cannot be undone!</strong>
                       <p>Type "RESTORE" to confirm you want to proceed:</p>
@@ -1650,11 +1740,11 @@ const safeRender = (value) => {
             <div className="restore-progress-modal">
               <div className="restore-progress-header">
                 <h2>
-                  {restoreProgress.phase === 'analyzing' && '🔍 Analyzing Backup Data'}
-                  {restoreProgress.phase === 'restoring' && '📥 Restoring Data'}
-                  {restoreProgress.phase === 'completed' && '✅ Restore Completed'}
-                  {restoreProgress.phase === 'failed' && '❌ Restore Failed'}
-                  {restoreProgress.phase === 'initializing' && '⏳ Initializing'}
+                  {restoreProgress.phase === 'analyzing' && <><FaMagnifyingGlass /> Analyzing Backup Data</>}
+                  {restoreProgress.phase === 'restoring' && <><FaDownload /> Restoring Data</>}
+                  {restoreProgress.phase === 'completed' && <><FaCheckCircle /> Restore Completed</>}
+                  {restoreProgress.phase === 'failed' && <><FaTimesCircle /> Restore Failed</>}
+                  {restoreProgress.phase === 'initializing' && <><FaCog /> Initializing</>}
                 </h2>
                 {restoreProgress.phase === 'restoring' && (
                   <button onClick={handleRestoreCancelProgress} className="restore-cancel-btn">
@@ -1668,18 +1758,15 @@ const safeRender = (value) => {
                 <div className="restore-progress-section">
                   <div className="restore-progress-info">
                     <span>Overall Progress</span>
-                    <span>{restoreProgress.processedDocuments}/{restoreProgress.totalDocuments} documents</span>
+                    <span>{restoreProgress.phase === 'completed' ? 100 : (restoreProgress.totalDocuments > 0 ? Math.round((restoreProgress.processedDocuments / restoreProgress.totalDocuments) * 100) : 0)}%</span>
                   </div>
                   <div className="restore-progress-bar">
                     <div 
                       className="restore-progress-fill"
                       style={{ 
-                        width: `${restoreProgress.totalDocuments > 0 ? (restoreProgress.processedDocuments / restoreProgress.totalDocuments) * 100 : 0}%` 
+                        width: `${restoreProgress.phase === 'completed' ? 100 : (restoreProgress.totalDocuments > 0 ? (restoreProgress.processedDocuments / restoreProgress.totalDocuments) * 100 : 0)}%` 
                       }}
                     />
-                  </div>
-                  <div className="restore-progress-percentage">
-                    {restoreProgress.totalDocuments > 0 ? Math.round((restoreProgress.processedDocuments / restoreProgress.totalDocuments) * 100) : 0}%
                   </div>
                 </div>
 
@@ -1741,7 +1828,7 @@ const safeRender = (value) => {
 
                 {restoreProgress.errors && restoreProgress.errors.length > 0 && (
                   <div className="restore-errors">
-                    <h4>⚠️ Errors ({restoreProgress.errors.length}):</h4>
+                    <h4><FaExclamationTriangle style={{ color: 'orange', marginRight: '8px' }} />Errors ({restoreProgress.errors.length}):</h4>
                     <ul>
                       {restoreProgress.errors.slice(-3).map((error, index) => (
                         <li key={index}>{safeRender(error)}</li>

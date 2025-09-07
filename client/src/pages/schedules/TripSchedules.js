@@ -391,6 +391,7 @@ export const deleteTripSchedule = async (scheduleId) => {
     // Log the deletion activity
     await logActivity(
       ACTIVITY_TYPES.SCHEDULE_DELETE,
+      `Deleted trip schedule for ${scheduleData?.route || 'Unknown Route'} (${scheduleData?.schedules ? parseSchedules(scheduleData.schedules).length : 0} trips)`,
       {
         scheduleId: scheduleId,
         route: scheduleData?.route || 'Unknown Route',

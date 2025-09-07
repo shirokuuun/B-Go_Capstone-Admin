@@ -66,14 +66,36 @@ class BackupService {
    * Create a backup of selected collections
    * @param {Array} selectedCollections - Array of collection keys to backup
    * @param {string} backupName - Optional custom backup name
+   * @param {Function} progressCallback - Optional progress callback function
    * @returns {Promise<Object>} Backup result with download URL
    */
-  async createBackup(selectedCollections, backupName = null) {
+  async createBackup(selectedCollections, backupName = null, progressCallback = null) {
     try {
       const timestamp = new Date();
       const backupId = `backup_${timestamp.getTime()}`;
       const fileName = backupName || `system-backup-${timestamp.toISOString().split('T')[0]}-${timestamp.getTime()}`;
       
+      // Initialize progress tracking with predefined percentages
+      const totalCollections = selectedCollections.length;
+      const collectionProgress = 80; // 80% for collection processing
+      const uploadProgress = 90;     // 90% for upload
+      const finalProgress = 100;     // 100% for completion
+      
+      const updateProgress = async (message, percentage) => {
+        if (progressCallback) {
+          progressCallback({
+            percentage: Math.round(percentage),
+            message,
+            totalCollections,
+            currentStep: Math.round(percentage / (100 / (totalCollections + 2)))
+          });
+        }
+        // Add small delay to make progress visible
+        await new Promise(resolve => setTimeout(resolve, 300));
+      };
+
+      await updateProgress('Initializing backup...', 0);
+
       // Collect data from selected collections
       const backupData = {
         metadata: {
@@ -86,7 +108,12 @@ class BackupService {
         data: {}
       };
 
+      let collectionIndex = 0;
       for (const collectionKey of selectedCollections) {
+        collectionIndex++;
+        // Calculate percentage for each collection (spread across 0% to 80%)
+        const collectionPercentage = (collectionIndex / totalCollections) * collectionProgress;
+        await updateProgress(`Processing ${collectionKey} collection...`, collectionPercentage);
         const collectionInfo = BACKUP_COLLECTIONS[collectionKey.toUpperCase()];
         if (!collectionInfo) {
           console.warn(`Unknown collection: ${collectionKey}`);
@@ -129,6 +156,7 @@ class BackupService {
       }
 
       // Convert to JSON and upload to Firebase Storage
+      await updateProgress('Uploading backup file to storage...', uploadProgress);
       const jsonData = JSON.stringify(backupData, null, 2);
       const blob = new Blob([jsonData], { type: 'application/json' });
       
@@ -139,6 +167,7 @@ class BackupService {
       const downloadURL = await getDownloadURL(uploadResult.ref);
       
       // Save backup metadata to Firestore for tracking
+      await updateProgress('Saving backup metadata...', 95);
       await setDoc(doc(db, 'systemBackups', backupId), {
         backupId,
         fileName: `${fileName}.json`,
@@ -163,6 +192,9 @@ class BackupService {
           fileSizeKB: Math.round(blob.size / 1024)
         }
       );
+
+      // Final progress update
+      await updateProgress('Backup completed successfully!', finalProgress);
 
       console.log('Backup completed successfully', {
         backupId,
@@ -578,7 +610,7 @@ class BackupService {
    * Restore data from a backup file
    * @param {Object} backupFile - The backup file metadata
    * @param {Object} options - Restore options
-   * @param {string} options.mode - Restore mode: 'missing_only', 'merge', 'overwrite', 'backup_first'
+   * @param {string} options.mode - Restore mode: 'missing_only', 'overwrite'
    * @param {Function} options.progressCallback - Progress callback function
    * @returns {Promise<Object>} Restore result
    */
@@ -620,21 +652,6 @@ class BackupService {
       progress.totalConductors = analysisResult.totalConductors;
       progress.totalSubcollections = analysisResult.totalSubcollections;
 
-      // Handle backup_first mode
-      if (mode === 'backup_first') {
-        progress.phase = 'creating_backup';
-        progress.currentCollection = 'Creating backup of current data...';
-        if (progressCallback) progressCallback(progress);
-
-        const preBackupResult = await this.createBackup(
-          backupData.data.metadata.collections,
-          `pre-restore-backup-${Date.now()}`
-        );
-        
-        if (!preBackupResult.success) {
-          throw new Error(`Failed to create pre-restore backup: ${preBackupResult.error}`);
-        }
-      }
 
       // Start restoration process
       progress.phase = 'restoring';
@@ -645,14 +662,7 @@ class BackupService {
         case 'missing_only':
           await this.restoreMissingOnly(backupData.data, progress, progressCallback);
           break;
-        case 'merge':
-          await this.restoreMerge(backupData.data, progress, progressCallback);
-          break;
         case 'overwrite':
-          await this.restoreOverwrite(backupData.data, progress, progressCallback);
-          break;
-        case 'backup_first':
-          // After creating backup, proceed with overwrite
           await this.restoreOverwrite(backupData.data, progress, progressCallback);
           break;
         default:
@@ -858,9 +868,19 @@ class BackupService {
             progress.currentConductor = `Restored document: ${docId}`;
             if (progressCallback) progressCallback(progress);
             
+            // Add delay to make progress visible
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
             console.log(`Restored missing document: ${docId} to collection: ${collectionInfo.collection}`);
           } else {
             console.log(`Document ${docId} already exists, skipping`);
+            progress.processedDocuments++;
+            
+            progress.currentConductor = `Skipped existing document: ${docId}`;
+            if (progressCallback) progressCallback(progress);
+            
+            // Add small delay even for skipped documents to show progress
+            await new Promise(resolve => setTimeout(resolve, 100));
           }
         } catch (error) {
           console.error(`Failed to restore document ${docId}:`, error);
@@ -870,51 +890,6 @@ class BackupService {
     }
   }
 
-  /**
-   * Restore with merge strategy
-   * @param {Object} backupData - The backup data
-   * @param {Object} progress - Progress object
-   * @param {Function} progressCallback - Progress callback
-   */
-  async restoreMerge(backupData, progress, progressCallback) {
-    const { collection: firestoreCollection, doc, getDoc, setDoc, updateDoc } = await import('firebase/firestore');
-    
-    // Process each collection in the backup
-    for (const collectionKey of backupData.metadata.collections) {
-      const collectionInfo = BACKUP_COLLECTIONS[collectionKey.toUpperCase()];
-      if (!collectionInfo || !backupData.collections[collectionKey]) continue;
-
-      progress.currentCollection = `Merging ${collectionInfo.name}`;
-      if (progressCallback) progressCallback(progress);
-
-      const collectionData = backupData.collections[collectionKey];
-      
-      // Process each document in this collection
-      for (const [docId, docData] of Object.entries(collectionData)) {
-        try {
-          // Check if document exists in Firestore
-          const docRef = doc(db, collectionInfo.collection, docId);
-          const docSnap = await getDoc(docRef);
-          
-          if (docSnap.exists()) {
-            // Document exists, merge data (backup data takes precedence)
-            const existingData = docSnap.data();
-            const mergedData = { ...existingData, ...docData };
-            await updateDoc(docRef, mergedData);
-          } else {
-            // Document doesn't exist, create it
-            await setDoc(docRef, docData);
-          }
-          
-          progress.processedDocuments++;
-          progress.currentConductor = `Merged document: ${docId}`;
-          if (progressCallback) progressCallback(progress);
-        } catch (error) {
-          progress.errors.push(`Failed to merge document ${docId}: ${error.message}`);
-        }
-      }
-    }
-  }
 
   /**
    * Restore with overwrite strategy
@@ -928,15 +903,28 @@ class BackupService {
     // Process each collection in the backup
     for (const collectionKey of backupData.metadata.collections) {
       const collectionInfo = BACKUP_COLLECTIONS[collectionKey.toUpperCase()];
-      if (!collectionInfo || !backupData.collections[collectionKey]) continue;
+      if (!collectionInfo || !backupData.data[collectionKey]) continue;
 
       progress.currentCollection = `Overwriting ${collectionInfo.name}`;
       if (progressCallback) progressCallback(progress);
 
-      const collectionData = backupData.collections[collectionKey];
+      const collectionData = backupData.data[collectionKey];
+      
+      // Handle different backup data formats
+      let documentsToProcess = [];
+      if (collectionData.documents && Array.isArray(collectionData.documents)) {
+        // Standard backup format
+        documentsToProcess = collectionData.documents;
+      } else if (typeof collectionData === 'object') {
+        // Direct object format
+        documentsToProcess = Object.entries(collectionData).map(([id, data]) => ({ id, data }));
+      }
       
       // Process each document in this collection
-      for (const [docId, docData] of Object.entries(collectionData)) {
+      for (const docItem of documentsToProcess) {
+        const docId = docItem.id;
+        const docData = docItem.data;
+        
         try {
           // Overwrite document (creates if doesn't exist, replaces if exists)
           const docRef = doc(db, collectionInfo.collection, docId);
@@ -945,7 +933,13 @@ class BackupService {
           progress.processedDocuments++;
           progress.currentConductor = `Overwritten document: ${docId}`;
           if (progressCallback) progressCallback(progress);
+          
+          // Add delay to make progress visible
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+          console.log(`Overwritten document: ${docId} in collection: ${collectionInfo.collection}`);
         } catch (error) {
+          console.error(`Failed to overwrite document ${docId}:`, error);
           progress.errors.push(`Failed to overwrite document ${docId}: ${error.message}`);
         }
       }

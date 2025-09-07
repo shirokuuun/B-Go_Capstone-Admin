@@ -1911,8 +1911,67 @@
 /* Create Actions */
 .backup-create-actions {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
   margin-top: 20px;
+}
+
+.backup-progress-container {
+  width: 100%;
+  max-width: 400px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.backup-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.backup-progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+  font-size: 0.9rem;
+  color: #4a5568;
+}
+
+.backup-progress-close {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-left: 12px;
+  transition: all 0.2s ease;
+}
+
+.backup-progress-close:hover {
+  background: #e2e8f0;
+  color: #374151;
+}
+
+.backup-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.backup-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #059669);
+  transition: width 0.3s ease;
+  border-radius: 4px;
 }
 
 .backup-create-btn {
@@ -2429,13 +2488,14 @@
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid #e5e7eb;
+  background: #007c91;
   margin-bottom: 20px;
 }
 
 .restore-modal-header h2 {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #111827;
+  color: white;
   margin: 0;
 }
 
@@ -2683,8 +2743,11 @@
 }
 
 .restore-confirmation-header {
+  background: #007A8F;
   padding: 24px 24px 0 24px;
   text-align: center;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
   border-bottom: 1px solid #e5e7eb;
   margin-bottom: 20px;
 }
@@ -2692,8 +2755,8 @@
 .restore-confirmation-header h2 {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #dc2626;
-  margin: 0;
+  color: white;
+  margin-bottom: 10px;
 }
 
 .restore-confirmation-content {
@@ -2738,20 +2801,12 @@
   color: #166534;
 }
 
-.restore-mode-badge.merge {
-  background: #dbeafe;
-  color: #1e40af;
-}
 
 .restore-mode-badge.overwrite {
   background: #fee2e2;
   color: #dc2626;
 }
 
-.restore-mode-badge.backup_first {
-  background: #f3e8ff;
-  color: #7c3aed;
-}
 
 .restore-confirmation-warning {
   margin-bottom: 24px;
