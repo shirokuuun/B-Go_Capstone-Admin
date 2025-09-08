@@ -664,9 +664,7 @@ const formatLogDescription = (description) => {
 
   // Load backup files when backup tab is active
   useEffect(() => {
-    if (adminTab === 'backup' && (userData?.role === 'superadmin' || 
-        userData?.permissions?.includes('manage_system_settings') || 
-        userData?.permissions?.includes('system_override'))) {
+    if (adminTab === 'backup' && userData?.role === 'superadmin') {
       loadBackupFiles();
     }
   }, [adminTab, userData]);
@@ -1027,9 +1025,7 @@ const formatLogDescription = (description) => {
               >
                 Admin Users
               </button>
-              {(userData.role === 'superadmin' || 
-                userData.permissions?.includes('manage_system_settings') || 
-                userData.permissions?.includes('system_override')) && (
+              {userData.role === 'superadmin' && (
                 <button
                   type="button"
                   className={`admin-tab-button ${adminTab === 'backup' ? 'active' : ''}`}
@@ -1273,9 +1269,7 @@ const formatLogDescription = (description) => {
             )}
 
             {/* Data Backup Tab Content */}
-            {adminTab === 'backup' && (userData.role === 'superadmin' || 
-              userData.permissions?.includes('manage_system_settings') || 
-              userData.permissions?.includes('system_override')) && (
+            {adminTab === 'backup' && userData.role === 'superadmin' && (
               <div className="data-backup-tab">
                 <div className="backup-stats-container">
                   <div className="backup-pattern"></div>

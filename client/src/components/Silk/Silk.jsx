@@ -70,9 +70,10 @@ void main() {
   pattern = sin(pattern) * 0.5 + 0.5;
   pattern = smoothstep(0.2, 0.8, pattern);
   
-  // Soft color mixing
-  vec3 color = mix(uColor * 0.4, uColor, pattern);
-  float alpha = mix(0.3, 0.7, pattern);
+  // Soft color mixing - waves on black background
+  vec3 backgroundColor = vec3(0.0, 0.0, 0.0); // Black background
+  vec3 color = mix(backgroundColor, uColor, pattern);
+  float alpha = 1.0; // Full opacity for solid background
   
   gl_FragColor = vec4(color, alpha);
 }
@@ -181,7 +182,7 @@ const Silk = ({
         camera={{ position: [0, 0, 1], fov: 75, near: 0.1, far: 1000 }}
         gl={{ 
           antialias: true, 
-          alpha: true, 
+          alpha: false, 
           premultipliedAlpha: false,
           preserveDrawingBuffer: false,
           powerPreference: "high-performance"
@@ -191,7 +192,8 @@ const Silk = ({
         style={{ 
           width: '100%', 
           height: '100%',
-          display: 'block'
+          display: 'block',
+          backgroundColor: '#000000'
         }}
       >
         <SilkPlane 

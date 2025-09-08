@@ -27,9 +27,21 @@ app.use(express.json());
 
 // CORS middleware to allow requests from React app
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'http://localhost:5173');
+  // Allow multiple origins in production
+  const allowedOrigins = [
+    FRONTEND_URL,
+    'http://localhost:5173', // Development fallback
+    'http://localhost:3000'  // Same-origin requests
+  ];
+  
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
   
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
@@ -46,6 +58,7 @@ const PAYMONGO_SECRET_KEY = process.env.PAYMONGO_SECRET_KEY;
 const PAYMONGO_PUBLIC_KEY = process.env.PAYMONGO_PUBLIC_KEY;
 const PAYMONGO_WEBHOOK_SECRET = process.env.PAYMONGO_WEBHOOK_SECRET;
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // In-memory storage for bookings (replace with your database later)
 const bookings = new Map();
@@ -118,7 +131,6 @@ app.post('/api/conductors/create', async (req, res) => {
       });
     }
 
-    console.log(`🚌 Creating conductor: ${name} (${email})`);
 
     // Create Firebase Auth user using Admin SDK
     const userRecord = await admin.auth().createUser({
@@ -127,7 +139,6 @@ app.post('/api/conductors/create', async (req, res) => {
       displayName: name,
     });
 
-    console.log(`✅ Firebase Auth user created: ${userRecord.uid}`);
 
     // Extract document ID from email (same logic as frontend)
     const documentId = email.split('@')[0].replace(/\./g, '_');
@@ -151,7 +162,6 @@ app.post('/api/conductors/create', async (req, res) => {
 
     await db.collection('conductors').doc(documentId).set(conductorData);
 
-    console.log(`✅ Conductor document created: ${documentId}`);
 
     res.json({
       success: true,
@@ -202,7 +212,6 @@ app.delete('/api/users/delete/:userId', async (req, res) => {
       });
     }
 
-    console.log(`🗑️ Deleting user: ${userId}`);
 
     const db = admin.firestore();
 
@@ -224,7 +233,6 @@ app.delete('/api/users/delete/:userId', async (req, res) => {
 
     // Delete user document from Firestore
     await userDocRef.delete();
-    console.log(`✅ User document ${userId} deleted from Firestore`);
 
     // Note: Firebase Auth account remains due to insufficient permissions
 
@@ -306,14 +314,13 @@ app.post('/api/payment/create-booking', async (req, res) => {
     // Save booking to memory (replace with your database later)
     bookings.set(sessionId, bookingData);
 
-    console.log(`✅ Booking created: ${sessionId}`);
 
     // Return booking data
     res.json({
       success: true,
       sessionId,
       booking: bookingData,
-      paymentPageURL: `http://localhost:5173/payment/${sessionId}`
+      paymentPageURL: `${FRONTEND_URL}/payment/${sessionId}`
     });
 
   } catch (error) {
@@ -382,7 +389,6 @@ app.post('/api/payment/initiate-payment', async (req, res) => {
       });
     }
 
-    console.log(`💳 Processing payment for booking: ${sessionId}`);
 
     // Create PayMongo checkout session
     const checkoutData = {
@@ -401,8 +407,8 @@ app.post('/api/payment/initiate-payment', async (req, res) => {
           }
         ],
         payment_method_types: getPaymentMethodTypes(paymentMethod),
-        success_url: `http://localhost:5173/payment-success/${sessionId}`,
-        cancel_url: `http://localhost:5173/payment/${sessionId}?cancelled=true`,
+        success_url: `${FRONTEND_URL}/payment-success/${sessionId}`,
+        cancel_url: `${FRONTEND_URL}/payment/${sessionId}?cancelled=true`,
         metadata: {
           booking_id: sessionId,
           passenger_name: booking.passengerInfo.name,
@@ -420,7 +426,6 @@ app.post('/api/payment/initiate-payment', async (req, res) => {
       booking.updatedAt = new Date().toISOString();
       bookings.set(sessionId, booking);
 
-      console.log(`🔗 PayMongo checkout URL created for ${sessionId}`);
 
       res.json({
         success: true,
@@ -475,8 +480,6 @@ app.get('/api/payment/status/:sessionId', (req, res) => {
 // 5. WEBHOOK HANDLER (Fixed event type detection)
 app.post('/api/webhook/paymongo-webhook', express.json(), async (req, res) => {
   try {
-    console.log('🎯 WEBHOOK RECEIVED!');
-    console.log('📄 Full webhook body:', JSON.stringify(req.body, null, 2));
     
     const event = req.body;
     
@@ -484,28 +487,23 @@ app.post('/api/webhook/paymongo-webhook', express.json(), async (req, res) => {
     const eventType = event.data?.attributes?.type || event.type;
     const eventData = event.data?.attributes?.data || event.data;
     
-    console.log('📡 PayMongo Webhook Event Type:', eventType);
 
     // Handle different webhook events
     switch (eventType) {
       case 'checkout_session.payment.paid':
       case 'payment.paid':
-        console.log('💰 Processing payment paid event...');
         await handlePaymentPaid(eventData);
         break;
         
       case 'checkout_session.payment.failed':
       case 'payment.failed':
-        console.log('❌ Processing payment failed event...');
         await handlePaymentFailed(eventData);
         break;
         
       default:
         console.log('❓ Unhandled webhook event:', eventType);
-        console.log('📄 Event data structure:', JSON.stringify(event, null, 2));
     }
 
-    console.log('✅ Webhook processed successfully');
     res.status(200).json({ received: true });
 
   } catch (error) {
@@ -518,7 +516,6 @@ app.post('/api/webhook/paymongo-webhook', express.json(), async (req, res) => {
 // Handle successful payment
 async function handlePaymentPaid(eventData) {
   try {
-    console.log('🔍 Processing payment paid with data:', JSON.stringify(eventData, null, 2));
     
     // Try multiple ways to extract the booking ID from metadata
     let sessionId = null;
@@ -531,22 +528,18 @@ async function handlePaymentPaid(eventData) {
       sessionId = eventData.attributes.checkout_session.metadata.booking_id;
     }
     
-    console.log('🔑 Extracted sessionId:', sessionId);
     
     if (!sessionId) {
       console.error('❌ No booking_id found in webhook metadata');
-      console.log('Available metadata:', eventData?.attributes?.metadata || eventData?.metadata);
       return;
     }
 
     const booking = bookings.get(sessionId);
     if (!booking) {
       console.error(`❌ Booking ${sessionId} not found in memory`);
-      console.log('Available bookings:', Array.from(bookings.keys()));
       return;
     }
 
-    console.log(`✅ Found booking ${sessionId}, current status: ${booking.status}`);
 
     // Update booking status to Paid
     booking.status = 'Paid';
@@ -563,8 +556,6 @@ async function handlePaymentPaid(eventData) {
     
     bookings.set(sessionId, booking);
 
-    console.log(`🎉 Booking ${sessionId} successfully marked as PAID!`);
-    console.log('Updated booking status:', booking.status);
 
   } catch (error) {
     console.error('❌ Error handling payment success:', error);
@@ -582,7 +573,6 @@ async function handlePaymentFailed(eventData) {
       return;
     }
 
-    console.log(`❌ Processing payment failure for booking: ${sessionId}`);
 
     const booking = bookings.get(sessionId);
     if (booking) {
@@ -590,7 +580,6 @@ async function handlePaymentFailed(eventData) {
       booking.paymentFailedAt = new Date().toISOString();
       booking.updatedAt = new Date().toISOString();
       bookings.set(sessionId, booking);
-      console.log(`💔 Booking ${sessionId} marked as payment failed`);
     }
 
   } catch (error) {
@@ -625,8 +614,6 @@ app.listen(3000, () => {
     console.log("⚠️  PayMongo not configured. Add PAYMONGO_SECRET_KEY to .env file");
   }
   
-  console.log("🔗 Frontend should run on: http://localhost:5173");
-  console.log("🧪 Test payments at: http://localhost:5173/test-payment");
 });
 
 module.exports = app;
