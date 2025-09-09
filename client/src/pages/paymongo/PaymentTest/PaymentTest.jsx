@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './PaymentTest.css';
-import API_BASE_URL from '../../config/api.js';
+import API_BASE_URL from '../../../config/api.js';
 
 const PaymentTest = () => {
   const [sessionId, setSessionId] = useState('');
