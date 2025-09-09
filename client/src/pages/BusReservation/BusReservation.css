@@ -340,6 +340,70 @@
   margin-bottom: 0.75rem;
 }
 
+.bus-reservation-bus-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bus-reservation-edit-btn {
+  color: black;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.bus-reservation-edit-btn:hover:not(:disabled) {
+  transform: scale(1.05);
+}
+
+.bus-reservation-edit-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.bus-reservation-edit-btn svg {
+  font-size: 0.875rem;
+}
+
+.bus-reservation-delete-btn {
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.bus-reservation-delete-btn:hover:not(:disabled) {
+  background: #b91c1c;
+  transform: scale(1.05);
+}
+
+.bus-reservation-delete-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.bus-reservation-delete-btn svg {
+  font-size: 0.875rem;
+}
+
 .bus-reservation-bus-name {
   font-size: 1.125rem;
   font-weight: 600;
@@ -405,8 +469,8 @@
   border-radius: 12px;
   width: 90%;
   max-width: 500px;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-height: none;
+  overflow-y: visible;
   box-shadow: 0 10px 50px rgba(0, 0, 0, 0.3);
   position: relative;
   margin: 0;
@@ -425,6 +489,8 @@
 .bus-reservation-modal-overlay * {
   z-index: inherit;
 }
+
+/* Edit Modal Non-scrollable Styles - Removed duplicate rules */
 
 .bus-reservation-modal-title {
   margin: 0;

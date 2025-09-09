@@ -7,7 +7,6 @@ import DropdownNavIcon from '/src/components/dropdownNav/dropdownNavIcon.jsx';
 import { MdDashboard } from "react-icons/md";
 import { MdDomainVerification } from "react-icons/md";
 import { GrSchedules } from "react-icons/gr";
-import { MdBookmarkAdd } from "react-icons/md";
 import { MdSos } from "react-icons/md";
 import { MdPayment } from "react-icons/md";
 import { IoMdSettings } from "react-icons/io";
@@ -18,44 +17,35 @@ import { MdConfirmationNumber, MdEventSeat } from "react-icons/md";
 import { TbReportSearch } from "react-icons/tb";
 import { FaChartLine, FaBus, FaUserTie, FaCalendarAlt } from "react-icons/fa";
 import { PiTestTube } from "react-icons/pi";
+import { FaRoute } from "react-icons/fa";
+import { FaRegUser } from "react-icons/fa";
+import { BsFillTicketDetailedFill } from "react-icons/bs";
+import { FaUserCog } from "react-icons/fa";
 
 const Nav = ({ collapsed, setCollapsed }) => {
-  // Ticketing dropdown items
-  const ticketingDropdownItems = [
-    {
-      title: "Pre-ticketing",
-      Icon: MdConfirmationNumber,
-      to: "/admin/ticketing/pre-ticketing"
-    },
-    {
-      title: "Pre-booking",
-      Icon: MdEventSeat,
-      to: "/admin/ticketing/pre-booking"
-    }
-  ];
 
   // Reports dropdown items
   const reportsDropdownItems = [
     {
-      title: "Daily Revenue",
+      title: "Revenue",
       Icon: FaChartLine,
       to: "/admin/reports/daily-revenue"
     },
     {
-      title: "Bus Utilization",
-      Icon: FaBus,
-      to: "/admin/reports/bus-utilization"
+      title: "SOS Analytics",
+      Icon: MdSos,
+      to: "/admin/reports/sos-analytics"
     },
     {
-      title: "Conductor Performance",
+      title: "Ticket Analytics",
       Icon: FaUserTie,
-      to: "/admin/reports/conductor-performance"
+      to: "/admin/reports/ticket-report"
     },
     {
-      title: "Summary Dashboard",
-      Icon: FaCalendarAlt,
-      to: "/admin/reports/summary-dashboard"
-    }
+      title: "User Reports",
+      Icon: FaUserCog,
+      to: "/admin/reports/user-reports"
+    },
   ];
 
   return (
@@ -81,14 +71,8 @@ const Nav = ({ collapsed, setCollapsed }) => {
         <NavIcon title="Conductor" Icon={IoTicket} to="/admin/conductor" collapsed={collapsed} />
         <NavIcon title="ID Verification" Icon={MdDomainVerification} to="/admin/verification" collapsed={collapsed} />
         <NavIcon title="Trip Schedules" Icon={GrSchedules} to="/admin/schedules" collapsed={collapsed} />
-
-        {/* Ticketing Dropdown */}
-        <DropdownNavIcon
-          title="Ticketing"
-          Icon={MdBookmarkAdd}
-          dropdownItems={ticketingDropdownItems}
-          collapsed={collapsed}
-        />
+        <NavIcon title="User Management" Icon={FaRegUser} to="/admin/user" collapsed={collapsed} />
+        <NavIcon title="Ticketing" Icon={BsFillTicketDetailedFill} to="/admin/ticketing" collapsed={collapsed} />
 
         <NavIcon title="SOS Requests" Icon={MdSos} to="/admin/sos" collapsed={collapsed} />
         

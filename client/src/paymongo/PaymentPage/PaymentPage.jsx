@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import API_BASE_URL from '../../config/api.js';
 import './PaymentPage.css';
 
 const PaymentPage = () => {
@@ -14,7 +15,7 @@ const PaymentPage = () => {
   useEffect(() => {
     const fetchBooking = async () => {
       try {
-        const response = await fetch(`http://localhost:3000/api/payment/booking/${sessionId}`);
+        const response = await fetch(`${API_BASE_URL}/api/payment/booking/${sessionId}`);
         const data = await response.json();
         
         if (data.success) {
@@ -45,7 +46,7 @@ const PaymentPage = () => {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:3000/api/payment/initiate-payment', {
+      const response = await fetch(`${API_BASE_URL}/api/payment/initiate-payment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

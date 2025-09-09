@@ -1,5 +1,8 @@
-import { db } from '../../firebase/firebase.js';
-import { collection, getDocs, addDoc, query, where, setDoc, doc, getDoc, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { db } from '/src/firebase/firebase.js';
+import { 
+  collection, getDocs, addDoc, query, where, setDoc, doc, getDoc, updateDoc, deleteDoc, onSnapshot, deleteField 
+} from 'firebase/firestore';
+import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 
 // Real-time subscription to all users with their ID verification status
 export const subscribeToUsers = (callback) => {
@@ -8,14 +11,12 @@ export const subscribeToUsers = (callback) => {
   return onSnapshot(usersCollection, async (snapshot) => {
     const users = [];
     
-    // Process each user document
     for (const userDoc of snapshot.docs) {
       const userData = {
         id: userDoc.id,
         ...userDoc.data()
       };
       
-      // Try to get verification status from subcollection
       try {
         const idDocRef = doc(db, 'users', userDoc.id, 'VerifyID', 'id');
         const idSnapshot = await getDoc(idDocRef);
@@ -64,6 +65,7 @@ export const subscribeToUserIDData = (userId, callback) => {
     callback(null);
   });
 };
+
 export const fetchUsers = async () => {
   try {
     const usersCollection = collection(db, 'users');
@@ -71,14 +73,12 @@ export const fetchUsers = async () => {
     
     const users = [];
     
-    // For each user, get their main data AND their verification status
     for (const userDoc of snapshot.docs) {
       const userData = {
         id: userDoc.id,
         ...userDoc.data()
       };
       
-      // Try to get verification status from subcollection
       try {
         const idDocRef = doc(db, 'users', userDoc.id, 'VerifyID', 'id');
         const idSnapshot = await getDoc(idDocRef);
@@ -98,8 +98,6 @@ export const fetchUsers = async () => {
       
       users.push(userData);
     }
-    
-    console.log('All users with verification status:', users); // Debug log
     return users;
   } catch (error) {
     console.error("Error fetching users:", error);
@@ -115,13 +113,12 @@ export const fetchUserIDData = async (userId) => {
     
     if (idSnapshot.exists()) {
       const data = idSnapshot.data();
-      console.log(`ID data for user ${userId}:`, data); // Debug log
+      console.log(`ID data for user ${userId}:`, data);
       return {
         id: idSnapshot.id,
         ...data
       };
     } else {
-      console.log(`No ID document found for user ${userId}`);
       throw new Error('No ID data found for this user');
     }
   } catch (error) {
@@ -130,41 +127,81 @@ export const fetchUserIDData = async (userId) => {
   }
 };
 
-// Update ID verification status
-export const updateIDVerificationStatus = async (userId, status) => {
+// Update ID verification status with activity logging
+export const updateIDVerificationStatus = async (userId, status, adminInfo = null) => {
   try {
+    // Get user information for activity logging
+    const userDocRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userDocRef);
+    const userData = userDoc.exists() ? userDoc.data() : null;
+    const userName = userData?.name || userData?.displayName || 'Unknown User';
+    const userEmail = userData?.email || 'Unknown Email';
+
     if (status === 'rejected') {
-      // If rejecting, delete the ID document completely
       const idDocRef = doc(db, 'users', userId, 'VerifyID', 'id');
+
+      // Remove verification fields from subcollection doc before deleting
+      await updateDoc(idDocRef, {
+        verifiedAt: deleteField(),
+        verifiedBy: deleteField()
+      });
+
+      // Delete the ID document completely
       await deleteDoc(idDocRef);
 
-      // Reset user's main document verification status to pending
-      const userDocRef = doc(db, 'users', userId);
+      // Reset main user doc fields
       await updateDoc(userDocRef, {
         idVerificationStatus: 'pending',
         idVerifiedAt: null,
-        verifiedAt: null,
-        verifiedBy: null
+        verifiedAt: deleteField(),
+        verifiedBy: deleteField()
       });
 
-      console.log(`ID document deleted and user status reset to pending for user ${userId}`);
+      // Log the rejection activity
+      await logActivity(
+        ACTIVITY_TYPES.ID_VERIFICATION_REJECT,
+        `Rejected ID verification for ${userName} (${userEmail})`,
+        {
+          userId: userId,
+          userName: userName,
+          userEmail: userEmail,
+          adminName: adminInfo?.name || 'Unknown Admin',
+          adminEmail: adminInfo?.email || 'Unknown Email',
+          action: 'rejected',
+          previousStatus: userData?.idVerificationStatus || 'pending'
+        }
+      );
     } else {
       // For verified status, update the ID document
       const idDocRef = doc(db, 'users', userId, 'VerifyID', 'id');
       await updateDoc(idDocRef, {
         status: status,
         verifiedAt: new Date(),
-        verifiedBy: 'admin' // You can replace this with actual admin info
+        verifiedBy: adminInfo?.name || adminInfo?.email || 'admin'
       });
 
-      // Also update the user's main document with verification status
-      const userDocRef = doc(db, 'users', userId);
+      // Also update the user's main document
       await updateDoc(userDocRef, {
         idVerificationStatus: status,
         idVerifiedAt: new Date()
       });
 
-      console.log(`ID verification status updated to ${status} for user ${userId}`);
+      // Log the verification activity
+      await logActivity(
+        ACTIVITY_TYPES.ID_VERIFICATION_APPROVE,
+        `Approved ID verification for ${userName} (${userEmail})`,
+        {
+          userId: userId,
+          userName: userName,
+          userEmail: userEmail,
+          adminName: adminInfo?.name || 'Unknown Admin',
+          adminEmail: adminInfo?.email || 'Unknown Email',
+          action: 'verified',
+          previousStatus: userData?.idVerificationStatus || 'pending',
+          verifiedAt: new Date().toISOString(),
+          verifiedBy: adminInfo?.name || adminInfo?.email || 'admin'
+        }
+      );
     }
     
     return true;
@@ -193,7 +230,6 @@ export const fetchPendingVerifications = async () => {
         });
       } catch (error) {
         console.warn(`No ID data found for user ${userDoc.id}`);
-        // Still include user but without ID data
         pendingUsers.push(userData);
       }
     }
@@ -212,12 +248,10 @@ export const fetchVerifiedVerifications = async () => {
     const q = query(usersCollection, where('idVerificationStatus', '==', 'verified'));
     const snapshot = await getDocs(q);
     
-    const verifiedUsers = snapshot.docs.map(doc => ({
+    return snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
-    
-    return verifiedUsers;
   } catch (error) {
     console.error("Error fetching verified verifications:", error);
     throw error;
@@ -231,12 +265,10 @@ export const fetchRejectedVerifications = async () => {
     const q = query(usersCollection, where('idVerificationStatus', '==', 'rejected'));
     const snapshot = await getDocs(q);
     
-    const rejectedUsers = snapshot.docs.map(doc => ({
+    return snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
-    
-    return rejectedUsers;
   } catch (error) {
     console.error("Error fetching rejected verifications:", error);
     throw error;

@@ -1,10 +1,22 @@
 .page-transition {
   opacity: 0;
-  transform: translateY(10px); 
-  transition: opacity 0.3s ease-out, transform 0.3s ease-out; 
+  transform: translateY(20px) scale(0.98); 
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out; 
 }
 
 .page-transition.fade-in {
   opacity: 1; 
-  transform: translateY(0); 
+  transform: translateY(0) scale(1); 
+}
+
+/* Enhanced transitions for auth pages */
+.login-page .page-transition,
+.signup-page .page-transition {
+  transform: translateX(-30px) scale(0.95);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.login-page .page-transition.fade-in,
+.signup-page .page-transition.fade-in {
+  transform: translateX(0) scale(1);
 }

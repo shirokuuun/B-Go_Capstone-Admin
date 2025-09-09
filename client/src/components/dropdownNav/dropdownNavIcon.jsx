@@ -11,8 +11,7 @@ const DropdownNavIcon = ({ title, Icon, dropdownItems, collapsed }) => {
   const tooltipRef = useRef(null);
 
   const isAnyChildActive =
-    (dropdownItems && dropdownItems.some(item => location.pathname === item.to)) ||
-    location.pathname.startsWith('/admin/ticketing');
+    dropdownItems && dropdownItems.some(item => location.pathname === item.to);
 
   const toggleDropdown = (e) => {
     e.preventDefault();
@@ -57,7 +56,7 @@ const DropdownNavIcon = ({ title, Icon, dropdownItems, collapsed }) => {
     const finalTop = Math.min(Math.max(minTop, idealTop), maxTop);
     
     tooltipElement.style.position = 'fixed';
-    tooltipElement.style.left = '108px'; // Just after the 99px sidebar + some margin
+    tooltipElement.style.left = '105px'; // Just after the 99px sidebar + smaller margin
     tooltipElement.style.top = `${finalTop}px`;
     tooltipElement.style.transform = 'none';
   };
