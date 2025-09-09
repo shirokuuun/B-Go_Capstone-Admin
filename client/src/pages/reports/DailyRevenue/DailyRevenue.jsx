@@ -4,7 +4,7 @@ import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
 import { IoMdArrowDropdownCircle } from "react-icons/io";
 import { FaMoneyCheck } from "react-icons/fa6"
 import { FaRegCalendarCheck } from "react-icons/fa";
-import { TbCalendarMonthFilled } from "react-icons/tb";
+import { TbCalendarMonth } from "react-icons/tb";
 import { LuBus } from "react-icons/lu";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, BarChart, Bar, ResponsiveContainer } from 'recharts';
 import { 
@@ -948,7 +948,7 @@ const Revenue = () => {
               className={`revenue-submenu-item ${currentView === 'monthly-revenue' ? 'revenue-submenu-selected' : ''}`}
               onClick={() => selectMenuItem('monthly-revenue')}
             >
-              <span className="revenue-menu-icon"><TbCalendarMonthFilled size={23} /></span>Monthly Revenue
+              <span className="revenue-menu-icon"><TbCalendarMonth size={23} /></span>Monthly Revenue
             </div>
             <div 
               className={`revenue-submenu-item ${currentView === 'daily-trips' ? 'revenue-submenu-selected' : ''}`}
