@@ -603,7 +603,7 @@ app.get('/api/payment/debug/bookings', (req, res) => {
 
 // ==================== SERVER START ====================
 
-app.listen(3000, () => {
+app.listen(3000, '0.0.0.0', () => {
   console.log("🚀 B-GO Server is running on port 3000");
   
   // Check PayMongo configuration

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './PaymentTest.css';
+import API_BASE_URL from '../../config/api.js';
 
 const PaymentTest = () => {
   const [sessionId, setSessionId] = useState('');
@@ -38,7 +39,7 @@ const PaymentTest = () => {
     };
 
     try {
-      const response = await fetch('http://localhost:3000/api/payment/create-booking', {
+      const response = await fetch(`${API_BASE_URL}/api/payment/create-booking`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -70,7 +71,7 @@ const PaymentTest = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:3000/api/payment/booking/${sessionId}`);
+      const response = await fetch(`${API_BASE_URL}/api/payment/booking/${sessionId}`);
       const result = await response.json();
       setResponse(result);
     } catch (error) {
