@@ -6,12 +6,11 @@ import Layout from "/src/components/layout/layout.jsx";
 import Dashboard from "/src/pages/dashboard/dashboard.jsx";
 import BusReservation from "/src/pages/BusReservation/BusReservation.jsx";
 import IDVerification from "/src/pages/verification/IDVerification.jsx";
-import TripSchedules from "./pages/schedules/TripSchedules";
-import Bookings from "/src/pages/ticketing/pre-booking.jsx";
-import PreTicketing from "/src/pages/ticketing/pre-ticketing.jsx";
+import TripSchedules from "./pages/schedules/TripSchedules.jsx";
+import Ticketing from "/src/pages/ticketing/ticketing.jsx";
 import SOSRequest from "/src/pages/SOS/SOSRequest.jsx";
 import PaymentTransactions from "/src/pages/payments/PaymentTransactions.jsx";
-import Settings from "/src/pages/settings/settings";
+import Settings from "/src/pages/settings/settings.jsx";
 import PageTransitionWrapper from "/src/components/PageTransition/PageTransition.jsx";
 import Login from "/src/pages/auth/login.jsx";
 import Signup from "/src/pages/auth/signup.jsx";
@@ -19,14 +18,14 @@ import Conductor from "/src/pages/conductor/conductor.jsx";
 
 // Reports components
 import DailyRevenue from "./pages/reports/DailyRevenue/DailyRevenue.jsx";
-import BusUtilization from "./pages/reports/BusUtilization/BusUtilization.jsx";
-import ConductorPerformance from "./pages/reports/ConductorPerformance/ConductorPerformance.jsx";
-import SummaryDashboard from "./pages/reports/SummaryDashboard";
+import SOSReport from "./pages/reports/SOSReport/SOSReport.jsx";
+import TicketReport from "./pages/reports/TicketReport/TicketReport.jsx";
+import UserReports from "./pages/reports/UserReports/UserReports.jsx";
 
 // 💳 PayMongo components
-import PaymentPage from "/src/paymongo/PaymentPage/PaymentPage.jsx";
-import PaymentSuccess from "/src/paymongo/PaymentSuccess/PaymentSuccess.jsx";
-import PaymentTest from "/src/paymongo/PaymentTest/PaymentTest.jsx";
+import PaymentPage from "/src/pages/paymongo/PaymentPage/PaymentPage.jsx";
+import PaymentSuccess from "/src/pages/paymongo/PaymentSuccess/PaymentSuccess.jsx";
+import PaymentTest from "/src/pages/paymongo/PaymentTest/PaymentTest.jsx";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
@@ -131,7 +130,7 @@ createRoot(document.getElementById("root")).render(
             path="ticketing/pre-booking"
             element={
               <PageTransitionWrapper>
-                <Bookings />
+                <Ticketing />
               </PageTransitionWrapper>
             }
           />
@@ -139,7 +138,7 @@ createRoot(document.getElementById("root")).render(
             path="ticketing/pre-ticketing"
             element={
               <PageTransitionWrapper>
-                <PreTicketing />
+                <Ticketing />
               </PageTransitionWrapper>
             }
           />
@@ -173,26 +172,26 @@ createRoot(document.getElementById("root")).render(
             }
           />
           <Route
-            path="reports/bus-utilization"
+            path="reports/sos-analytics"
             element={
               <PageTransitionWrapper>
-                <BusUtilization />
+                <SOSReport />
               </PageTransitionWrapper>
             }
           />
           <Route
-            path="reports/conductor-performance"
+            path="reports/ticket-report"
             element={
               <PageTransitionWrapper>
-                <ConductorPerformance />
+                <TicketReport />
               </PageTransitionWrapper>
             }
           />
           <Route
-            path="reports/summary-dashboard"
+            path="reports/user-reports"
             element={
               <PageTransitionWrapper>
-                <SummaryDashboard />
+                <UserReports />
               </PageTransitionWrapper>
             }
           />
