@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { IoChevronDown, IoChevronUp } from 'react-icons/io5';
-import '/src/components/Navigation/nav.css';
+import '/src/components/navigation/nav.css';
 import '/src/components/dropdownNav/dropdownNavIcon.css';
 
 const DropdownNavIcon = ({ title, Icon, dropdownItems, collapsed }) => {
