@@ -3,7 +3,6 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '/src/firebase/firebase.js';
 import { fetchCurrentUserData } from '/src/pages/settings/settings.js';
 import DashboardService from './dashboard.js';
-import AdminTest from '/src/pages/dashboard/AdminTest.jsx';
 import './dashboard.css';
 
 function Dashboard() {
