@@ -1,9 +1,9 @@
 // layout.jsx
-import { useLocation, Outlet } from 'react-router-dom';
-import { useState } from 'react';
-import Nav from '/src/components/navigation/nav.jsx';
-import Header from '/src/components/HeaderTemplate/header.jsx';
-import '/src/components/layout/layout.css';
+import { useLocation, Outlet } from "react-router-dom";
+import { useState } from "react";
+import Nav from "/src/components/navigation/nav.jsx";
+import Header from "/src/components/HeaderTemplate/header.jsx";
+import "/src/components/layout/layout.css";
 
 const Layout = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -11,38 +11,40 @@ const Layout = () => {
 
   const getPageTitle = (path) => {
     switch (path) {
-      case '/admin':
-        return 'Dashboard';
-      case '/admin/reservation':
-        return 'Bus Reservation';
-      case '/admin/conductor':
-        return 'Conductor';
-      case '/admin/verification':
-        return 'ID Verification';
-      case '/admin/schedules':
-        return 'Trip Schedules';
-      case '/admin/user':
-        return 'User Management';
-      case '/admin/ticketing':
-        return 'Ticketing';
-      case '/admin/sos':
-        return 'SOS Requests';
-      case '/admin/reports':
-        return 'Reports';
-      case '/admin/reports/daily-revenue':
-        return 'Revenue Report';
-      case '/admin/reports/sos-analytics':
-        return 'SOS Analytics Report';
-      case '/admin/reports/ticket-report':
-        return 'Ticket Analytics Report';
-      case '/admin/reports/user-reports':
-        return 'User Reports';
-      case '/admin/payments':
-        return 'Payment Transactions';
-      case '/admin/settings':
-        return 'Settings';
+      case "/admin":
+        return "Dashboard";
+      case "/admin/reservation":
+        return "Bus Reservation";
+      case "/admin/conductor":
+        return "Conductor";
+      case "/admin/verification":
+        return "ID Verification";
+      case "/admin/schedules":
+        return "Trip Schedules";
+      case "/admin/ticketing":
+        return "Ticketing";
+      case "/admin/ticketing/pre-booking":
+        return "Pre-booking";
+      case "/admin/ticketing/pre-ticketing":
+        return "Pre-ticketing";
+      case "/admin/sos":
+        return "SOS Requests";
+      case "/admin/reports":
+        return "Reports";
+      case "/admin/reports/daily-revenue":
+        return "Daily Revenue Report";
+      case "/admin/reports/bus-utilization":
+        return "Bus Utilization Report";
+      case "/admin/reports/conductor-performance":
+        return "Conductor Performance Report";
+      case "/admin/reports/summary-dashboard":
+        return "Summary Dashboard";
+      case "/admin/payments":
+        return "Payment Transactions";
+      case "/admin/settings":
+        return "Settings";
       default:
-        return '';
+        return "";
     }
   };
 
