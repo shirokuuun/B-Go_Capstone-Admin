@@ -1,0 +1,635 @@
+/* Trip Schedules Container and Layout */
+.tripsch-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%);
+  padding: 1rem;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+.tripsch-wrapper {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Header Section */
+.tripsch-header {
+  background: #007c91;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+.tripsch-header-pattern {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(255, 255, 255, 0.05);
+  background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.15) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+
+.tripsch-header-content {
+  position: relative;
+  z-index: 10;
+}
+
+.tripsch-header-top {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 1024px) {
+  .tripsch-header-top {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+  }
+}
+
+/* Title Section */
+.tripsch-title-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.tripsch-title-icon {
+  padding: 0.75rem;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 0.75rem;
+  backdrop-filter: blur(4px);
+}
+
+.tripsch-schedule-icon {
+  height: 2rem;
+  width: 2rem;
+  color: white;
+}
+
+.tripsch-title-text {
+  color: white;
+}
+
+.tripsch-main-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem 0;
+}
+
+.tripsch-sub-title {
+  font-size: 1.125rem;
+  color: #a7f3d0;
+  margin: 0;
+}
+
+@media (min-width: 768px) {
+  .tripsch-main-title {
+    font-size: 2.25rem;
+  }
+}
+
+/* Add Schedule Button */
+.tripsch-add-schedule-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: white;
+  color: #007c91;
+  border: none;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.tripsch-add-schedule-btn:hover:not(:disabled) {
+  background-color: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.tripsch-add-schedule-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tripsch-add-icon {
+  font-size: 1.25rem;
+  transition: transform 0.3s ease;
+}
+
+.tripsch-add-schedule-btn:hover:not(:disabled) .tripsch-add-icon {
+  transform: rotate(90deg);
+}
+
+/* Stats Grid */
+.tripsch-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Single Stats Layout */
+.tripsch-stats-single {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.tripsch-stats-single .tripsch-stat-card {
+  min-width: 300px;
+  flex: 0 0 auto;
+}
+
+.tripsch-stat-card {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.tripsch-stat-icon {
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: white;
+}
+
+.tripsch-stat-total {
+  background-color: rgba(59, 130, 246, 0.2);
+}
+
+.tripsch-stat-active {
+  background-color: rgba(34, 197, 94, 0.2);
+}
+
+.tripsch-stat-content {
+  flex: 1;
+}
+
+.tripsch-stat-number {
+  font-size: 2rem;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+}
+
+.tripsch-stat-label {
+  font-size: 0.875rem;
+  color: #a7f3d0;
+  margin: 0;
+}
+
+/* Loading and Error States */
+.tripsch-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-size: 1.125rem;
+  color: #6b7280;
+}
+
+.tripsch-error {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 2rem;
+}
+
+/* Main Content */
+.tripsch-main-content {
+  background: white;
+  border-radius: 1rem;
+  padding: 2rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Empty State */
+.tripsch-empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.tripsch-empty-icon {
+  font-size: 4rem;
+  color: #d1d5db;
+  margin-bottom: 1rem;
+}
+
+.tripsch-empty-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 0.5rem 0;
+}
+
+.tripsch-empty-text {
+  color: #6b7280;
+  font-size: 1rem;
+  margin: 0;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Schedules Grid */
+.tripsch-schedules-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Schedule Cards */
+.tripsch-schedule-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+}
+
+.tripsch-schedule-card:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+
+.tripsch-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.tripsch-card-title-section {
+  flex: 1;
+}
+
+.tripsch-card-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 0.25rem 0;
+}
+
+.tripsch-card-conductor {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+  font-weight: 500;
+}
+
+.tripsch-card-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tripsch-action-btn {
+  padding: 0.5rem;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tripsch-action-btn:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.tripsch-delete-btn {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.tripsch-delete-btn:hover:not(:disabled) {
+  background-color: #fecaca;
+}
+
+.tripsch-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tripsch-card-content {
+  space-y: 1rem;
+}
+
+.tripsch-schedule-info {
+  margin-bottom: 1rem;
+}
+
+.tripsch-info-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.tripsch-info-icon {
+  color: #007c91;
+  font-size: 1rem;
+}
+
+.tripsch-info-label {
+  font-weight: 500;
+  color: #374151;
+}
+
+.tripsch-times-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tripsch-time-chip {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.tripsch-no-times {
+  color: #9ca3af;
+  font-style: italic;
+  font-size: 0.875rem;
+}
+
+/* Modal Styles */
+.tripsch-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.tripsch-modal {
+  background: white;
+  border-radius: 0.75rem;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.tripsch-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 1.5rem 1rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.tripsch-modal-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.tripsch-modal-close {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.tripsch-modal-close:hover {
+  color: #374151;
+}
+
+.tripsch-modal-form {
+  padding: 1.5rem;
+}
+
+.tripsch-form-group {
+  margin-bottom: 1.5rem;
+}
+
+.tripsch-form-label {
+  display: block;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.tripsch-form-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+  transition: border-color 0.2s ease;
+}
+
+.tripsch-form-input:focus {
+  outline: none;
+  border-color: #007c91;
+  box-shadow: 0 0 0 3px rgba(0, 124, 145, 0.1);
+}
+
+.tripsch-schedules-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.tripsch-add-time-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: #007c91;
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.tripsch-add-time-btn:hover {
+  background-color: #006273;
+}
+
+.tripsch-time-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.tripsch-time-slot {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.tripsch-time-input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+}
+
+.tripsch-time-input:focus {
+  outline: none;
+  border-color: #007c91;
+  box-shadow: 0 0 0 3px rgba(0, 124, 145, 0.1);
+}
+
+.tripsch-remove-time-btn {
+  background-color: #fee2e2;
+  color: #dc2626;
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.tripsch-remove-time-btn:hover {
+  background-color: #fecaca;
+}
+
+.tripsch-modal-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 2rem;
+}
+
+.tripsch-btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  font-size: 1rem;
+}
+
+.tripsch-btn-secondary {
+  background-color: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.tripsch-btn-secondary:hover:not(:disabled) {
+  background-color: #e5e7eb;
+}
+
+.tripsch-btn-primary {
+  background-color: #007c91;
+  color: white;
+}
+
+.tripsch-btn-primary:hover:not(:disabled) {
+  background-color: #006273;
+}
+
+.tripsch-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .tripsch-container {
+    padding: 0.5rem;
+  }
+  
+  .tripsch-header {
+    padding: 1rem;
+  }
+  
+  .tripsch-main-content {
+    padding: 1rem;
+  }
+  
+  .tripsch-schedules-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .tripsch-stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .tripsch-stats-single {
+    justify-content: stretch;
+  }
+  
+  .tripsch-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .tripsch-modal {
+    margin: 1rem;
+    width: calc(100% - 2rem);
+  }
+}
+
+@media (max-width: 480px) {
+  .tripsch-title-section {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+  
+  .tripsch-main-title {
+    font-size: 1.5rem;
+  }
+  
+  .tripsch-add-schedule-btn {
+    align-self: stretch;
+    justify-content: center;
+  }
+  
+  .tripsch-time-slot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .tripsch-modal-actions {
+    flex-direction: column;
+  }
+}

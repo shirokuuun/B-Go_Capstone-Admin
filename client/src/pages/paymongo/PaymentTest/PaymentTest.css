@@ -1,0 +1,242 @@
+/* PaymentTest.css */
+
+.test-page {
+  min-height: 100vh;
+  background-color: #f9fafb;
+  padding: 2rem 0;
+}
+
+.test-container {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.test-card {
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+}
+
+/* Header */
+.test-title {
+  font-size: 1.875rem;
+  font-weight: bold;
+  color: #1f2937;
+  margin: 0 0 1.5rem 0;
+}
+
+/* Instructions Section */
+.test-instructions {
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.test-instructions-title {
+  font-weight: 600;
+  color: #1e40af;
+  margin: 0 0 0.5rem 0;
+}
+
+.test-instructions-list {
+  list-style-type: decimal;
+  list-style-position: inside;
+  color: #1d4ed8;
+  margin: 0;
+  padding: 0;
+}
+
+.test-instructions-item {
+  margin-bottom: 0.25rem;
+}
+
+/* Control Buttons */
+.test-controls {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.test-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  font-size: 1rem;
+}
+
+.test-btn.create {
+  background-color: #2563eb;
+  color: white;
+}
+
+.test-btn.create:hover:not(:disabled) {
+  background-color: #1d4ed8;
+}
+
+.test-btn.details {
+  background-color: #059669;
+  color: white;
+}
+
+.test-btn.details:hover:not(:disabled) {
+  background-color: #047857;
+}
+
+.test-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* Session ID Display */
+.test-session {
+  background-color: #f9fafb;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.test-session-title {
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.test-session-code {
+  background-color: #1f2937;
+  color: #10b981;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  font-family: monospace;
+  display: inline-block;
+  margin-bottom: 0.75rem;
+}
+
+.test-session-link {
+  background-color: #7c3aed;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  display: inline-block;
+  transition: background-color 0.2s ease;
+}
+
+.test-session-link:hover {
+  background-color: #6d28d9;
+}
+
+/* API Response */
+.test-response {
+  margin-bottom: 1.5rem;
+}
+
+.test-response-title {
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.test-response-content {
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow: auto;
+}
+
+.test-response-content.success {
+  background-color: #ecfdf5;
+  border: 1px solid #bbf7d0;
+}
+
+.test-response-content.error {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.test-response-code {
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  font-family: monospace;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Test Payment Methods */
+.test-payment-methods {
+  background-color: #fffbeb;
+  border: 1px solid #fed7aa;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.test-payment-title {
+  font-weight: 600;
+  color: #92400e;
+  margin: 0 0 0.5rem 0;
+}
+
+.test-payment-list {
+  color: #b45309;
+  margin: 0;
+}
+
+.test-payment-item {
+  margin-bottom: 0.25rem;
+}
+
+.test-payment-label {
+  font-weight: bold;
+}
+
+/* Backend Status */
+.test-status {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.test-status-title {
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.test-status-text {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0 0 0.25rem 0;
+}
+
+/* Responsive Design */
+@media (min-width: 768px) {
+  .test-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .test-page {
+    padding: 1rem 0;
+  }
+  
+  .test-container {
+    padding: 0 0.5rem;
+  }
+  
+  .test-card {
+    padding: 1.5rem;
+  }
+  
+  .test-title {
+    font-size: 1.5rem;
+  }
+}
