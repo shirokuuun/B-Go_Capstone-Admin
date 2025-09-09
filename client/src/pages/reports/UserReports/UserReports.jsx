@@ -90,7 +90,7 @@ const UserReports = () => {
       const userData = [
         ['User Details - Complete Report'],
         [''],
-        ['Name', 'Email', 'Phone', 'Sign-in Method', 'Created At', 'Email Verified', 'ID Verification', 'Last Login']
+        ['Name', 'Email', 'Phone', 'Sign-in Method', 'Created At', 'Email Verified', 'ID Verification']
       ];
 
       filteredUsers.forEach(user => {
@@ -102,8 +102,7 @@ const UserReports = () => {
           formattedUser.authMethod,
           formattedUser.createdAt,
           formattedUser.emailVerified,
-          formattedUser.idVerificationStatus,
-          formattedUser.lastLoginAt
+          formattedUser.idVerificationStatus
         ]);
       });
 
@@ -115,10 +114,9 @@ const UserReports = () => {
         { wch: 15 }, // Auth Method
         { wch: 15 }, // Created At
         { wch: 15 }, // Email Verified
-        { wch: 15 }, // ID Verification
-        { wch: 15 }  // Last Login
+        { wch: 15 }  // ID Verification
       ];
-      userWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 7, r: 0 } }];
+      userWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 6, r: 0 } }];
       XLSX.utils.book_append_sheet(workbook, userWS, 'User Details');
 
       // Generate filename
@@ -335,7 +333,6 @@ const UserReports = () => {
                 <th>Created At</th>
                 <th>Email Verified</th>
                 <th>ID Verification</th>
-                <th>Last Login</th>
               </tr>
             </thead>
             <tbody>
@@ -360,7 +357,6 @@ const UserReports = () => {
                     }`}>
                       {formattedUser.idVerificationStatus}
                     </td>
-                    <td className="user-reports-date">{formattedUser.lastLoginAt}</td>
                   </tr>
                 );
               })}

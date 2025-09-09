@@ -1,7 +1,7 @@
 /* Updated Pre-ticketing Styles - Merged with Conductor Header Design */
 .ticketing-container {
   background-color: #f5f7fa;
-  font-family: 'Outfit' sans-serif;
+  font-family: 'Outfit', sans-serif;
   min-height: 100vh;
 }
 
