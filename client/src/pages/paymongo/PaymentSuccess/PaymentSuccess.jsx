@@ -1,32 +1,87 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import './PaymentSuccess.css';
 
 const PaymentSuccess = () => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
+  const isMockMode = searchParams.get('mock') === 'true' || true; // Default to mock mode
+
+  // Mock successful payment data
+  const getMockSuccessData = async () => {
+    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate loading
+    
+    return {
+      success: true,
+      status: 'Paid',
+      booking: {
+        sessionId: sessionId,
+        bookingId: `booking_${Date.now()}`,
+        status: 'Paid',
+        passengerInfo: {
+          name: "Juan Dela Cruz",
+          email: "juan@example.com",
+          phone: "09123456789",
+          userId: "user123"
+        },
+        tripDetails: {
+          origin: "Cebu City",
+          destination: "Manila",
+          departureTime: "08:00 AM",
+          departureDate: "2025-08-15",
+          routeId: "route123",
+          busId: "bus456",
+          seats: ["A1", "A2"]
+        },
+        billingInfo: {
+          numberOfPassengers: 2,
+          farePerPassenger: 600.00,
+          amount: 1100.00,
+          discounts: [
+            {
+              name: "Student Discount",
+              amount: 100.00
+            }
+          ]
+        },
+        paymentReference: `BGO${Date.now()}`,
+        paidAt: new Date().toISOString()
+      }
+    };
+  };
 
   // Poll for payment status
   useEffect(() => {
     const checkPaymentStatus = async () => {
       try {
-        const response = await fetch(`http://localhost:3000/api/payment/status/${sessionId}`);
-        const data = await response.json();
+        let data;
+        
+        if (isMockMode) {
+          // Use mock success data
+          data = await getMockSuccessData();
+        } else {
+          // Use real API
+          const response = await fetch(`http://localhost:3000/api/payment/status/${sessionId}`);
+          data = await response.json();
+        }
         
         if (data.success) {
           setBooking(data.booking);
           
-          // If not paid yet, keep polling
-          if (data.status !== 'Paid') {
+          // If not paid yet, keep polling (only for real API)
+          if (!isMockMode && data.status !== 'Paid') {
             setTimeout(checkPaymentStatus, 2000); // Poll every 2 seconds
             return;
           }
         }
       } catch (err) {
         console.error('Error checking payment status:', err);
-        setTimeout(checkPaymentStatus, 5000); // Retry after 5 seconds
+        if (!isMockMode) {
+          setTimeout(checkPaymentStatus, 5000); // Retry after 5 seconds only for real API
+        }
       } finally {
         setLoading(false);
       }
@@ -98,6 +153,13 @@ const PaymentSuccess = () => {
         {/* Success Message */}
         <h1 className="success-title">Payment Successful!</h1>
         <p className="success-subtitle">Your booking has been confirmed and your ticket has been reserved.</p>
+        
+        {/* Mock Mode Indicator */}
+        {isMockMode && (
+          <div className="mock-mode-banner">
+            🧪 Mock Mode - Demo Payment Success
+          </div>
+        )}
         
         {/* Booking Summary */}
         <div className="success-summary">

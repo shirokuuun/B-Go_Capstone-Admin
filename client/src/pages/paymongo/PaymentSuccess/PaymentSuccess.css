@@ -161,6 +161,17 @@
   margin: 0 0 1.5rem 0;
 }
 
+.mock-mode-banner {
+  background-color: #fef3c7;
+  border: 1px solid #d97706;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0 2rem 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #92400e;
+}
+
 /* Booking Summary */
 .success-summary {
   background-color: #f9fafb;

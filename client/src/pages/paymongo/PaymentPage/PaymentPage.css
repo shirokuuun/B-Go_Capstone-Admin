@@ -32,6 +32,18 @@
   margin: 0;
 }
 
+.mock-mode-indicator {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: center;
+  color: #fef3c7;
+}
+
 /* Card Styles */
 .payment-card {
   background-color: white;

@@ -10,13 +10,76 @@ const PaymentPage = () => {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState(null);
+  const [isMockMode, setIsMockMode] = useState(true); // Enable mock mode by default
+
+  // Mock booking data
+  const getMockBooking = async (sessionId) => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return {
+      success: true,
+      booking: {
+        sessionId: sessionId,
+        bookingId: `booking_${Date.now()}`,
+        status: "pending",
+        passengerInfo: {
+          name: "Juan Dela Cruz",
+          email: "juan@example.com",
+          phone: "09123456789",
+          userId: "user123"
+        },
+        tripDetails: {
+          origin: "Cebu City",
+          destination: "Manila",
+          departureTime: "08:00 AM",
+          departureDate: "2025-08-15",
+          routeId: "route123",
+          busId: "bus456",
+          seats: ["A1", "A2"]
+        },
+        billingInfo: {
+          numberOfPassengers: 2,
+          farePerPassenger: 600.00,
+          amount: 1100.00,
+          discounts: [
+            {
+              name: "Student Discount",
+              amount: 100.00
+            }
+          ]
+        },
+        createdAt: new Date().toISOString()
+      }
+    };
+  };
+
+  // Mock payment processing
+  const mockProcessPayment = async (paymentMethod) => {
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Simulate success and redirect to success page
+    return {
+      success: true,
+      checkoutUrl: `/payment-success/${sessionId}?mock=true`,
+      message: `Payment processed with ${paymentMethod} (MOCK MODE)`
+    };
+  };
 
   // Fetch booking details
   useEffect(() => {
     const fetchBooking = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/payment/booking/${sessionId}`);
-        const data = await response.json();
+        let data;
+        
+        if (isMockMode) {
+          // Use mock data
+          data = await getMockBooking(sessionId);
+        } else {
+          // Use real API
+          const response = await fetch(`${API_BASE_URL}/api/payment/booking/${sessionId}`);
+          data = await response.json();
+        }
         
         if (data.success) {
           setBooking(data.booking);
@@ -29,7 +92,7 @@ const PaymentPage = () => {
           setError(data.error);
         }
       } catch (err) {
-        setError('Failed to load booking details');
+        setError(isMockMode ? 'Mock data error' : 'Failed to load booking details');
       } finally {
         setLoading(false);
       }
@@ -46,26 +109,39 @@ const PaymentPage = () => {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/payment/initiate-payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          sessionId: sessionId,
-          paymentMethod: paymentMethod
-        })
-      });
-
-      const result = await response.json();
+      let result;
+      
+      if (isMockMode) {
+        // Use mock payment processing
+        result = await mockProcessPayment(paymentMethod);
+      } else {
+        // Use real API
+        const response = await fetch(`${API_BASE_URL}/api/payment/initiate-payment`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            sessionId: sessionId,
+            paymentMethod: paymentMethod
+          })
+        });
+        result = await response.json();
+      }
 
       if (result.success) {
-        window.location.href = result.checkoutUrl;
+        if (isMockMode) {
+          // Navigate to success page for mock mode
+          navigate(`/payment-success/${sessionId}?mock=true`);
+        } else {
+          // Redirect to real payment gateway
+          window.location.href = result.checkoutUrl;
+        }
       } else {
         setError(result.error);
       }
     } catch (err) {
-      setError('Payment processing failed. Please try again.');
+      setError(isMockMode ? 'Mock payment error' : 'Payment processing failed. Please try again.');
     } finally {
       setProcessing(false);
     }
@@ -114,6 +190,11 @@ const PaymentPage = () => {
         <div className="payment-header">
           <h1 className="payment-title">Complete Your Booking Payment</h1>
           <p className="payment-subtitle">B-GO Bus Booking System</p>
+          {isMockMode && (
+            <div className="mock-mode-indicator">
+              🧪 Mock Mode - Demo Payment Flow
+            </div>
+          )}
         </div>
 
         {/* Payment Card */}
