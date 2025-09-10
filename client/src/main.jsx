@@ -11,6 +11,7 @@ import Ticketing from "/src/pages/ticketing/ticketing.jsx";
 import SOSRequest from "/src/pages/SOS/SOSRequest.jsx";
 import PaymentTransactions from "/src/pages/payments/PaymentTransactions.jsx";
 import Settings from "/src/pages/settings/settings.jsx";
+import UserManagement from "/src/pages/UserManagement/UserManagement.jsx";
 import PageTransitionWrapper from "/src/components/PageTransition/PageTransition.jsx";
 import Login from "/src/pages/auth/login.jsx";
 import Signup from "/src/pages/auth/signup.jsx";
@@ -101,6 +102,14 @@ createRoot(document.getElementById("root")).render(
             element={
               <PageTransitionWrapper>
                 <Conductor />
+              </PageTransitionWrapper>
+            }
+          />
+          <Route
+            path="user"
+            element={
+              <PageTransitionWrapper>
+                <UserManagement />
               </PageTransitionWrapper>
             }
           />
