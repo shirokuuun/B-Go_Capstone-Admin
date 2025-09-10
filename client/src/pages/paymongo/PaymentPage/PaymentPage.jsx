@@ -263,9 +263,9 @@ const PaymentPage = () => {
             </div>
           </div>
 
-          {/* Payment Methods */}
-          <div className="payment-section">
-            <h2 className="section-title">Choose Payment Method</h2>
+          {/* Payment QR Code Section */}
+          <div className="payment-section qr-section">
+            <h2 className="section-title">Complete Your Payment</h2>
             
             {error && (
               <div className="payment-error">
@@ -281,27 +281,110 @@ const PaymentPage = () => {
             )}
 
             {!processing && (
-              <div className="payment-buttons">
-                <button 
-                  onClick={() => processPayment('card')}
-                  className="payment-btn card"
-                >
-                  💳 Credit/Debit Card
-                </button>
-                
-                <button 
-                  onClick={() => processPayment('gcash')}
-                  className="payment-btn gcash"
-                >
-                  📱 GCash
-                </button>
-                
-                <button 
-                  onClick={() => processPayment('paymaya')}
-                  className="payment-btn paymaya"
-                >
-                  💰 PayMaya
-                </button>
+              <div className="qr-payment-container">
+                {/* QR Code Display */}
+                <div className="qr-code-section">
+                  <div className="qr-code-display">
+                    <div className="qr-code-placeholder">
+                      <div className="qr-pattern">
+                        <div className="qr-corner top-left"></div>
+                        <div className="qr-corner top-right"></div>
+                        <div className="qr-corner bottom-left"></div>
+                        <div className="qr-corner bottom-right"></div>
+                        <div className="qr-center"></div>
+                        <div className="qr-dots">
+                          {Array.from({length: 64}).map((_, i) => (
+                            <div key={i} className={`qr-dot ${Math.random() > 0.6 ? 'filled' : ''}`}></div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="qr-instructions">
+                    <p className="qr-instruction-title">💳 Scan to Pay</p>
+                    <p className="qr-instruction-text">
+                      Use your mobile banking app or e-wallet to scan this QR code
+                    </p>
+                  </div>
+                </div>
+
+                {/* Payment Amount Display */}
+                <div className="payment-amount-section">
+                  <div className="amount-display">
+                    <div className="amount-label">Total Amount</div>
+                    <div className="amount-value">₱{booking.billingInfo.amount.toFixed(2)}</div>
+                  </div>
+                  
+                  <div className="payment-reference">
+                    <div className="reference-label">Reference Number</div>
+                    <div className="reference-value">{sessionId}</div>
+                  </div>
+                </div>
+
+                {/* Payment Options */}
+                <div className="payment-options">
+                  <div className="payment-option-group">
+                    <h3 className="payment-option-title">Choose Payment Method:</h3>
+                    
+                    <div className="payment-buttons-grid">
+                      <button 
+                        onClick={() => processPayment('gcash-qr')}
+                        className="payment-btn gcash-qr"
+                      >
+                        <span className="btn-icon">📱</span>
+                        <span className="btn-text">
+                          <span className="btn-title">Scan QR with GCash</span>
+                          <span className="btn-subtitle">Open GCash app and scan</span>
+                        </span>
+                      </button>
+                      
+                      <button 
+                        onClick={() => processPayment('paymaya-qr')}
+                        className="payment-btn paymaya-qr"
+                      >
+                        <span className="btn-icon">💰</span>
+                        <span className="btn-text">
+                          <span className="btn-title">Scan QR with PayMaya</span>
+                          <span className="btn-subtitle">Open PayMaya app and scan</span>
+                        </span>
+                      </button>
+                    </div>
+
+                    <div className="payment-divider">
+                      <span className="divider-text">OR</span>
+                    </div>
+
+                    <div className="direct-payment-section">
+                      <h4 className="direct-payment-title">Pay Directly:</h4>
+                      <div className="direct-payment-buttons">
+                        <button 
+                          onClick={() => processPayment('gcash-direct')}
+                          className="payment-btn gcash-direct"
+                        >
+                          <span className="btn-icon">📱</span>
+                          <span className="btn-text">Pay with GCash</span>
+                        </button>
+                        
+                        <button 
+                          onClick={() => processPayment('paymaya-direct')}
+                          className="payment-btn paymaya-direct"
+                        >
+                          <span className="btn-icon">💰</span>
+                          <span className="btn-text">Pay with PayMaya</span>
+                        </button>
+                        
+                        <button 
+                          onClick={() => processPayment('card')}
+                          className="payment-btn card"
+                        >
+                          <span className="btn-icon">💳</span>
+                          <span className="btn-text">Credit/Debit Card</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
