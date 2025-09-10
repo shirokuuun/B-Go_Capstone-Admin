@@ -6,6 +6,54 @@ const PaymentTest = () => {
   const [sessionId, setSessionId] = useState('');
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState(null);
+  const [isMockMode, setIsMockMode] = useState(true); // Toggle for mock/production
+
+  // Mock API responses for testing without backend
+  const mockCreateBooking = async (testBookingData) => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    const mockSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    return {
+      success: true,
+      message: "Booking created successfully (MOCK MODE)",
+      sessionId: mockSessionId,
+      bookingDetails: {
+        ...testBookingData,
+        bookingId: `booking_${Date.now()}`,
+        status: "pending",
+        createdAt: new Date().toISOString(),
+        paymentUrl: `/payment/${mockSessionId}`
+      }
+    };
+  };
+
+  const mockGetBookingDetails = async (sessionId) => {
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    return {
+      success: true,
+      message: "Booking details retrieved (MOCK MODE)",
+      booking: {
+        sessionId: sessionId,
+        bookingId: `booking_${Date.now()}`,
+        status: "pending",
+        amount: 1200.00,
+        passengerInfo: {
+          name: "Juan Dela Cruz",
+          email: "juan@example.com",
+          phone: "09123456789"
+        },
+        tripDetails: {
+          origin: "Cebu City",
+          destination: "Manila",
+          departureTime: "08:00 AM",
+          departureDate: "2025-08-15"
+        }
+      }
+    };
+  };
 
   // Test creating a booking
   const createTestBooking = async () => {
@@ -39,15 +87,23 @@ const PaymentTest = () => {
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/payment/create-booking`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(testBookingData)
-      });
+      let result;
+      
+      if (isMockMode) {
+        // Use mock API for testing
+        result = await mockCreateBooking(testBookingData);
+      } else {
+        // Use real API for production
+        const response = await fetch(`${API_BASE_URL}/api/payment/create-booking`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(testBookingData)
+        });
+        result = await response.json();
+      }
 
-      const result = await response.json();
       setResponse(result);
 
       if (result.success) {
@@ -56,7 +112,9 @@ const PaymentTest = () => {
     } catch (error) {
       setResponse({ 
         success: false, 
-        error: 'Failed to connect to server. Make sure your backend is running on port 3000.' 
+        error: isMockMode 
+          ? 'Mock API error occurred' 
+          : 'Failed to connect to server. Make sure your backend is running on port 3000.' 
       });
     } finally {
       setLoading(false);
@@ -71,13 +129,24 @@ const PaymentTest = () => {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/payment/booking/${sessionId}`);
-      const result = await response.json();
+      let result;
+      
+      if (isMockMode) {
+        // Use mock API for testing
+        result = await mockGetBookingDetails(sessionId);
+      } else {
+        // Use real API for production
+        const response = await fetch(`${API_BASE_URL}/api/payment/booking/${sessionId}`);
+        result = await response.json();
+      }
+      
       setResponse(result);
     } catch (error) {
       setResponse({ 
         success: false, 
-        error: 'Failed to get booking details' 
+        error: isMockMode 
+          ? 'Mock API error occurred' 
+          : 'Failed to get booking details' 
       });
     }
   };
@@ -88,15 +157,54 @@ const PaymentTest = () => {
         <div className="test-card">
           <h1 className="test-title">B-GO PayMongo Integration Test</h1>
           
+          {/* Mode Toggle */}
+          <div className="test-mode-toggle">
+            <h2 className="test-mode-title">🔧 Test Mode:</h2>
+            <div className="test-mode-controls">
+              <label className="test-mode-label">
+                <input
+                  type="radio"
+                  name="testMode"
+                  checked={isMockMode}
+                  onChange={() => setIsMockMode(true)}
+                />
+                <span className={`test-mode-option ${isMockMode ? 'active' : ''}`}>
+                  🧪 Mock Mode (No Backend Required)
+                </span>
+              </label>
+              <label className="test-mode-label">
+                <input
+                  type="radio"
+                  name="testMode"
+                  checked={!isMockMode}
+                  onChange={() => setIsMockMode(false)}
+                />
+                <span className={`test-mode-option ${!isMockMode ? 'active' : ''}`}>
+                  🚀 Production Mode (Backend Required)
+                </span>
+              </label>
+            </div>
+          </div>
+          
           {/* Instructions */}
           <div className="test-instructions">
             <h2 className="test-instructions-title">🚀 How to Test:</h2>
-            <ol className="test-instructions-list">
-              <li className="test-instructions-item">Make sure your backend server is running on port 3000</li>
-              <li className="test-instructions-item">Click "Create Test Booking" to generate a sample booking</li>
-              <li className="test-instructions-item">Click "Go to Payment Page" to see the payment interface</li>
-              <li className="test-instructions-item">Use test payment methods to complete the flow</li>
-            </ol>
+            {isMockMode ? (
+              <ol className="test-instructions-list">
+                <li className="test-instructions-item">Currently in Mock Mode - no backend server needed</li>
+                <li className="test-instructions-item">Click "Create Test Booking" to generate a sample booking</li>
+                <li className="test-instructions-item">Click "Go to Payment Page" to see the payment interface</li>
+                <li className="test-instructions-item">Use test payment methods to complete the flow</li>
+                <li className="test-instructions-item">Switch to Production Mode when backend is ready</li>
+              </ol>
+            ) : (
+              <ol className="test-instructions-list">
+                <li className="test-instructions-item">Make sure your backend server is running on port 3000</li>
+                <li className="test-instructions-item">Click "Create Test Booking" to generate a sample booking</li>
+                <li className="test-instructions-item">Click "Go to Payment Page" to see the payment interface</li>
+                <li className="test-instructions-item">Use test payment methods to complete the flow</li>
+              </ol>
+            )}
           </div>
 
           {/* Test Controls */}
@@ -171,13 +279,32 @@ const PaymentTest = () => {
 
           {/* Backend Status Check */}
           <div className="test-status">
-            <h3 className="test-status-title">🔧 Backend Status:</h3>
-            <p className="test-status-text">
-              Make sure your Node.js server is running with the clean server.js file on port 3000.
-            </p>
-            <p className="test-status-text">
-              Check console for: "🚀 B-GO Server is running on port 3000"
-            </p>
+            <h3 className="test-status-title">🔧 Current Status:</h3>
+            {isMockMode ? (
+              <div>
+                <p className="test-status-text">
+                  ✅ <strong>Mock Mode Active:</strong> Testing flow without backend server
+                </p>
+                <p className="test-status-text">
+                  🎭 All API calls are simulated for UI/UX testing
+                </p>
+                <p className="test-status-text">
+                  🔄 Switch to Production Mode when backend is deployed
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p className="test-status-text">
+                  🚀 <strong>Production Mode:</strong> Connecting to real backend
+                </p>
+                <p className="test-status-text">
+                  Make sure your Node.js server is running on port 3000.
+                </p>
+                <p className="test-status-text">
+                  Check console for: "🚀 B-GO Server is running on port 3000"
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

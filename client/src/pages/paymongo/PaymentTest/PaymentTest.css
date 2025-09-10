@@ -27,6 +27,51 @@
   margin: 0 0 1.5rem 0;
 }
 
+/* Mode Toggle */
+.test-mode-toggle {
+  background-color: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.test-mode-title {
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.test-mode-controls {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.test-mode-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.test-mode-label input[type="radio"] {
+  margin-right: 0.5rem;
+}
+
+.test-mode-option {
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: 1px solid #d1d5db;
+}
+
+.test-mode-option.active {
+  background-color: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
 /* Instructions Section */
 .test-instructions {
   background-color: #eff6ff;
