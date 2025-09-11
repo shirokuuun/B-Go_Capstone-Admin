@@ -23,10 +23,6 @@ import SOSReport from "./pages/reports/SOSReport/SOSReport.jsx";
 import TicketReport from "./pages/reports/TicketReport/TicketReport.jsx";
 import UserReports from "./pages/reports/UserReports/UserReports.jsx";
 
-// 💳 PayMongo components
-import PaymentPage from "/src/pages/paymongo/PaymentPage/PaymentPage.jsx";
-import PaymentSuccess from "/src/pages/paymongo/PaymentSuccess/PaymentSuccess.jsx";
-import PaymentTest from "/src/pages/paymongo/PaymentTest/PaymentTest.jsx";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
@@ -53,31 +49,6 @@ createRoot(document.getElementById("root")).render(
           }
         />
 
-        {/* 💳 PayMongo routes (outside Layout - standalone payment pages) */}
-        <Route
-          path="/payment/:sessionId"
-          element={
-            <PageTransitionWrapper>
-              <PaymentPage />
-            </PageTransitionWrapper>
-          }
-        />
-        <Route
-          path="/payment-success/:sessionId"
-          element={
-            <PageTransitionWrapper>
-              <PaymentSuccess />
-            </PageTransitionWrapper>
-          }
-        />
-        <Route
-          path="/test-payment"
-          element={
-            <PageTransitionWrapper>
-              <PaymentTest />
-            </PageTransitionWrapper>
-          }
-        />
 
         {/* 🛡️ Protected Routes (inside Layout) */}
         <Route path="/admin" element={<Layout />}>
@@ -222,15 +193,6 @@ createRoot(document.getElementById("root")).render(
             }
           />
 
-          {/* 💳 PayMongo test route inside admin (optional - for admin testing) */}
-          <Route
-            path="test-paymongo"
-            element={
-              <PageTransitionWrapper>
-                <PaymentTest />
-              </PageTransitionWrapper>
-            }
-          />
         </Route>
       </Routes>
     </BrowserRouter>
