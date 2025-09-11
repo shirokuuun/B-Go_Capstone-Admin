@@ -43,6 +43,7 @@
 .Navigation.collapsed {
   width: 99px;
   align-items: center;
+  overflow-x: hidden;
 }
 
 .menu-top-right {
@@ -166,6 +167,7 @@
   .Navigation {
     width: 99px;
     align-items: center;
+    overflow-x: hidden;
   }
   
   .Navigation .NavIcon span {

@@ -58,7 +58,7 @@
 .settings-grid {
   display: grid;
   gap: 24px;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: 1fr 1fr;
 }
 
 @media (max-width: 768px) {
