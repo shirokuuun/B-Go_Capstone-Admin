@@ -31,12 +31,12 @@ const Layout = () => {
         return "Reports";
       case "/admin/reports/daily-revenue":
         return "Daily Revenue Report";
-      case "/admin/reports/bus-utilization":
-        return "Bus Utilization Report";
-      case "/admin/reports/conductor-performance":
-        return "Conductor Performance Report";
-      case "/admin/reports/summary-dashboard":
-        return "Summary Dashboard";
+      case "/admin/reports/sos-analytics":
+        return "SOS Analytics Report";
+      case "/admin/reports/ticket-report":
+        return "Ticket Report";
+      case "/admin/reports/user-reports":
+        return "User Reports";
       case "/admin/payments":
         return "Payment Transactions";
       case "/admin/settings":
