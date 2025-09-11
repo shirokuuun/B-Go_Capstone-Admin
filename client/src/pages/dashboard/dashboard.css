@@ -28,10 +28,10 @@
 
 /* Dashboard Container */
 .dashboard-container {
-  padding: 2rem;
-  background: #f4f6f8;
+  padding: 1.5rem;
   min-height: 100vh;
-  max-width: 1200px;
+  width: 100%;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
@@ -186,11 +186,14 @@
   display: grid;
   gap: 2rem;
   grid-template-columns: 1fr 1fr;
+  width: 100%;
+  align-items: start;
 }
 
 @media (max-width: 768px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
 }
 
@@ -205,13 +208,12 @@
   padding: 1.5rem;
   border-radius: 12px;
   box-shadow: 0 3px 8px rgba(0,0,0,0.08);
-  max-width: 450px;
   width: 100%;
+  height: fit-content;
 }
 
 .recent-sos-card {
   grid-column: 1 / -1;
-  max-width: none;
 }
 
 .trip-summary-card h3,
@@ -1054,7 +1056,7 @@
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .dashboard-container {
-    padding: 1rem;
+    padding: 0.75rem;
   }
   
   .filter-section {

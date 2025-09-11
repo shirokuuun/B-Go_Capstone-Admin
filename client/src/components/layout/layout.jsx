@@ -1,13 +1,31 @@
 // layout.jsx
 import { useLocation, Outlet } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Nav from "/src/components/navigation/nav.jsx";
 import Header from "/src/components/HeaderTemplate/header.jsx";
 import "/src/components/layout/layout.css";
 
 const Layout = () => {
   const [collapsed, setCollapsed] = useState(false);
+  const [isResponsiveCollapsed, setIsResponsiveCollapsed] = useState(false);
   const location = useLocation();
+
+  // Check if screen is small enough for auto-collapse
+  useEffect(() => {
+    const checkScreenSize = () => {
+      const isSmallScreen = window.innerWidth <= 1024;
+      setIsResponsiveCollapsed(isSmallScreen);
+    };
+
+    // Check on mount
+    checkScreenSize();
+
+    // Add event listener for window resize
+    window.addEventListener('resize', checkScreenSize);
+
+    // Cleanup event listener
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
 
   const getPageTitle = (path) => {
     switch (path) {
@@ -48,11 +66,14 @@ const Layout = () => {
 
   const pageTitle = getPageTitle(location.pathname);
 
+  // Determine effective collapsed state (manual or responsive)
+  const effectiveCollapsed = collapsed || isResponsiveCollapsed;
+
   return (
     <div className="layout-container">
-      <Nav collapsed={collapsed} setCollapsed={setCollapsed} />
-      <div className="main-section">
-        <Header collapsed={collapsed} pageTitle={pageTitle} />
+      <Nav collapsed={effectiveCollapsed} setCollapsed={setCollapsed} />
+      <div className={`main-section ${effectiveCollapsed ? 'collapsed' : ''}`}>
+        <Header collapsed={effectiveCollapsed} pageTitle={pageTitle} />
         <main className="page-content">
           <Outlet />
         </main>

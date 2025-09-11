@@ -15,13 +15,10 @@ html, body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  transition: margin-left 0.3s ease;
+  transition: all 0.3s ease;
   overflow: hidden;
-  padding-top: 80px; 
-}
-
-.main-section.collapsed {
-  margin-left: 80px; 
+  padding-top: 80px;
+  /* Flexbox will handle the positioning naturally */
 }
 
 .page-content {
@@ -29,4 +26,25 @@ html, body {
   padding: 24px;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+/* Responsive adjustments for main content */
+@media (max-width: 768px) {
+  .main-section {
+    padding-top: 70px; /* Match mobile header height */
+  }
+  
+  .page-content {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-section {
+    padding-top: 60px; /* Match small mobile header height */
+  }
+  
+  .page-content {
+    padding: 12px;
+  }
 }

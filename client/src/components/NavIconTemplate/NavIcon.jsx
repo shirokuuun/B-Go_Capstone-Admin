@@ -15,6 +15,7 @@ const NavIcon = ({ Icon, title, collapsed, to }) => {
     <div
       className={`nav-icon ${isActive ? "active" : ""}`}
       onClick={handleClick}
+      data-title={title}
     >
       {Icon && (
         <Icon

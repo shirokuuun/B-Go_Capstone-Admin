@@ -1,5 +1,4 @@
 .nav-icon {
-    margin-top: 50px;
     position: relative;
     display: flex;
     align-items: center;
@@ -62,6 +61,55 @@ header {
 .nav-icon .icon,
 .nav-icon h2 {
   color: white;
+}
+
+/* Responsive styles for nav icons */
+@media (max-width: 1024px) {
+  .nav-icon {
+    justify-content: center;
+    padding: 12px;
+  }
+  
+  .nav-icon h2 {
+    display: none;
+  }
+  
+  /* Tooltip for responsive collapsed state */
+  .nav-icon::after {
+    content: attr(data-title);
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1000;
+  }
+  
+  .nav-icon:hover::after {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .nav-icon {
+    padding: 10px;
+    margin: 3px 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .nav-icon {
+    padding: 8px;
+    margin: 2px 4px;
+  }
 }
 
 
