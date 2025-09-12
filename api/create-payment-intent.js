@@ -1,5 +1,5 @@
-import { initializeFirebase } from "./lib/firebase.js";
-import { createPayMongoCheckout } from "./lib/paymongo.js";
+import { initializeFirebase } from "./firebase.js";
+import { createPayMongoCheckout } from "./paymongo.js";
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -12,9 +12,9 @@ export default async function handler(req, res) {
   }
 
   if (req.method !== "POST") {
-    return res.status(405).json({ 
+    return res.status(405).json({
       success: false,
-      message: "Method not allowed. Use POST." 
+      message: "Method not allowed. Use POST.",
     });
   }
 
@@ -26,7 +26,8 @@ export default async function handler(req, res) {
     if (!amount || !metadata?.bookingId || !metadata?.userId) {
       return res.status(400).json({
         success: false,
-        error: "Missing required fields: amount, bookingId, or userId in metadata",
+        error:
+          "Missing required fields: amount, bookingId, or userId in metadata",
         required: {
           amount: "number (in centavos)",
           currency: "string (default: PHP)",
@@ -34,12 +35,12 @@ export default async function handler(req, res) {
             bookingId: "string",
             userId: "string",
             route: "string",
-            fromPlace: "string", 
+            fromPlace: "string",
             toPlace: "string",
             quantity: "number",
-            fareTypes: "string"
-          }
-        }
+            fareTypes: "string",
+          },
+        },
       });
     }
 
@@ -69,19 +70,27 @@ export default async function handler(req, res) {
           show_description: true,
           show_line_items: true,
           success_url: `${
-            process.env.VERCEL_URL || process.env.VERCEL_BRANCH_URL || 
+            process.env.VERCEL_URL ||
+            process.env.VERCEL_BRANCH_URL ||
             "https://b-go-capstone-admin-chi.vercel.app"
-          }/payment-success?bookingId=${metadata.bookingId}&userId=${metadata.userId}`,
+          }/payment-success?bookingId=${metadata.bookingId}&userId=${
+            metadata.userId
+          }`,
           cancel_url: `${
-            process.env.VERCEL_URL || process.env.VERCEL_BRANCH_URL || 
+            process.env.VERCEL_URL ||
+            process.env.VERCEL_BRANCH_URL ||
             "https://b-go-capstone-admin-chi.vercel.app"
-          }/payment-cancelled?bookingId=${metadata.bookingId}&userId=${metadata.userId}`,
+          }/payment-cancelled?bookingId=${metadata.bookingId}&userId=${
+            metadata.userId
+          }`,
           payment_method_types: ["card", "gcash", "paymaya"],
           line_items: [
             {
               currency: currency.toUpperCase(),
               amount: parseInt(amount),
-              description: `Pre-booking: ${metadata.route || 'Route'} - ${metadata.fromPlace || 'Origin'} to ${metadata.toPlace || 'Destination'}`,
+              description: `Pre-booking: ${metadata.route || "Route"} - ${
+                metadata.fromPlace || "Origin"
+              } to ${metadata.toPlace || "Destination"}`,
               name: "B-GO Bus Pre-booking",
               quantity: 1,
             },
@@ -89,13 +98,13 @@ export default async function handler(req, res) {
           metadata: {
             bookingId: metadata.bookingId,
             userId: metadata.userId,
-            route: metadata.route || '',
-            fromPlace: metadata.fromPlace || '',
-            toPlace: metadata.toPlace || '',
+            route: metadata.route || "",
+            fromPlace: metadata.fromPlace || "",
+            toPlace: metadata.toPlace || "",
             quantity: (metadata.quantity || 1).toString(),
-            fareTypes: metadata.fareTypes || '',
+            fareTypes: metadata.fareTypes || "",
             source: metadata.source || "flutter_app",
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
           },
         },
       },
@@ -109,9 +118,9 @@ export default async function handler(req, res) {
           ...checkoutData.data.attributes,
           // Don't log sensitive URLs in production
           success_url: "[REDACTED]",
-          cancel_url: "[REDACTED]"
-        }
-      }
+          cancel_url: "[REDACTED]",
+        },
+      },
     });
 
     const paymongoResponse = await createPayMongoCheckout(checkoutData);
@@ -131,7 +140,9 @@ export default async function handler(req, res) {
           updatedAt: new Date(),
         });
 
-      console.log(`PayMongo checkout created successfully for booking ${metadata.bookingId}`);
+      console.log(
+        `PayMongo checkout created successfully for booking ${metadata.bookingId}`
+      );
 
       return res.status(200).json({
         success: true,
@@ -149,19 +160,19 @@ export default async function handler(req, res) {
     if (error.response) {
       console.error("PayMongo API response:", {
         status: error.response.status,
-        data: error.response.data
+        data: error.response.data,
       });
     }
 
     return res.status(500).json({
       success: false,
       error: error.message || "Failed to create payment session",
-      ...(process.env.NODE_ENV === 'development' && {
+      ...(process.env.NODE_ENV === "development" && {
         debug: {
           message: error.message,
-          stack: error.stack?.split('\n').slice(0, 5)
-        }
-      })
+          stack: error.stack?.split("\n").slice(0, 5),
+        },
+      }),
     });
   }
 }
