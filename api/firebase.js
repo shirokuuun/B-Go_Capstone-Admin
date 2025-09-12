@@ -3,6 +3,24 @@ import { getFirestore } from "firebase-admin/firestore";
 
 export const initializeFirebase = () => {
   if (getApps().length === 0) {
+    // Debug: Log all environment variables that start with FIREBASE
+    console.log("Firebase Environment Variables Debug:");
+    console.log("FIREBASE_PROJECT_ID:", !!process.env.FIREBASE_PROJECT_ID);
+    console.log("FIREBASE_CLIENT_EMAIL:", !!process.env.FIREBASE_CLIENT_EMAIL);
+    console.log("FIREBASE_PRIVATE_KEY:", !!process.env.FIREBASE_PRIVATE_KEY);
+    console.log(
+      "FIREBASE_API_PROJECT_ID:",
+      !!process.env.FIREBASE_API_PROJECT_ID
+    );
+    console.log(
+      "FIREBASE_API_CLIENT_EMAIL:",
+      !!process.env.FIREBASE_API_CLIENT_EMAIL
+    );
+    console.log(
+      "FIREBASE_API_PRIVATE_KEY:",
+      !!process.env.FIREBASE_API_PRIVATE_KEY
+    );
+
     // Use API-specific environment variables if available, otherwise fall back to general ones
     const projectId =
       process.env.FIREBASE_API_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
