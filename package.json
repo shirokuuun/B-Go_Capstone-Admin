@@ -2,6 +2,9 @@
   "name": "b-go-capstone-admin-api",
   "version": "1.0.0",
   "type": "module",
+  "scripts": {
+    "build": "cd client && npm run build"
+  },
   "dependencies": {
     "dotenv": "^17.2.2",
     "firebase-admin": "^12.7.0"
