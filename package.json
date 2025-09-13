@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
+    "dotenv": "^17.2.2",
     "firebase-admin": "^12.7.0"
   },
   "engines": {
