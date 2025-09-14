@@ -191,7 +191,7 @@ class DashboardService {
             pendingRequests++;
             break;
           case 'received':
-          case 'in_progress':
+          case 'active':
             receivedRequests++;
             break;
           case 'cancelled':
@@ -204,8 +204,17 @@ class DashboardService {
             break;
         }
 
-        // Add to recent requests for today
-        if (requestDate === today) {
+        // Add to recent requests based on filter (not just today)
+        let addToRecent = false;
+        if (filter === 'today' && requestDate === today) {
+          addToRecent = true;
+        } else if (filter === 'custom' && requestDate === selectedDate) {
+          addToRecent = true;
+        } else if (filter === 'all') {
+          addToRecent = true;
+        }
+
+        if (addToRecent) {
           // Format location properly
           let locationText = 'Unknown location';
           if (data.location && typeof data.location === 'object') {

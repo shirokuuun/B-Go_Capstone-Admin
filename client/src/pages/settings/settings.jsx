@@ -18,10 +18,14 @@ import {
   createImagePreview,
   isValidImageFile,
   getRoleDisplayName,
+  getVerificationStatusDisplay,
   updateUsername,
   deleteCurrentAccount,
   subscribeToAdminUsers,
-  deleteAdminUser
+  deleteAdminUser,
+  verifyUser,
+  rejectUser,
+  changeUserRole
 } from './settings.js';
 import {
   getActivityLogs,
@@ -163,8 +167,7 @@ const formatLogDescription = (description) => {
   const [logFilters, setLogFilters] = useState({
     activityType: '',
     severity: '',
-    startDate: '',
-    endDate: '',
+    date: '',
     limit: 50
   });
   
@@ -368,11 +371,13 @@ const formatLogDescription = (description) => {
       if (logFilters.severity) {
         constraints.push(where('severity', '==', logFilters.severity));
       }
-      if (logFilters.startDate) {
-        constraints.push(where('timestamp', '>=', new Date(logFilters.startDate)));
-      }
-      if (logFilters.endDate) {
-        constraints.push(where('timestamp', '<=', new Date(logFilters.endDate)));
+      if (logFilters.date) {
+        // Filter for logs on the specific date (start of day to end of day)
+        const selectedDate = new Date(logFilters.date);
+        const startOfDay = new Date(selectedDate.setHours(0, 0, 0, 0));
+        const endOfDay = new Date(selectedDate.setHours(23, 59, 59, 999));
+        constraints.push(where('timestamp', '>=', startOfDay));
+        constraints.push(where('timestamp', '<=', endOfDay));
       }
 
       constraints.push(limit(logFilters.limit || 50));
@@ -431,8 +436,7 @@ const formatLogDescription = (description) => {
       activityByType,
       activityByUser,
       dateRange: {
-        startDate: logFilters.startDate ? new Date(logFilters.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-        endDate: logFilters.endDate ? new Date(logFilters.endDate) : new Date()
+        selectedDate: logFilters.date ? new Date(logFilters.date) : null
       }
     };
   };
@@ -502,6 +506,75 @@ const formatLogDescription = (description) => {
     }
   }, []);
 
+  // Handle user verification
+  const handleVerifyUser = useCallback(async (userId, newRole = 'admin') => {
+    setLoading(true);
+    setError('');
+    setMessage('');
+    
+    try {
+      const result = await verifyUser(userId, newRole);
+      setMessage(`✅ ${result}`);
+    } catch (err) {
+      setError(`❌ Failed to verify user: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Handle user rejection
+  const handleRejectUser = useCallback(async (userId, reason = '') => {
+    const confirmed = window.confirm(
+      `Are you sure you want to reject this user's account verification?\n\nThis will prevent them from logging in.`
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setMessage('');
+    
+    try {
+      const result = await rejectUser(userId, reason);
+      setMessage(`⚠️ ${result}`);
+    } catch (err) {
+      setError(`❌ Failed to reject user: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Handle role change
+  const handleRoleChange = useCallback(async (userId, newRole) => {
+    // Prevent user from changing their own role
+    if (userData && userId === userData.id) {
+      setError('❌ You cannot change your own role.');
+      return;
+    }
+    
+    const confirmed = window.confirm(
+      `Are you sure you want to change this user's role to ${newRole.toUpperCase()}?`
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setMessage('');
+    
+    try {
+      await changeUserRole(userId, newRole);
+      setMessage(`✅ Successfully changed user role to ${newRole}`);
+    } catch (err) {
+      setError(`❌ Failed to change role: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [userData]);
 
   // Load logs when component mounts - for all admins
   useEffect(() => {
@@ -1074,6 +1147,7 @@ const formatLogDescription = (description) => {
                       <span>Name</span>
                       <span>Email</span>
                       <span>Role</span>
+                      <span>Verification</span>
                       <span>Created</span>
                       <span>Actions</span>
                     </div>
@@ -1093,26 +1167,87 @@ const formatLogDescription = (description) => {
                           {user.id === userData.id && <span className="settings-current-badge"> (You)</span>}
                         </span>
                         <span className="settings-admin-user-email">{safeRender(user.email)}</span>
-                        <span className={`settings-admin-user-role role-${user.role}`}>
-                          {user.role === 'superadmin' ? ' SuperAdmin' : ' Admin'}
+                        <span className="settings-admin-user-role">
+                          {/* Show verification buttons ONLY for truly pending users (not already admin/superadmin) */}
+                          {userData.role === 'superadmin' && 
+                           user.id !== userData.id &&
+                           user.role !== 'admin' && 
+                           user.role !== 'superadmin' &&
+                           (user.verificationStatus === 'pending' || (!user.verificationStatus && !user.isVerified)) ? (
+                            <div className="settings-role-verification-buttons">
+                              <button
+                                onClick={() => handleVerifyUser(user.id, 'admin')}
+                                className="settings-verify-admin-btn"
+                                disabled={loading}
+                                title="Verify as Admin"
+                              >
+                                ✓ Admin
+                              </button>
+                              <button
+                                onClick={() => handleVerifyUser(user.id, 'superadmin')}
+                                className="settings-verify-superadmin-btn"
+                                disabled={loading}
+                                title="Verify as SuperAdmin"
+                              >
+                                ✓ Super
+                              </button>
+                            </div>
+                          ) : (
+                            // Show dropdown for role change (superadmin only) or styled display for others
+                            userData.role === 'superadmin' && (user.role === 'admin' || user.role === 'superadmin') ? (
+                              <select 
+                                value={user.role}
+                                onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                                className="settings-role-dropdown"
+                                data-role={user.role}
+                                disabled={loading || (userData && user.id === userData.id)}
+                                title={(userData && user.id === userData.id) ? "Cannot change your own role" : "Click to change role"}
+                              >
+                                <option value="admin">Admin</option>
+                                <option value="superadmin">SuperAdmin</option>
+                              </select>
+                            ) : (
+                              <span className={`settings-role-display role-${user.role || 'undefined'}`}>
+                                {user.role === 'superadmin' ? 'SuperAdmin' : user.role === 'admin' ? 'Admin' : 'Pending Verification'}
+                              </span>
+                            )
+                          )}
                         </span>
+                        <div style={{ textAlign: 'center', width: '100%' }}>
+                          <span className={`settings-admin-user-verification verification-${user.verificationStatus || (user.role === 'admin' || user.role === 'superadmin' ? 'verified' : (user.isVerified ? 'verified' : 'pending'))}`}>
+                            {getVerificationStatusDisplay(user)}
+                          </span>
+                        </div>
                         <span className="settings-admin-user-created">
                           {user.createdAt ? new Date(user.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}
                         </span>
                         <span className="settings-admin-user-actions">
                           {user.id !== userData.id && (
-                            <button
-                              onClick={userData.role === 'superadmin' ? () => handleDeleteUser(user) : undefined}
-                              className={`settings-admin-delete-btn ${userData.role === 'admin' ? 'disabled' : ''}`}
-                              disabled={loading || userData.role === 'admin'}
-                              title={userData.role === 'admin' ? "Delete not allowed for admin users" : `Delete ${user.name || user.email}`}
-                              style={{
-                                color: userData.role === 'admin' ? '#999' : '',
-                                cursor: userData.role === 'admin' ? 'not-allowed' : 'pointer'
-                              }}
-                            >
-                              <MdDeleteForever />
-                            </button>
+                            <>
+                              {/* Reject button ONLY for truly pending users (not already admin/superadmin) */}
+                              {user.role !== 'admin' && 
+                               user.role !== 'superadmin' &&
+                               (user.verificationStatus === 'pending' || (!user.verificationStatus && !user.isVerified)) && (
+                                <button
+                                  onClick={userData.role === 'superadmin' ? () => handleRejectUser(user.id) : undefined}
+                                  className={`settings-reject-btn ${userData.role !== 'superadmin' ? 'disabled' : ''}`}
+                                  disabled={loading || userData.role !== 'superadmin'}
+                                  title={userData.role === 'superadmin' ? "Reject verification" : "Only superadmin can perform this action"}
+                                >
+                                  ✗ Reject
+                                </button>
+                              )}
+                              
+                              {/* Delete button for all users */}
+                              <button
+                                onClick={userData.role === 'superadmin' ? () => handleDeleteUser(user) : undefined}
+                                className={`settings-admin-delete-btn ${userData.role !== 'superadmin' ? 'disabled' : ''}`}
+                                disabled={loading || userData.role !== 'superadmin'}
+                                title={userData.role === 'superadmin' ? `Delete ${user.name || user.email}` : "Only superadmin can perform this action"}
+                              >
+                                <MdDeleteForever />
+                              </button>
+                            </>
                           )}
                         </span>
                       </div>
@@ -1181,26 +1316,18 @@ const formatLogDescription = (description) => {
                       </select>
                     </div>
                     <div className="settings-filter-field">
-                      <label>Start Date</label>
+                      <label>Filter by Date</label>
                       <input 
                         type="date" 
-                        value={logFilters.startDate} 
-                        onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                      />
-                    </div>
-                    <div className="settings-filter-field">
-                      <label>End Date</label>
-                      <input 
-                        type="date" 
-                        value={logFilters.endDate} 
-                        onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                        value={logFilters.date} 
+                        onChange={(e) => handleFilterChange('date', e.target.value)}
                       />
                     </div>
                   </div>
                   <div className="audit-filter-actions">
                     <button 
                       onClick={() => {
-                        setLogFilters({ activityType: '', severity: '', startDate: '', endDate: '', limit: 50 });
+                        setLogFilters({ activityType: '', severity: '', date: '', limit: 50 });
                       }} 
                       className="audit-clear-filters-btn"
                     >

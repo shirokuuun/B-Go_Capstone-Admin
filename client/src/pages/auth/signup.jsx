@@ -11,6 +11,7 @@ function Signup() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const navigate = useNavigate();
 
   const handleSignup = async (e) => {
@@ -22,10 +23,22 @@ function Signup() {
 
     try {
       await signupAdmin({ name, email, password });
-      navigate("/login");
+      setSuccess("Registration successful! Your account is pending verification by a superadmin. You will be able to login once approved.");
+      setError("");
+      // Clear form
+      setName("");
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
+      
+      // Redirect to login after 3 seconds
+      setTimeout(() => {
+        navigate("/login");
+      }, 3000);
     } catch (err) {
       console.error(err);
-      setError("Signup failed. Try again.");
+      setError(err.message || "Signup failed. Try again.");
+      setSuccess("");
     }
   };
 
@@ -89,7 +102,9 @@ function Signup() {
               required
             />
             <button type="submit">Sign Up</button>
-            <p className="error">{error || "\u00A0"}</p>
+            {error && <p className="error">{error}</p>}
+            {success && <p className="success">{success}</p>}
+            {!error && !success && <p>&nbsp;</p>}
           </form>
 
           <div className="signup-footer">

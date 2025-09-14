@@ -2,7 +2,7 @@ import { updatePassword, EmailAuthProvider, reauthenticateWithCredential, delete
 import { doc, updateDoc, deleteDoc, collection, getDocs, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { auth, db } from '/src/firebase/firebase.js';
-import { getCurrentAdminData, isSuperAdmin } from '/src/pages/auth/authService.js';
+import { getCurrentAdminData, isSuperAdmin, verifyAdminUser, rejectAdminUser } from '/src/pages/auth/authService.js';
 import { logActivity, logSystemError, ACTIVITY_TYPES } from './auditService.js';
 
 /**
@@ -208,8 +208,8 @@ export const fetchAllAdminUsers = async () => {
     const adminUsers = [];
     adminSnapshot.forEach((doc) => {
       const data = doc.data();
-      // Only include admin and superadmin users that are not deleted
-      if ((data.role === 'admin' || data.role === 'superadmin') && data.status !== 'deleted') {
+      // Include admin, superadmin, and pending verification users that are not deleted
+      if ((data.role === 'admin' || data.role === 'superadmin' || data.verificationStatus === 'pending') && data.status !== 'deleted') {
         adminUsers.push({
           id: doc.id,
           ...data
@@ -239,8 +239,8 @@ export const subscribeToAdminUsers = (callback, errorCallback) => {
       const adminUsers = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
-        // Only include admin and superadmin users that are not deleted
-        if ((data.role === 'admin' || data.role === 'superadmin') && data.status !== 'deleted') {
+        // Include admin, superadmin, and pending verification users that are not deleted
+        if ((data.role === 'admin' || data.role === 'superadmin' || data.verificationStatus === 'pending') && data.status !== 'deleted') {
           adminUsers.push({
             id: doc.id,
             ...data
@@ -489,6 +489,60 @@ export const deleteCurrentAccount = async (currentPassword) => {
 };
 
 /**
+ * Verifies a user's admin account (superadmin only)
+ * @param {string} userId - The user ID to verify
+ * @param {string} newRole - The role to assign ('admin' or 'superadmin')
+ * @returns {Promise<string>} Success message
+ * @throws {Error} If verification fails or user is not superadmin
+ */
+export const verifyUser = async (userId, newRole = 'admin') => {
+  try {
+    if (!auth.currentUser) {
+      throw new Error('No authenticated user found');
+    }
+
+    // Verify current user is superadmin
+    const currentUserData = await getCurrentAdminData(auth.currentUser.uid);
+    if (currentUserData?.role !== 'superadmin') {
+      throw new Error('Only superadmin users can verify accounts');
+    }
+
+    const result = await verifyAdminUser(userId, newRole);
+    return result.message;
+  } catch (error) {
+    console.error('Error verifying user:', error);
+    throw error;
+  }
+};
+
+/**
+ * Rejects a user's admin account verification (superadmin only)
+ * @param {string} userId - The user ID to reject
+ * @param {string} reason - Optional reason for rejection
+ * @returns {Promise<string>} Success message
+ * @throws {Error} If rejection fails or user is not superadmin
+ */
+export const rejectUser = async (userId, reason = '') => {
+  try {
+    if (!auth.currentUser) {
+      throw new Error('No authenticated user found');
+    }
+
+    // Verify current user is superadmin
+    const currentUserData = await getCurrentAdminData(auth.currentUser.uid);
+    if (currentUserData?.role !== 'superadmin') {
+      throw new Error('Only superadmin users can reject accounts');
+    }
+
+    const result = await rejectAdminUser(userId, reason);
+    return result.message;
+  } catch (error) {
+    console.error('Error rejecting user:', error);
+    throw error;
+  }
+};
+
+/**
  * Gets the display name for user role
  * @param {Object} userData - The user data object
  * @returns {string} Display name for the role
@@ -503,4 +557,77 @@ export const getRoleDisplayName = (userData) => {
   }
   
   return userData.role || 'Unknown';
+};
+
+/**
+ * Gets the verification status display name
+ * @param {Object} userData - The user data object
+ * @returns {string} Display name for verification status
+ */
+export const getVerificationStatusDisplay = (userData) => {
+  if (!userData) return 'Unknown';
+  
+  // For backwards compatibility with existing users
+  if (userData.verificationStatus === undefined && userData.isVerified === undefined) {
+    return 'Verified'; // Assume old users are verified
+  }
+  
+  switch (userData.verificationStatus) {
+    case 'pending':
+      return 'Pending';
+    case 'verified':
+      return 'Verified';
+    case 'rejected':
+      return 'Rejected';
+    default:
+      return userData.isVerified ? 'Verified' : 'Pending';
+  }
+};
+
+/**
+ * Changes the role of an admin user (admin <-> superadmin)
+ * @param {string} userId - The ID of the user to change role
+ * @param {string} newRole - The new role ('admin' or 'superadmin')
+ * @returns {Promise<void>}
+ */
+export const changeUserRole = async (userId, newRole) => {
+  try {
+    const userRef = doc(db, 'Admin', userId);
+    
+    // Validate the new role
+    if (!['admin', 'superadmin'].includes(newRole)) {
+      throw new Error('Invalid role. Must be "admin" or "superadmin".');
+    }
+    
+    await updateDoc(userRef, {
+      role: newRole,
+      isSuperAdmin: newRole === 'superadmin',
+      updatedAt: new Date(),
+      updatedBy: auth.currentUser?.uid || 'system'
+    });
+
+    // Log the role change activity
+    await logActivity(
+      ACTIVITY_TYPES.USER_UPDATE,
+      `Changed user role to ${newRole}`,
+      { 
+        targetUserId: userId,
+        newRole: newRole,
+        action: 'role_change'
+      }
+    );
+
+    console.log(`Successfully changed user role to ${newRole}`);
+  } catch (error) {
+    console.error('Error changing user role:', error);
+    
+    // Log the error
+    await logSystemError('changeUserRole', error, {
+      userId,
+      newRole,
+      timestamp: new Date().toISOString()
+    });
+    
+    throw error;
+  }
 };
