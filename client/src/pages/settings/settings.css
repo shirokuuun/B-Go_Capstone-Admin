@@ -517,6 +517,7 @@
 
 /* Export Button - Following Reports Design Pattern */
 .audit-export-btn {
+  margin-bottom: 10px;
   background: #17a2b8;
   color: white;
   border: none;
@@ -701,13 +702,36 @@
 .settings-log-table {
   background: white;
   border-radius: 8px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   border: 1px solid #e5e7eb;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Add scroll indicators for logs table */
+.settings-log-table::-webkit-scrollbar {
+  height: 6px;
+}
+
+.settings-log-table::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.settings-log-table::-webkit-scrollbar-thumb {
+  background: #007c91;
+  border-radius: 3px;
+}
+
+.settings-log-table::-webkit-scrollbar-thumb:hover {
+  background: #005c6b;
 }
 
 .settings-log-header {
   display: grid;
-  grid-template-columns: 180px 120px 140px 1fr 80px 70px;
+  grid-template-columns: 180px 120px 140px 1fr 100px 70px;
+  min-width: 700px; /* Ensure horizontal scroll on small screens */
   background: #f9fafb;
   padding: 16px;
   font-weight: 600;
@@ -718,8 +742,9 @@
 
 .settings-log-row {
   display: grid;
-  grid-template-columns: 180px 120px 140px 1fr 80px 70px;
+  grid-template-columns: 180px 120px 140px 1fr 100px 70px;
   padding: 16px;
+  min-width: 700px; /* Match header width */
   border-bottom: 1px solid #f3f4f6;
   transition: background-color 0.2s;
   align-items: center;
@@ -1070,31 +1095,97 @@
 .settings-admin-users-table {
   background: white;
   border-radius: 12px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: visible;
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Custom scrollbar for admin users table */
+.settings-admin-users-table::-webkit-scrollbar {
+  height: 8px;
+}
+
+.settings-admin-users-table::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.settings-admin-users-table::-webkit-scrollbar-thumb {
+  background: #007c91;
+  border-radius: 4px;
+}
+
+.settings-admin-users-table::-webkit-scrollbar-thumb:hover {
+  background: #005c6b;
 }
 
 .settings-admin-users-header {
   display: grid;
-  grid-template-columns: 60px 1fr 2fr 120px 120px 100px;
+  grid-template-columns: 80px 150px 250px 140px 100px 120px 100px;
   gap: 16px;
   padding: 16px 20px;
-  background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+  background: none;
   font-weight: 600;
   color: #4a5568;
   font-size: 14px;
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom: 2px solid #f1f5f9;
+  align-items: center;
+  min-width: 940px; /* Force horizontal scroll when needed */
+  position: relative;
+  isolation: isolate;
+}
+
+/* Create background that extends only to actual content width */
+.settings-admin-users-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 940px; /* Match the min-width of the header */
+  bottom: 0;
+  z-index: -1;
+}
+
+.settings-admin-users-header span:nth-child(1) {
+  text-align: center;
+}
+
+.settings-admin-users-header span:nth-child(2) {
+  text-align: left;
+}
+
+.settings-admin-users-header span:nth-child(3) {
+  text-align: left;
+}
+
+.settings-admin-users-header span:nth-child(4) {
+  text-align: center;
+}
+
+.settings-admin-users-header span:nth-child(5) {
+  text-align: center;
+}
+
+.settings-admin-users-header span:nth-child(6) {
+  text-align: center;
+}
+
+.settings-admin-users-header span:nth-child(7) {
+  text-align: center;
 }
 
 .settings-admin-user-row {
   display: grid;
-  grid-template-columns: 60px 1fr 2fr 120px 120px 100px;
+  grid-template-columns: 80px 150px 250px 140px 100px 120px 100px;
   gap: 16px;
   padding: 16px 20px;
   border-bottom: 1px solid #f1f5f9;
   align-items: center;
   transition: all 0.2s ease;
+  min-width: 940px; /* Force horizontal scroll when needed */
 }
 
 .settings-admin-user-row:hover {
@@ -1114,6 +1205,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  width: 100%;
 }
 
 .settings-admin-user-avatar {
@@ -1141,6 +1233,10 @@
 .settings-admin-user-name {
   font-weight: 600;
   color: #2d3748;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .settings-current-badge {
@@ -1155,9 +1251,20 @@
 
 .settings-admin-user-email {
   color: #4a5568;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .settings-admin-user-role {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
+}
+
+.settings-admin-user-role span {
   font-weight: 600;
   padding: 4px 8px;
   border-radius: 6px;
@@ -1165,24 +1272,116 @@
   text-align: center;
 }
 
-.settings-admin-user-role.role-superadmin {
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+
+/* Styled role display for both admin and superadmin views */
+.settings-role-display {
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: center;
+  min-width: 110px;
+  display: inline-block;
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.settings-role-display:hover {
+  border-color: #007c91;
+  box-shadow: 0 0 0 2px rgba(0, 124, 145, 0.1);
+  background: #f8fafc;
+}
+
+/* Role verification buttons container */
+.settings-role-verification-buttons {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Role dropdown styling */
+.settings-role-dropdown {
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 110px;
+  text-align: center;
+  background: white;
+  color: #374151;
+}
+
+.settings-role-dropdown:hover:not(:disabled) {
+  border-color: #007c91;
+  box-shadow: 0 0 0 2px rgba(0, 124, 145, 0.1);
+  background: #f8fafc;
+}
+
+.settings-role-dropdown:focus {
+  outline: none;
+  border-color: #007c91;
+  box-shadow: 0 0 0 2px rgba(0, 124, 145, 0.2);
+}
+
+.settings-role-dropdown:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f3f4f6;
+}
+
+.settings-role-dropdown option {
+  padding: 4px;
+  font-weight: 500;
+}
+
+.settings-admin-user-verification {
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: center;
+  text-transform: capitalize;
+  margin: 0 auto;
+  width: fit-content;
+  display: inline-block;
+}
+
+.settings-admin-user-verification.verification-verified {
+  background: #2563eb;
   color: white;
 }
 
-.settings-admin-user-role.role-admin {
-  background: linear-gradient(135deg, #10b981, #059669);
+.settings-admin-user-verification.verification-pending {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+}
+
+.settings-admin-user-verification.verification-rejected {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
   color: white;
 }
 
 .settings-admin-user-created {
   color: #6b7280;
   font-size: 13px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .settings-admin-user-actions {
   display: flex;
   align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
 }
 
 .settings-admin-delete-btn {
@@ -1207,10 +1406,82 @@
   transform: translateY(-2px);
 }
 
-.settings-admin-delete-btn:disabled {
-  opacity: 0.6;
+.settings-admin-delete-btn:disabled,
+.settings-admin-delete-btn.disabled {
+  opacity: 0.4;
   cursor: not-allowed;
   transform: none;
+  background: #9ca3af !important;
+  color: #6b7280 !important;
+}
+
+/* Verification Action Buttons */
+.settings-verify-admin-btn {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.settings-verify-admin-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669, #047857);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  transform: translateY(-1px);
+}
+
+.settings-verify-superadmin-btn {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.settings-verify-superadmin-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  box-shadow: 0 2px 8px rgba(251, 191, 36, 0.3);
+  transform: translateY(-1px);
+}
+
+.settings-reject-btn {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: white;
+  border: none;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.settings-reject-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #b91c1c, #991b1b);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+  transform: translateY(-1px);
+}
+
+.settings-verify-admin-btn:disabled,
+.settings-verify-superadmin-btn:disabled,
+.settings-reject-btn:disabled,
+.settings-reject-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  background: #9ca3af !important;
+  color: #6b7280 !important;
 }
 
 /* Modal Styles for Delete Confirmation */
@@ -1350,48 +1621,32 @@
   margin-top: 8px;
 }
 
-/* Mobile responsiveness for admin users table */
-@media (max-width: 1024px) {
-  .settings-admin-users-header,
-  .settings-admin-user-row {
-    grid-template-columns: 50px 1fr 1fr 100px 80px;
-    gap: 8px;
-    padding: 12px 16px;
-  }
-  
-  .settings-admin-user-created {
-    display: none;
-  }
-  
-  .settings-admin-users-header span:nth-child(5),
-  .settings-admin-user-row span:nth-child(5) {
-    display: none;
-  }
-}
-
+/* Keep all columns visible and use horizontal scroll instead of hiding columns */
 @media (max-width: 768px) {
   .settings-admin-users-stats {
     grid-template-columns: 1fr;
     padding: 16px;
   }
   
+  /* Reduce padding on smaller screens but keep all columns */
   .settings-admin-users-header,
   .settings-admin-user-row {
-    grid-template-columns: 40px 1fr 80px;
-    gap: 8px;
-    padding: 12px;
+    padding: 12px 16px;
+    gap: 12px;
   }
   
-  .settings-admin-user-email,
-  .settings-admin-user-created {
-    display: none;
+  /* Make verification buttons smaller on mobile */
+  .settings-role-verification-buttons {
+    flex-direction: column;
+    gap: 2px;
   }
   
-  .settings-admin-users-header span:nth-child(3),
-  .settings-admin-users-header span:nth-child(5),
-  .settings-admin-user-row span:nth-child(3),
-  .settings-admin-user-row span:nth-child(5) {
-    display: none;
+  .settings-verify-admin-btn,
+  .settings-verify-superadmin-btn,
+  .settings-reject-btn {
+    padding: 4px 6px;
+    font-size: 10px;
+    white-space: nowrap;
   }
   
   .settings-modal {
@@ -1401,6 +1656,25 @@
   
   .settings-modal-actions {
     flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .settings-admin-users-header,
+  .settings-admin-user-row {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .settings-admin-user-avatar {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .settings-admin-user-avatar-placeholder {
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
   }
 }
 

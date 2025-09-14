@@ -149,337 +149,265 @@ function Dashboard() {
 
   return (
     <div className={`dashboard-container ${isScrolling ? 'scrolling' : ''}`}>
-      {/* Stylish Admin Greeting */}
-      {userData && (
-        <div className="dashboard-greeting">
-          <div className="greeting-content">
-            <div className="greeting-text">
-              <h1 className="greeting-title">
-                Hello, <span className="admin-name">{userData.name}</span>
-              </h1>
-              <p className="greeting-subtitle">Welcome back to your dashboard</p>
-            </div>
-            <div className="greeting-decoration">
-              <div className="greeting-pattern"></div>
-            </div>
-          </div>
+      {/* Dashboard Header */}
+      <div className="dashboard-header">
+        <div className="dashboard-title">
+          <h1>Dashboard User</h1>
+          {userData && (
+            <p className="admin-greeting">Welcome back, <span>{userData.name}</span></p>
+          )}
         </div>
-      )}
-
-      {/* Admin Test Component - Add this temporarily for testing */}
-     {/* <AdminTest /> */}
-      
-      {/* Filter Section */}
-      <div className="filter-section">
-        <label htmlFor="filter">Filter:</label>
-        <select id="filter" value={filter} onChange={(e) => setFilter(e.target.value)}>
-          <option value="today">Today Only</option>
-          <option value="all">All Time</option>
-          <option value="custom">Custom Date</option>
-        </select>
-
-        {filter === 'custom' && (
-          <input
-            type="date"
-            value={customDate}
-            onChange={(e) => setCustomDate(e.target.value)}
-          />
-        )}
+        <div className="dashboard-controls">
+          <select className="filter-select" value={filter} onChange={(e) => setFilter(e.target.value)}>
+            <option value="today">Today Only</option>
+            <option value="all">All Time</option>
+            <option value="custom">Custom Date</option>
+          </select>
+          {filter === 'custom' && (
+            <input
+              className="date-input"
+              type="date"
+              value={customDate}
+              onChange={(e) => setCustomDate(e.target.value)}
+            />
+          )}
+        </div>
       </div>
 
       {!dashboardData ? (
-        <p className="loading-text">Loading dashboard data...</p>
-      ) : (
-        <div className="dashboard-grid">
-          {/* Revenue Trend Card */}
-          <div className="revenue-trend-card">
-            <h3>7-Day Revenue Trend</h3>
-            <div className="revenue-chart">
-              <div className="chart-container">
-                {dashboardData.revenueTrend.map((day, index) => {
-                  const maxRevenue = Math.max(...dashboardData.revenueTrend.map(d => d.revenue));
-                  const height = maxRevenue === 0 ? 0 : (day.revenue / maxRevenue) * 100;
-                  
-                  return (
-                    <div key={index} className="chart-bar">
-                      <div className="bar-container">
-                        <div 
-                          className="bar-fill"
-                          style={{ height: `${height}%` }}
-                          title={`${day.day}: ₱${day.revenue.toFixed(2)}`}
-                        ></div>
-                      </div>
-                      <div className="bar-label">
-                        <span className="day">{day.day}</span>
-                        <span className="amount">₱{day.revenue.toFixed(0)}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              {dashboardData.revenueTrend.length === 0 && (
-                <div className="no-data">No revenue data available</div>
-              )}
-            </div>
-          </div>
-          
-          {/* Trip Summary Card */}
-          <div className="trip-summary-card">
-            <h3>Trip Summary</h3>
-            
-            {/* Mini Sparkline Chart */}
-            <div className="chart-mini-container">
-              <div className="sparkline-chart">
-                {dashboardData.revenueTrend.slice(-7).map((day, index) => {
-                  const maxTrips = Math.max(...dashboardData.revenueTrend.slice(-7).map(d => d.trips || 0));
-                  const tripCount = day.trips || 0; // Use actual trip count from data
-                  const height = maxTrips === 0 ? 0 : (tripCount / maxTrips) * 100;
-                  
-                  return (
-                    <div key={index} className="sparkline-bar">
-                      <div 
-                        className="spark-fill"
-                        style={{ height: `${height}%` }}
-                        title={`${day.day}: ${tripCount} trips`}
-                      ></div>
-                    </div>
-                  );
-                })}
-              </div>
-              <p className="chart-label">7-Day Trip Trend</p>
-            </div>
-
-            <div className="summary-grid">
-              <div className="summary-item">
-                <h4>Total Trips</h4>
-                <p>{dashboardData.trips.totalTrips}</p>
-              </div>
-              <div className="summary-item">
-                <h4>Total Fare</h4>
-                <p>₱{dashboardData.trips.totalFare.toFixed(2)}</p>
-              </div>
-              <div className="summary-item">
-                <h4>Avg. Passengers/Trip</h4>
-                <p>{dashboardData.trips.avgPassengers}</p>
-              </div>
-              <div className="summary-item">
-                <h4>Most Common Route</h4>
-                <p>{dashboardData.trips.mostCommonRoute}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* SOS Requests Summary Card */}
-          <div className="sos-summary-card">
-            <h3>SOS Requests</h3>
-            
-            {/* Mini Status Bar Chart */}
-            <div className="chart-mini-container sos-chart">
-              <div className="sos-status-bars">
-                <div className="status-bar">
-                  <div className="status-bar-fill pending-bar" 
-                       style={{ width: `${dashboardData.sos.totalRequests === 0 ? 0 : (dashboardData.sos.pendingRequests / dashboardData.sos.totalRequests) * 100}%` }}>
-                  </div>
-                  <span className="status-label">Pending: {dashboardData.sos.pendingRequests}</span>
-                </div>
-                <div className="status-bar">
-                  <div className="status-bar-fill received-bar" 
-                       style={{ width: `${dashboardData.sos.totalRequests === 0 ? 0 : (dashboardData.sos.receivedRequests / dashboardData.sos.totalRequests) * 100}%` }}>
-                  </div>
-                  <span className="status-label">Received: {dashboardData.sos.receivedRequests}</span>
-                </div>
-                <div className="status-bar">
-                  <div className="status-bar-fill completed-bar" 
-                       style={{ width: `${dashboardData.sos.totalRequests === 0 ? 0 : ((dashboardData.sos.totalRequests - dashboardData.sos.pendingRequests - dashboardData.sos.receivedRequests - dashboardData.sos.cancelledRequests) / dashboardData.sos.totalRequests) * 100}%` }}>
-                  </div>
-                  <span className="status-label">Completed: {dashboardData.sos.totalRequests - dashboardData.sos.pendingRequests - dashboardData.sos.receivedRequests - dashboardData.sos.cancelledRequests}</span>
-                </div>
-              </div>
-              <p className="chart-label">Request Status Distribution</p>
-            </div>
-
-            <div className="summary-grid">
-              <div className="summary-item">
-                <h4>Total Requests</h4>
-                <p>{dashboardData.sos.totalRequests}</p>
-              </div>
-              <div className="summary-item pending">
-                <h4>Pending</h4>
-                <p>{dashboardData.sos.pendingRequests}</p>
-              </div>
-              <div className="summary-item received">
-                <h4>Received</h4>
-                <p>{dashboardData.sos.receivedRequests}</p>
-              </div>
-              <div className="summary-item cancelled">
-                <h4>Cancelled</h4>
-                <p>{dashboardData.sos.cancelledRequests}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Conductors Summary Card */}
-          <div className="conductors-summary-card">
-            <h3>Conductors Status</h3>
-            
-            {/* Mini Donut Chart */}
-            <div className="chart-mini-container conductor-chart">
-              <div className="donut-chart-container">
-                <div className="donut-chart">
-                  <div 
-                    className="donut-segment online-segment"
-                    style={{
-                      background: `conic-gradient(from 0deg, #4caf50 0deg ${(dashboardData.conductors.onlinePercentage / 100) * 360}deg, transparent ${(dashboardData.conductors.onlinePercentage / 100) * 360}deg 360deg)`
-                    }}
-                  ></div>
-                  <div className="donut-center">
-                    <span className="donut-percentage">{dashboardData.conductors.onlinePercentage}%</span>
-                    <span className="donut-label">Online</span>
-                  </div>
-                </div>
-                <div className="donut-legend">
-                  <div className="legend-item">
-                    <div className="legend-dot online-dot"></div>
-                    <span>Online ({dashboardData.conductors.onlineConductors})</span>
-                  </div>
-                  <div className="legend-item">
-                    <div className="legend-dot offline-dot"></div>
-                    <span>Offline ({dashboardData.conductors.offlineConductors})</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="summary-grid">
-              <div className="summary-item">
-                <h4>Total Conductors</h4>
-                <p>{dashboardData.conductors.totalConductors}</p>
-              </div>
-              <div className="summary-item online">
-                <h4>Online</h4>
-                <p>{dashboardData.conductors.onlineConductors}</p>
-              </div>
-              <div className="summary-item offline">
-                <h4>Offline</h4>
-                <p>{dashboardData.conductors.offlineConductors}</p>
-              </div>
-              <div className="summary-item percentage">
-                <h4>Online Rate</h4>
-                <p>{dashboardData.conductors.onlinePercentage}%</p>
-              </div>
-            </div>
-          </div>
-
-          {/* ID Verification Summary Card */}
-          <div className="id-verification-summary-card">
-            <h3>ID Verification Status</h3>
-            
-            {/* Mini Progress Ring Chart */}
-            <div className="chart-mini-container verification-chart">
-              <div className="progress-ring-container">
-                <div className="progress-ring">
-                  <svg className="progress-svg" viewBox="0 0 120 120">
-                    {/* Background circle */}
-                    <circle
-                      cx="60"
-                      cy="60"
-                      r="50"
-                      fill="none"
-                      stroke="rgba(156, 39, 176, 0.1)"
-                      strokeWidth="8"
-                    />
-                    {/* Progress circle */}
-                    <circle
-                      cx="60"
-                      cy="60"
-                      r="50"
-                      fill="none"
-                      stroke="url(#verificationGradient)"
-                      strokeWidth="8"
-                      strokeLinecap="round"
-                      strokeDasharray={`${2 * Math.PI * 50}`}
-                      strokeDashoffset={`${2 * Math.PI * 50 * (1 - dashboardData.idVerification.verificationRate / 100)}`}
-                      transform="rotate(-90 60 60)"
-                      className="progress-circle"
-                    />
-                    {/* Gradient definition */}
-                    <defs>
-                      <linearGradient id="verificationGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#9c27b0" />
-                        <stop offset="100%" stopColor="#ba68c8" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                  <div className="progress-center">
-                    <span className="progress-percentage">{dashboardData.idVerification.verificationRate}%</span>
-                    <span className="progress-label">Verified</span>
-                  </div>
-                </div>
-                <div className="verification-stats">
-                  <div className="stat-item">
-                    <div className="stat-dot verified-dot"></div>
-                    <span className="stat-text">Verified: {dashboardData.idVerification.verifiedUsers}</span>
-                  </div>
-                  <div className="stat-item">
-                    <div className="stat-dot pending-dot"></div>
-                    <span className="stat-text">Pending: {dashboardData.idVerification.pendingVerifications}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="summary-grid">
-              <div className="summary-item">
-                <h4>Total Users</h4>
-                <p>{dashboardData.idVerification.totalUsers}</p>
-              </div>
-              <div className="summary-item pending-verification">
-                <h4>Pending</h4>
-                <p>{dashboardData.idVerification.pendingVerifications}</p>
-              </div>
-              <div className="summary-item verified">
-                <h4>Verified</h4>
-                <p>{dashboardData.idVerification.verifiedUsers}</p>
-              </div>
-              <div className="summary-item verification-rate">
-                <h4>Verification Rate</h4>
-                <p>{dashboardData.idVerification.verificationRate}%</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Recent SOS Requests */}
-          {dashboardData.sos.recentRequests.length > 0 && (
-            <div className="recent-sos-card">
-              <h3>Recent SOS Requests (Today)</h3>
-              <div className="recent-sos-list">
-                {dashboardData.sos.recentRequests.map((request, index) => (
-                  <div key={request.id || index} className="sos-request-item">
-                    <div className="sos-header">
-                      <span className={`sos-status ${getStatusColor(request.status)}`}>
-                        {request.status.toUpperCase()}
-                      </span>
-                      <span className="sos-time">{formatTime(request.timestamp)}</span>
-                    </div>
-                    <div className="sos-details">
-                      <p className="sos-passenger">
-                        <strong>Passenger:</strong> {request.passengerName}
-                      </p>
-                      <p className="sos-location">
-                        <strong>Location:</strong> {request.location}
-                      </p>
-                      {request.message && (
-                        <p className="sos-message">
-                          <strong>Message:</strong> {request.message}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p className="loading-text">Loading dashboard data...</p>
         </div>
+      ) : (
+        <>
+          {/* Metric Cards Row */}
+          <div className="metrics-grid">
+            <div className="metric-card earning-card">
+              <div className="metric-icon">
+                <i className="fas fa-dollar-sign"></i>
+              </div>
+              <div className="metric-content">
+                <span className="metric-label">Earning</span>
+                <span className="metric-value">₱ {dashboardData.trips.totalFare.toFixed(0)}</span>
+              </div>
+            </div>
+
+            <div className="metric-card share-card">
+              <div className="metric-icon">
+                <i className="fas fa-route"></i>
+              </div>
+              <div className="metric-content">
+                <span className="metric-label">Trips</span>
+                <span className="metric-value">{dashboardData.trips.totalTrips}</span>
+              </div>
+            </div>
+
+            <div className="metric-card likes-card">
+              <div className="metric-icon">
+                <i className="fas fa-exclamation-triangle"></i>
+              </div>
+              <div className="metric-content">
+                <span className="metric-label">SOS Requests</span>
+                <span className="metric-value">{dashboardData.sos.totalRequests}</span>
+              </div>
+            </div>
+
+            <div className="metric-card rating-card">
+              <div className="metric-icon">
+                <i className="fas fa-users"></i>
+              </div>
+              <div className="metric-content">
+                <span className="metric-label">Avg Passengers</span>
+                <span className="metric-value">{dashboardData.trips.avgPassengers}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Content Grid */}
+          <div className="dashboard-content">
+            {/* Left Column - Charts */}
+            <div className="charts-column">
+              {/* Bar Chart Card */}
+              <div className="chart-card bar-chart-card">
+                <h3>Revenue Trends</h3>
+                <div className="chart-content">
+                  <div className="bar-chart-container">
+                    {dashboardData.revenueTrend.map((day, index) => {
+                      const maxRevenue = Math.max(...dashboardData.revenueTrend.map(d => d.revenue));
+                      const height = maxRevenue === 0 ? 0 : (day.revenue / maxRevenue) * 100;
+
+                      return (
+                        <div key={index} className="chart-bar-modern">
+                          <div
+                            className="bar-fill-modern"
+                            style={{ height: `${height}%` }}
+                            title={`${day.day}: ₱${day.revenue.toFixed(2)}`}
+                          ></div>
+                          <span className="bar-label-modern">{day.day.substring(0, 3)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {dashboardData.revenueTrend.length === 0 && (
+                    <div className="no-data-modern">No revenue data available</div>
+                  )}
+                </div>
+              </div>
+
+              {/* SOS Status Chart */}
+              <div className="chart-card sos-status-chart-card">
+                <h3>SOS Request Status</h3>
+                <div className="chart-content">
+                  <div className="sos-status-chart-container">
+                    {dashboardData.sos.totalRequests > 0 ? (
+                      <div className="status-breakdown-chart">
+                        <div className="status-bars-horizontal">
+                          <div className="status-bar-item">
+                            <div className="status-info">
+                              <span className="status-label">Pending</span>
+                              <span className="status-count">{dashboardData.sos.pendingRequests}</span>
+                            </div>
+                            <div className="status-progress-bar">
+                              <div
+                                className="status-progress-fill pending-fill"
+                                style={{
+                                  width: `${dashboardData.sos.totalRequests === 0 ? 0 : (dashboardData.sos.pendingRequests / dashboardData.sos.totalRequests) * 100}%`
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+
+                          <div className="status-bar-item">
+                            <div className="status-info">
+                              <span className="status-label">Received</span>
+                              <span className="status-count">{dashboardData.sos.receivedRequests}</span>
+                            </div>
+                            <div className="status-progress-bar">
+                              <div
+                                className="status-progress-fill received-fill"
+                                style={{
+                                  width: `${dashboardData.sos.totalRequests === 0 ? 0 : (dashboardData.sos.receivedRequests / dashboardData.sos.totalRequests) * 100}%`
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+
+
+                          <div className="status-bar-item">
+                            <div className="status-info">
+                              <span className="status-label">Cancelled</span>
+                              <span className="status-count">{dashboardData.sos.cancelledRequests}</span>
+                            </div>
+                            <div className="status-progress-bar">
+                              <div
+                                className="status-progress-fill cancelled-fill"
+                                style={{
+                                  width: `${dashboardData.sos.totalRequests === 0 ? 0 : (dashboardData.sos.cancelledRequests / dashboardData.sos.totalRequests) * 100}%`
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="total-sos-summary">
+                          <span className="total-label">Total SOS Requests:</span>
+                          <span className="total-value">{dashboardData.sos.totalRequests}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="no-sos-data">
+                        <div className="no-sos-icon">
+                          <i className="fas fa-shield-check"></i>
+                        </div>
+                        <div className="no-sos-content">
+                          <h4>All Clear!</h4>
+                          <p>No SOS requests for the selected time period.</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Right Column - Progress and Details */}
+            <div className="details-column">
+              {/* Progress Circle Card */}
+              <div className="progress-card">
+                <div className="progress-circle-container">
+                  <div className="progress-circle-modern">
+                    <svg className="progress-svg-modern" viewBox="0 0 120 120">
+                      <circle
+                        cx="60"
+                        cy="60"
+                        r="45"
+                        fill="none"
+                        stroke="#e0e0e0"
+                        strokeWidth="8"
+                      />
+                      <circle
+                        cx="60"
+                        cy="60"
+                        r="45"
+                        fill="none"
+                        stroke="url(#progressGradient)"
+                        strokeWidth="8"
+                        strokeLinecap="round"
+                        strokeDasharray={`${2 * Math.PI * 45}`}
+                        strokeDashoffset={`${2 * Math.PI * 45 * (1 - dashboardData.conductors.onlinePercentage / 100)}`}
+                        transform="rotate(-90 60 60)"
+                        className="progress-circle-fill"
+                      />
+                      <defs>
+                        <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor="#007c91" />
+                          <stop offset="100%" stopColor="#4fd1c7" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                    <div className="progress-center-modern">
+                      <span className="progress-percentage-modern">{dashboardData.conductors.onlinePercentage}%</span>
+                      <span className="progress-label-modern">Online</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="progress-details">
+                  <div className="progress-detail-item">
+                    <span className="detail-label">Total Conductors</span>
+                    <span className="detail-value">{dashboardData.conductors.totalConductors}</span>
+                  </div>
+                  <div className="progress-detail-item">
+                    <span className="detail-label">Online Now</span>
+                    <span className="detail-value online-count">{dashboardData.conductors.onlineConductors}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stats Summary Card */}
+              <div className="stats-summary-card">
+                <h3>Quick Stats</h3>
+                <div className="stats-list">
+                  <div className="stat-item">
+                    <span className="stat-label">Most Common Route</span>
+                    <span className="stat-value">{dashboardData.trips.mostCommonRoute}</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">Pending SOS</span>
+                    <span className="stat-value pending-sos">{dashboardData.sos.pendingRequests}</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">ID Verifications</span>
+                    <span className="stat-value">{dashboardData.idVerification.verificationRate}% verified</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">Revenue Today</span>
+                    <span className="stat-value">₱{dashboardData.trips.totalFare.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

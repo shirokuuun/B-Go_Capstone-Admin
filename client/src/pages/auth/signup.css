@@ -170,6 +170,15 @@ html, body {
   text-align: center;
 }
 
+.success {
+  color: #10b981;
+  font-size: 14px;
+  min-height: 20px;
+  margin-top: 10px;
+  text-align: center;
+  font-weight: 500;
+}
+
 .signup-footer {
   text-align: center;
   margin-top: 40px;

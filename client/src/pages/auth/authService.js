@@ -58,10 +58,12 @@ const reactivateDeletedAdmin = async (email, name) => {
       uid: deletedData.uid, // Keep the original UID
       name: name, // Use new name provided during signup
       email: email, // Restore original email
-      role: "admin", // Reset to regular admin
+      // role field omitted until verified by superadmin
       isSuperAdmin: false,
       permissions: regularAdminPermissions,
       isActive: true,
+      isVerified: false, // NEW: Require re-verification
+      verificationStatus: "pending", // NEW: pending, verified, rejected
       status: "active", // Change from "deleted" to "active"
       createdAt: deletedData.createdAt || new Date(), // Preserve original creation date
       reactivatedAt: new Date(), // Mark when it was reactivated
@@ -146,10 +148,12 @@ export const signupAdmin = async ({ name, email, password }) => {
       uid: user.uid,
       name,
       email,
-      role: "admin", // Regular admin by default
+      // role field omitted until verified by superadmin
       isSuperAdmin: false, // Explicitly not superadmin
       permissions: regularAdminPermissions, //NEW: Explicit permissions
       isActive: true,
+      isVerified: false, // NEW: Require verification by superadmin
+      verificationStatus: "pending", // NEW: pending, verified, rejected
       createdAt: new Date(),
       createdBy: "system", // Track who created this admin
     });
@@ -205,12 +209,31 @@ export const loginAdmin = async (email, password) => {
       throw new Error("This account has been deleted and is no longer accessible.");
     }
     
+    // Check if account is verified (NEW)
+    // Skip verification check for superadmins or accounts without verification fields (backwards compatibility)
+    const isExistingSuperadmin = userData.role === 'superadmin' && userData.isSuperAdmin === true;
+    const isNewUser = userData.hasOwnProperty('isVerified') || userData.hasOwnProperty('verificationStatus');
+    
+    if (!isExistingSuperadmin && isNewUser) {
+      if (userData.isVerified === false || userData.verificationStatus === 'pending') {
+        await signOut(auth);
+        throw new Error("Your account is pending verification by a superadmin. Please wait for approval before logging in.");
+      }
+      
+      if (userData.verificationStatus === 'rejected') {
+        await signOut(auth);
+        throw new Error("Your account has been rejected by a superadmin. Please contact support for assistance.");
+      }
+    }
+    
     // Now accepts both 'admin' and 'superadmin' roles
     if (userData.role === "admin" || userData.role === "superadmin") {
       // Optional: Add role info to the returned user object
       user.adminRole = userData.role;
       user.isSuperAdmin = userData.isSuperAdmin || false;
       user.permissions = userData.permissions || [];
+      user.isVerified = userData.isVerified || false;
+      user.verificationStatus = userData.verificationStatus || 'pending';
       
       // Log successful login activity
       await logActivity(
@@ -219,7 +242,8 @@ export const loginAdmin = async (email, password) => {
         { 
           loginMethod: 'email_password',
           userRole: userData.role,
-          isSuperAdmin: userData.isSuperAdmin || false
+          isSuperAdmin: userData.isSuperAdmin || false,
+          verificationStatus: userData.verificationStatus || 'pending'
         }
       );
       
@@ -333,6 +357,117 @@ export const getUserPermissionSummary = async (uid) => {
   } catch (error) {
     console.error("Error getting permission summary:", error);
     return null;
+  }
+};
+
+/**
+ * Verifies an admin user (superadmin only)
+ * @param {string} userId - The UID of the user to verify
+ * @param {string} newRole - The role to assign ('admin' or 'superadmin')
+ * @returns {Promise<Object>} Success result
+ */
+export const verifyAdminUser = async (userId, newRole = 'admin') => {
+  try {
+    const userDocRef = doc(db, "Admin", userId);
+    const userDocSnap = await getDoc(userDocRef);
+    
+    if (!userDocSnap.exists()) {
+      throw new Error("User not found");
+    }
+    
+    const userData = userDocSnap.data();
+    
+    // Prepare update data
+    const updateData = {
+      isVerified: true,
+      verificationStatus: 'verified',
+      verifiedAt: new Date(),
+      verifiedBy: auth.currentUser?.uid || 'system'
+    };
+    
+    // Update role if specified
+    if (newRole === 'superadmin') {
+      updateData.role = 'superadmin';
+      updateData.isSuperAdmin = true;
+      // Superadmin gets all permissions (will be checked dynamically)
+    } else {
+      updateData.role = 'admin';
+      updateData.isSuperAdmin = false;
+      // Keep existing admin permissions
+    }
+    
+    await updateDoc(userDocRef, updateData);
+    
+    // Log the verification activity
+    await logActivity(
+      ACTIVITY_TYPES.USER_UPDATE,
+      `Admin user verified and role set to ${newRole}`,
+      { 
+        verifiedUserId: userId,
+        verifiedUserEmail: userData.email,
+        verifiedUserName: userData.name,
+        newRole: newRole,
+        action: 'account_verification'
+      }
+    );
+    
+    return {
+      success: true,
+      message: `User ${userData.name || userData.email} has been verified and assigned ${newRole} role.`
+    };
+    
+  } catch (error) {
+    console.error('Error verifying user:', error);
+    throw error;
+  }
+};
+
+/**
+ * Rejects an admin user verification (superadmin only)
+ * @param {string} userId - The UID of the user to reject
+ * @param {string} reason - Optional reason for rejection
+ * @returns {Promise<Object>} Success result
+ */
+export const rejectAdminUser = async (userId, reason = '') => {
+  try {
+    const userDocRef = doc(db, "Admin", userId);
+    const userDocSnap = await getDoc(userDocRef);
+    
+    if (!userDocSnap.exists()) {
+      throw new Error("User not found");
+    }
+    
+    const userData = userDocSnap.data();
+    
+    await updateDoc(userDocRef, {
+      isVerified: false,
+      verificationStatus: 'rejected',
+      rejectedAt: new Date(),
+      rejectedBy: auth.currentUser?.uid || 'system',
+      rejectionReason: reason
+    });
+    
+    // Log the rejection activity
+    await logActivity(
+      ACTIVITY_TYPES.USER_UPDATE,
+      `Admin user verification rejected`,
+      { 
+        rejectedUserId: userId,
+        rejectedUserEmail: userData.email,
+        rejectedUserName: userData.name,
+        rejectionReason: reason,
+        action: 'account_rejection'
+      }
+    );
+    
+    return {
+      success: true,
+      message: `User ${userData.name || userData.email} verification has been rejected.`
+    };
+    
+  } catch (error) {
+    console.error('Error rejecting user:', error);
+    throw error;
   }
 };
 
