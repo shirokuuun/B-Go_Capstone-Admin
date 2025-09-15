@@ -31,12 +31,10 @@ function BusReservation() {
   const [isSuperAdminUser, setIsSuperAdminUser] = useState(false);
   const [deletingBusId, setDeletingBusId] = useState(null);
 
-  // ✅ Real-time listener with count updates
   useEffect(() => {
     const unsubscribe = subscribeToBuses((liveBuses) => {
       setBuses(liveBuses);
 
-      // 🔁 Live stats update
       const available = liveBuses.filter(bus => bus.status === 'active').length;
       const reserved = liveBuses.filter(bus => bus.status === 'reserved').length;
       const inTransit = liveBuses.filter(bus => bus.status === 'inTransit').length;
@@ -47,7 +45,6 @@ function BusReservation() {
     return () => unsubscribe();
   }, []);
 
-  // ✅ Initialize bus status checker
   useEffect(() => {
     console.log('Initializing bus status checker...');
     const cleanup = initializeBusStatusChecker();

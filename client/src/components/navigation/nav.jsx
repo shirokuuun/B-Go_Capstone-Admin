@@ -16,7 +16,6 @@ import { FaBusSimple } from "react-icons/fa6";
 import { MdConfirmationNumber, MdEventSeat } from "react-icons/md";
 import { TbReportSearch } from "react-icons/tb";
 import { FaChartLine, FaBus, FaUserTie, FaCalendarAlt } from "react-icons/fa";
-import { PiTestTube } from "react-icons/pi";
 import { FaRoute } from "react-icons/fa";
 import { FaRegUser } from "react-icons/fa";
 import { BsFillTicketDetailedFill } from "react-icons/bs";
@@ -86,7 +85,6 @@ const Nav = ({ collapsed, setCollapsed }) => {
 
         <NavIcon title="Payment Transactions" Icon={MdPayment} to="/admin/payments" collapsed={collapsed} />
         <NavIcon title="Settings" Icon={IoMdSettings} to="/admin/settings" collapsed={collapsed} />
-        <NavIcon title="Test Payment" Icon={PiTestTube} to="/admin/test-paymongo" collapsed={collapsed} />
       </div>
     </div>
   );

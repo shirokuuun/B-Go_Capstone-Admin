@@ -89,6 +89,15 @@ const Conductor = () => {
       if (selectedConductor?.id === id) {
         setSelectedConductor(null);
       }
+
+      // Force refresh after deletion to ensure real-time update
+      setTimeout(() => {
+        conductorService.refreshConductorsList().then(result => {
+          if (result.success) {
+            setConductors(result.conductors);
+          }
+        });
+      }, 1000);
     } catch (error) {
       console.error("Error deleting conductor:", error);
       alert(`❌ Error deleting conductor: ${error.message}`);
@@ -347,7 +356,14 @@ const Conductor = () => {
           onClose={() => setShowAddModal(false)}
           onSuccess={() => {
             setShowAddModal(false);
-            // No need to fetch manually - real-time listener will update
+            // Force refresh after creation to ensure real-time update
+            setTimeout(() => {
+              conductorService.refreshConductorsList().then(result => {
+                if (result.success) {
+                  setConductors(result.conductors);
+                }
+              });
+            }, 1000);
           }}
         />
       )}

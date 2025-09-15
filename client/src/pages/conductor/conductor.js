@@ -23,7 +23,7 @@ import { db, auth } from '/src/firebase/firebase';
 class ConductorService {
   constructor() {
     this.listeners = new Map();
-    this.maxListeners = 1; // Only allow 1 listener at a time
+    this.maxListeners = 5; // Allow multiple listeners for list + details
     this.cleanupOnError = true;
     
     // Force cleanup on page load/refresh
@@ -454,9 +454,9 @@ class ConductorService {
 
   // FIXED: Real-time listener for conductors list with accurate trip counts
   setupConductorsListener(callback) {
-    // Force cleanup before creating new listener
-    this.removeAllListeners();
-    
+    // Remove only conductors listener, not all listeners
+    this.removeListener('conductors');
+
     // Initialize global listener tracking if not exists
     if (!window.firestoreListeners) {
       window.firestoreListeners = [];
@@ -998,7 +998,7 @@ class ConductorService {
         email: email, // Restore original email
         name: conductorData.name, // Use new name from form
         route: conductorData.route, // Use new route from form
-        password: conductorData.password, // Use new password from form
+        // password removed for security - only stored in Firebase Auth
         isOnline: false,
         status: "active", // Change from "deleted" to "active"
         createdAt: deletedData.createdAt || serverTimestamp(), // Preserve original creation date
@@ -1110,8 +1110,7 @@ class ConductorService {
           const reactivatedConductor = await this.reactivateDeletedConductor(email, {
             busNumber,
             name,
-            route,
-            password
+            route
           });
           
           if (reactivatedConductor) {
@@ -1145,7 +1144,7 @@ class ConductorService {
         email: email,
         name: name,
         route: route,
-        password: password, // Store password for deletion purposes (encrypted in production)
+        // password removed for security - only stored in Firebase Auth
         isOnline: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
