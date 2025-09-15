@@ -9,6 +9,7 @@ export default defineConfig({
     allowedHosts: [".ngrok-free.app", ".ngrok.io"],
   },
   optimizeDeps: {
-    include: ["xlsx", "react-firebase-hooks"],
+    include: ["xlsx"],
+    exclude: ["react-firebase-hooks"],
   },
 });
