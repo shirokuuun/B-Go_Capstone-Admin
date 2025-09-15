@@ -10,10 +10,9 @@
 /* Settings Container */
 .settings-container {
   padding: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
   background-color: #f8fafc;
   min-height: 100vh;
+  width: 100%;
 }
 
 
@@ -59,7 +58,14 @@
 .settings-grid {
   display: grid;
   gap: 24px;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 768px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
 }
 
 .settings-full-width {
@@ -446,11 +452,6 @@
     padding: 16px;
   }
   
-  .settings-grid {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-  
   .settings-form-row {
     grid-template-columns: 1fr;
     gap: 16px;
@@ -502,6 +503,10 @@
   .settings-no-image-placeholder {
     width: 100px;
     height: 100px;
+  }
+  
+  .settings-grid {
+    gap: 16px;
   }
 }
 

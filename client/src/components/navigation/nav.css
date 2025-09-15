@@ -43,6 +43,7 @@
 .Navigation.collapsed {
   width: 99px;
   align-items: center;
+  overflow-x: hidden;
 }
 
 .menu-top-right {
@@ -159,4 +160,112 @@
 
 .dropdown-item:hover {
   background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Responsive Design - Auto-collapse navigation */
+@media (max-width: 1024px) {
+  .Navigation {
+    width: 99px;
+    align-items: center;
+    overflow-x: hidden;
+  }
+  
+  .Navigation .NavIcon span {
+    display: none;
+  }
+  
+  .Navigation .batrasco-logo {
+    width: 50px;
+  }
+  
+  /* Hide dropdown text in collapsed mode */
+  .Navigation .dropdown-toggle span {
+    display: none;
+  }
+  
+  /* Adjust dropdown positioning for auto-collapsed state */
+  .Navigation .dropdown-menu {
+    left: calc(100% + 10px);
+    min-width: 200px;
+  }
+  
+  /* Show tooltip on hover for collapsed items */
+  .Navigation .NavIcon::after,
+  .Navigation .dropdown-toggle::after {
+    content: attr(data-title);
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1000;
+  }
+  
+  .Navigation .NavIcon:hover::after,
+  .Navigation .dropdown-toggle:hover::after {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .Navigation {
+    width: 70px;
+    padding: 12px 0;
+  }
+  
+  .Navigation .nav-header-logo {
+    padding: 12px;
+    margin-bottom: 8px;
+  }
+  
+  .Navigation .batrasco-logo {
+    width: 40px;
+  }
+  
+  .Navigation .NavIcon,
+  .Navigation .dropdown-toggle {
+    padding: 12px 15px;
+    justify-content: center;
+  }
+  
+  .Navigation .icon {
+    font-size: 20px;
+  }
+  
+  .Navigation .menu-top-right {
+    display: none; /* Hide manual toggle on mobile */
+  }
+}
+
+@media (max-width: 480px) {
+  .Navigation {
+    width: 60px;
+    padding: 8px 0;
+  }
+  
+  .Navigation .nav-header-logo {
+    padding: 8px;
+    margin-bottom: 6px;
+  }
+  
+  .Navigation .batrasco-logo {
+    width: 35px;
+  }
+  
+  .Navigation .NavIcon,
+  .Navigation .dropdown-toggle {
+    padding: 10px 12px;
+  }
+  
+  .Navigation .icon {
+    font-size: 18px;
+  }
 }

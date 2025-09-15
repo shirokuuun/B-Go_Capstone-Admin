@@ -5,7 +5,8 @@
   max-width: 1400px;
   margin: 0 auto;
   display: flex; 
-  gap: 20px;   
+  gap: 20px;
+  box-sizing: border-box;
 }
 
 /* Loading and Access Denied Styles */
@@ -107,6 +108,8 @@
   overflow: hidden;
   border-radius: 12px;
   border: 1px solid #e1e5e9;
+  flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .id-verification-left-panel-header {
@@ -279,6 +282,8 @@
   border-radius: 12px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   border: 1px solid #e1e5e9;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .id-verification-right-panel-scroll {
@@ -488,30 +493,162 @@
 }
 
 /* Responsive Design */
+@media (max-width: 1024px) {
+  .id-verification-container {
+    padding: 1.5rem;
+    gap: 16px;
+  }
+  
+  .id-verification-left-panel {
+    width: 350px;
+  }
+}
+
 @media (max-width: 768px) {
   .id-verification-container {
     flex-direction: column;
     padding: 1rem;
     gap: 16px;
+    height: auto;
+    min-height: 100vh;
   }
   
   .id-verification-left-panel {
     width: 100%;
     height: auto;
-    max-height: 400px;
+    max-height: 50vh;
+    min-height: 300px;
+    flex-shrink: 0;
   }
   
   .id-verification-right-panel {
     height: auto;
-    min-height: 500px;
+    min-height: 600px;
+    flex: none;
+  }
+  
+  .id-verification-right-panel-scroll {
+    height: auto;
+    overflow-y: visible;
+    min-height: 600px;
   }
   
   .id-verification-images {
     grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .id-verification-image-container {
+    padding: 20px;
+  }
+  
+  .id-verification-image {
+    max-height: 300px;
+  }
+  
+  .id-verification-no-image {
+    height: 180px;
   }
   
   .id-verification-buttons {
     flex-direction: column;
+    gap: 16px;
+  }
+  
+  .id-verification-btn {
+    width: 100%;
+    padding: 14px 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  .id-verification-container {
+    padding: 0.75rem;
+  }
+  
+  .id-verification-left-panel {
+    max-height: 45vh;
+    min-height: 280px;
+  }
+  
+  .id-verification-right-panel {
+    min-height: 550px;
+  }
+  
+  .id-verification-right-panel-scroll {
+    min-height: 550px;
+    padding: 20px;
+  }
+  
+  .id-verification-header h2 {
+    font-size: 24px;
+  }
+  
+  .id-verification-image-container {
+    padding: 16px;
+  }
+  
+  .id-verification-image {
+    max-height: 250px;
+  }
+  
+  .id-verification-no-image {
+    height: 150px;
+  }
+}
+
+@media (max-width: 480px) {
+  .id-verification-container {
+    padding: 0.5rem;
+  }
+  
+  .id-verification-left-panel {
+    max-height: 40vh;
+    min-height: 250px;
+    padding: 16px;
+  }
+  
+  .id-verification-left-panel-header h2 {
+    font-size: 20px;
+  }
+  
+  .id-verification-right-panel {
+    min-height: 500px;
+  }
+  
+  .id-verification-right-panel-scroll {
+    min-height: 500px;
+    padding: 16px;
+  }
+  
+  .id-verification-header h2 {
+    font-size: 20px;
+  }
+  
+  .id-verification-images {
+    gap: 16px;
+  }
+  
+  .id-verification-image-container {
+    padding: 12px;
+  }
+  
+  .id-verification-image-container h4 {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  
+  .id-verification-image {
+    max-height: 200px;
+  }
+  
+  .id-verification-no-image {
+    height: 120px;
+    font-size: 14px;
+  }
+  
+  .id-verification-actions {
+    padding: 16px;
   }
 }
 
