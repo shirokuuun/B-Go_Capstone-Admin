@@ -417,21 +417,21 @@ const SOSReport = () => {
       <div className="sos-metrics-dashboard-container">
       <div className="sos-metrics-pattern"></div>
       <div className="sos-metrics-dashboard">
-        <div className="metric-card">
-          <h3>Total Incidents</h3>
-          <div className="metric-value">{metrics.totalIncidents || 0}</div>
+        <div className="sos-analytics-metric-card">
+          <h3 className="sos-analytics-metric-title">Total Incidents</h3>
+          <div className="sos-analytics-metric-value">{metrics.totalIncidents || 0}</div>
         </div>
-        <div className="metric-card">
-          <h3>Resolution Rate</h3>
-          <div className="metric-value">{formatPercentage(metrics.resolutionRate || 0)}</div>
+        <div className="sos-analytics-metric-card">
+          <h3 className="sos-analytics-metric-title">Resolution Rate</h3>
+          <div className="sos-analytics-metric-value">{formatPercentage(metrics.resolutionRate || 0)}</div>
         </div>
-        <div className="metric-card">
-          <h3>Avg Response Time</h3>
-          <div className="metric-value">{formatTime(metrics.avgResponseTime || 0)}</div>
+        <div className="sos-analytics-metric-card">
+          <h3 className="sos-analytics-metric-title">Avg Response Time</h3>
+          <div className="sos-analytics-metric-value">{formatTime(metrics.avgResponseTime || 0)}</div>
         </div>
-        <div className="metric-card">
-          <h3>Critical Incidents</h3>
-          <div className="metric-value">{metrics.criticalIncidents || 0}</div>
+        <div className="sos-analytics-metric-card">
+          <h3 className="sos-analytics-metric-title">Critical Incidents</h3>
+          <div className="sos-analytics-metric-value">{metrics.criticalIncidents || 0}</div>
         </div>
       </div>
       </div>

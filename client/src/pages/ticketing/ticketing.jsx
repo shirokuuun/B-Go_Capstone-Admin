@@ -273,7 +273,14 @@ const Ticketing = () => {
   const getAvailableDates = () => getUniqueOptions(conductorTickets, 'date');
   
   const getTicketTypes = () => {
-    const types = [...new Set(conductorTickets.map(ticket => getEffectiveTicketType(ticket)))];
+    const types = [...new Set(conductorTickets.map(ticket => {
+      const effectiveType = getEffectiveTicketType(ticket);
+      // Normalize all conductor-related types to 'conductor'
+      if (effectiveType === 'preBooking') return 'preBooking';
+      if (effectiveType === 'preTicket') return 'preTicket';
+      // Everything else (conductor, conductorTicket, undefined, etc.) becomes 'conductor'
+      return 'conductor';
+    }))];
     return types.sort();
   };
   
@@ -400,7 +407,9 @@ const Ticketing = () => {
             <option value="">All Types</option>
             {getTicketTypes().map(type => (
               <option key={type} value={type}>
-                {getTicketTypeLabel(type)}
+                {type === 'preBooking' ? 'Pre-Booking' :
+                 type === 'preTicket' ? 'Pre-Ticket' :
+                 'Conductor Ticket'}
               </option>
             ))}
           </select>

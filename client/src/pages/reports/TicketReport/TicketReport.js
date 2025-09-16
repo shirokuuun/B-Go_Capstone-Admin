@@ -551,10 +551,38 @@ export const getTicketTypeData = async (timeRange, route, ticketType = '') => {
     // Use DailyRevenue's preparePieChartData for ticket type breakdown
     const pieChartData = preparePieChartData(conductorRevenue, preBookingRevenue, preTicketingRevenue);
     
-    // Helper function to determine margin level based on performance
-    const getMarginLevel = (marketShare, volume) => {
-      if (marketShare >= 70 || volume >= 30) return 'High';
-      if (marketShare >= 20 || volume >= 10) return 'Standard';
+    // Helper function to determine margin level based on business performance
+    const getMarginLevel = (marketShare, volume, growth, averagePrice) => {
+      // Calculate performance score based on multiple factors
+      let score = 0;
+
+      // Market share contribution (0-40 points)
+      if (marketShare >= 70) score += 40;
+      else if (marketShare >= 40) score += 30;
+      else if (marketShare >= 20) score += 20;
+      else if (marketShare >= 5) score += 10;
+
+      // Growth rate contribution (0-30 points)
+      if (growth >= 50) score += 30;
+      else if (growth >= 20) score += 25;
+      else if (growth >= 10) score += 20;
+      else if (growth >= 5) score += 15;
+      else if (growth >= 0) score += 10;
+
+      // Volume contribution (0-20 points)
+      if (volume >= 50) score += 20;
+      else if (volume >= 20) score += 15;
+      else if (volume >= 10) score += 10;
+      else if (volume >= 5) score += 5;
+
+      // Average price contribution (0-10 points)
+      if (averagePrice >= 50) score += 10;
+      else if (averagePrice >= 30) score += 8;
+      else if (averagePrice >= 20) score += 5;
+
+      // Determine margin level based on total score
+      if (score >= 70) return 'High';
+      if (score >= 40) return 'Standard';
       return 'Low';
     };
 
@@ -601,7 +629,7 @@ export const getTicketTypeData = async (timeRange, route, ticketType = '') => {
     // Add margin level to each ticket type based on its performance
     const ticketTypes = ticketTypesData.map(type => ({
       ...type,
-      marginLevel: getMarginLevel(type.marketShare, type.volume)
+      marginLevel: getMarginLevel(type.marketShare, type.volume, type.growth, type.averagePrice)
     }));
 
     return ticketTypes;
@@ -755,7 +783,7 @@ const getPreviousPeriodData = async (timeRange, route, ticketType = '') => {
 const calculateGrowthRates = (currentData, previousData) => {
   const calculateGrowth = (current, previous) => {
     if (previous === 0) return current > 0 ? 100 : 0; // If no previous data, 100% growth if current > 0
-    return Math.round(((current - previous) / previous) * 100 * 100) / 100; // Round to 2 decimal places
+    return Math.round(((current - previous) / previous) * 100) / 100; // Calculate percentage and round to 2 decimal places
   };
 
   return {
