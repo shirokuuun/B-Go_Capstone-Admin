@@ -1,18 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  doc,
-  updateDoc,
-  serverTimestamp,
-  getDocs
-} from 'firebase/firestore';
-import { db } from '/src/firebase/firebase.js';
-import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
-// import Header from '/src/components/HeaderTemplate/header.jsx'; // Removed header
+import paymentService from './paymentService.js';
 import './PaymentTransactions.css';
 import {
   FaBus,
@@ -27,7 +14,10 @@ import {
   FaSearch,
   FaExclamationTriangle,
   FaCheckCircle,
-  FaTimesCircle
+  FaTimesCircle,
+  FaReceipt,
+  FaClipboardCheck,
+  FaRedo
 } from 'react-icons/fa';
 
 function PaymentTransactions() {
@@ -41,166 +31,56 @@ function PaymentTransactions() {
   const [selectedImage, setSelectedImage] = useState('');
   const [processingPayment, setProcessingPayment] = useState(null);
 
-  // Payment type icons and labels
-  const paymentTypes = {
-    bus_reservation: { icon: FaBus, label: 'Bus Reservation', color: '#2196F3' },
-    general: { icon: FaMoneyBill, label: 'General Payment', color: '#4CAF50' },
-    ticket: { icon: FaTicketAlt, label: 'Ticket Purchase', color: '#FF9800' },
-    app_service: { icon: FaMobile, label: 'App Service', color: '#9C27B0' }
-  };
+  // Get configuration from service
+  const paymentTypes = paymentService.getPaymentTypes({
+    FaBus,
+    FaMoneyBill,
+    FaTicketAlt,
+    FaMobile
+  });
+  const statusColors = paymentService.getStatusColors();
 
-  // Payment status colors
-  const statusColors = {
-    pending: '#FF9800',
-    under_review: '#2196F3',
-    verified: '#4CAF50',
-    rejected: '#F44336',
-    refunding: '#9C27B0'
-  };
-
-  // Set up real-time listener for payments
+  // Set up real-time listener for reservations (which include payment info)
   useEffect(() => {
-    const paymentsRef = collection(db, 'payments');
-    const q = query(paymentsRef, orderBy('createdAt', 'desc'));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const paymentsList = [];
-      snapshot.forEach((doc) => {
-        paymentsList.push({
-          id: doc.id,
-          ...doc.data()
-        });
-      });
-      setPayments(paymentsList);
-      setLoading(false);
-    }, (error) => {
-      console.error('Error fetching payments:', error);
+    const unsubscribe = paymentService.setupReservationsListener((reservationsList, error) => {
+      if (error) {
+        setLoading(false);
+        return;
+      }
+      setPayments(reservationsList);
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Handle payment verification actions
-  const handlePaymentAction = async (paymentId, action, reason = '') => {
-    setProcessingPayment(paymentId);
+  // Handle reservation payment verification actions
+  const handlePaymentAction = async (reservationId, action, reason = '') => {
+    setProcessingPayment(reservationId);
 
     try {
-      const payment = payments.find(p => p.id === paymentId);
-      if (!payment) throw new Error('Payment not found');
+      const result = await paymentService.handlePaymentAction(reservationId, action, reason);
 
-      let newStatus;
-      let actionDescription;
-
-      switch (action) {
-        case 'approve':
-          newStatus = 'verified';
-          actionDescription = 'approved';
-          break;
-        case 'reject':
-          newStatus = 'rejected';
-          actionDescription = 'rejected';
-          break;
-        case 'review':
-          newStatus = 'under_review';
-          actionDescription = 'marked for review';
-          break;
-        case 'pending':
-          newStatus = 'pending';
-          actionDescription = 'marked as pending';
-          break;
-        default:
-          throw new Error('Invalid action');
+      if (result.success) {
+        // Close modal if open
+        setSelectedPayment(null);
+      } else {
+        alert(`Error: ${result.error}`);
       }
-
-      // Update payment status
-      const paymentRef = doc(db, 'payments', paymentId);
-      const updateData = {
-        status: newStatus,
-        [`${action}edAt`]: serverTimestamp(),
-        [`${action}edBy`]: 'admin', // Replace with current user
-        updatedAt: serverTimestamp()
-      };
-
-      if (reason) {
-        updateData.reason = reason;
-      }
-
-      await updateDoc(paymentRef, updateData);
-
-      // If it's a bus reservation, update the reservation status too
-      if (payment.type === 'bus_reservation' && payment.reservationId) {
-        const reservationRef = doc(db, 'reservations', payment.reservationId);
-        const reservationStatus = newStatus === 'verified' ? 'confirmed' :
-                                newStatus === 'rejected' ? 'cancelled' : 'pending_payment';
-
-        await updateDoc(reservationRef, {
-          status: reservationStatus,
-          paymentStatus: newStatus,
-          updatedAt: serverTimestamp()
-        });
-      }
-
-      // Log activity
-      await logActivity(
-        ACTIVITY_TYPES.PAYMENT_UPDATE,
-        `Payment ${actionDescription}: ${payment.bookingReference || payment.id}`,
-        {
-          paymentId: paymentId,
-          action: action,
-          newStatus: newStatus,
-          paymentType: payment.type,
-          amount: payment.amount,
-          bookingReference: payment.bookingReference,
-          reason: reason
-        }
-      );
-
-      // Close modal if open
-      setSelectedPayment(null);
-
     } catch (error) {
-      console.error(`Error ${action}ing payment:`, error);
-      alert(`Error ${action}ing payment: ${error.message}`);
+      console.error('Error handling payment action:', error);
+      alert(`Error: ${error.message}`);
     } finally {
       setProcessingPayment(null);
     }
   };
 
-  // Filter payments based on type, status, and search
-  const filteredPayments = payments.filter(payment => {
-    const matchesType = filterType === 'all' || payment.type === filterType;
-    const matchesStatus = filterStatus === 'all' || payment.status === filterStatus;
-    const matchesSearch = searchTerm === '' ||
-      payment.bookingReference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.passengerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.route?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.busNumber?.toString().includes(searchTerm.toLowerCase());
+  // Filter payments using service
+  const filteredPayments = paymentService.filterPayments(payments, filterType, filterStatus, searchTerm);
 
-    return matchesType && matchesStatus && matchesSearch;
-  });
-
-  // Format currency
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-PH', {
-      style: 'currency',
-      currency: 'PHP'
-    }).format(amount);
-  };
-
-  // Format date
-  const formatDate = (timestamp) => {
-    if (!timestamp) return 'N/A';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleString('en-PH', {
-      timeZone: 'Asia/Manila',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  // Use service methods for formatting
+  const formatCurrency = paymentService.formatCurrency;
+  const formatDate = paymentService.formatDate;
 
   if (loading) {
     return (
@@ -228,41 +108,42 @@ function PaymentTransactions() {
           </div>
 
           <div className="payment-stats-container">
-            <div className="payment-stat-card payment-pending">
-              <div className="payment-stat-icon-wrapper">
-                <FaClock className="payment-stat-icon" />
-              </div>
-              <div className="payment-stat-content">
-                <div className="payment-stat-number">
-                  {payments.filter(p => p.status === 'pending').length}
-                </div>
-                <div className="payment-stat-label">Pending</div>
-              </div>
-            </div>
+            {(() => {
+              const stats = paymentService.getPaymentStatistics(payments);
+              return (
+                <>
+                  <div className="payment-stat-card payment-pending">
+                    <div className="payment-stat-icon-wrapper">
+                      <FaClock className="payment-stat-icon" />
+                    </div>
+                    <div className="payment-stat-content">
+                      <div className="payment-stat-number">{stats.pending}</div>
+                      <div className="payment-stat-label">Pending</div>
+                    </div>
+                  </div>
 
-            <div className="payment-stat-card payment-verified">
-              <div className="payment-stat-icon-wrapper">
-                <FaCheckCircle className="payment-stat-icon" />
-              </div>
-              <div className="payment-stat-content">
-                <div className="payment-stat-number">
-                  {payments.filter(p => p.status === 'verified').length}
-                </div>
-                <div className="payment-stat-label">Verified</div>
-              </div>
-            </div>
+                  <div className="payment-stat-card payment-verified">
+                    <div className="payment-stat-icon-wrapper">
+                      <FaCheckCircle className="payment-stat-icon" />
+                    </div>
+                    <div className="payment-stat-content">
+                      <div className="payment-stat-number">{stats.verified}</div>
+                      <div className="payment-stat-label">Verified</div>
+                    </div>
+                  </div>
 
-            <div className="payment-stat-card payment-rejected">
-              <div className="payment-stat-icon-wrapper">
-                <FaTimesCircle className="payment-stat-icon" />
-              </div>
-              <div className="payment-stat-content">
-                <div className="payment-stat-number">
-                  {payments.filter(p => p.status === 'rejected').length}
-                </div>
-                <div className="payment-stat-label">Rejected</div>
-              </div>
-            </div>
+                  <div className="payment-stat-card payment-rejected">
+                    <div className="payment-stat-icon-wrapper">
+                      <FaTimesCircle className="payment-stat-icon" />
+                    </div>
+                    <div className="payment-stat-content">
+                      <div className="payment-stat-number">{stats.rejected}</div>
+                      <div className="payment-stat-label">Rejected</div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -351,13 +232,42 @@ function PaymentTransactions() {
                           <strong>Route:</strong> {payment.route}
                         </div>
                         <div className="detail-row">
-                          <strong>Bus:</strong> #{payment.busNumber} • {payment.departureTime}
+                          <strong>Bus:</strong> #{payment.busNumber}
                         </div>
                         <div className="detail-row">
                           <strong>Passenger:</strong> {payment.passengerName}
                         </div>
                         <div className="detail-row">
-                          <strong>Travel Date:</strong> {formatDate(payment.travelDate)}
+                          <strong>Email:</strong> {payment.email}
+                        </div>
+                        <div className="detail-row">
+                          <strong>Trip Type:</strong> {payment.isRoundTrip ? 'Round Trip' : 'One Way'}
+                        </div>
+                        <div className="detail-row">
+                          <strong>Reserved:</strong> {formatDate(payment.timestamp)}
+                        </div>
+                      </div>
+                    )}
+
+                    {payment.paymentProof && (
+                      <div className="receipt-preview">
+                        <div className="detail-row">
+                          <strong>Payment Receipt:</strong>
+                        </div>
+                        <div className="receipt-thumbnail-container">
+                          <img
+                            src={payment.paymentProof}
+                            alt="Payment receipt"
+                            className="receipt-thumbnail"
+                            onClick={() => {
+                              setSelectedImage(payment.paymentProof);
+                              setShowImageModal(true);
+                            }}
+                          />
+                          <div className="receipt-overlay">
+                            <FaEye className="view-icon" />
+                            <span>Click to view</span>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -380,27 +290,8 @@ function PaymentTransactions() {
                       className="action-btn view"
                       onClick={() => setSelectedPayment(payment)}
                     >
-                      <FaEye /> View Details
+                      <FaEye /> View Details & Verify Receipt
                     </button>
-
-                    {payment.status === 'pending' && (
-                      <>
-                        <button
-                          className="action-btn approve"
-                          onClick={() => handlePaymentAction(payment.id, 'approve')}
-                          disabled={processingPayment === payment.id}
-                        >
-                          <FaCheck /> Approve
-                        </button>
-                        <button
-                          className="action-btn reject"
-                          onClick={() => handlePaymentAction(payment.id, 'reject')}
-                          disabled={processingPayment === payment.id}
-                        >
-                          <FaTimes /> Reject
-                        </button>
-                      </>
-                    )}
                   </div>
                 </div>
               );
@@ -420,6 +311,7 @@ function PaymentTransactions() {
             setSelectedImage(imageUrl);
             setShowImageModal(true);
           }}
+          formatDate={formatDate}
         />
       )}
 
@@ -438,7 +330,7 @@ function PaymentTransactions() {
 }
 
 // Payment Details Modal Component
-const PaymentDetailsModal = ({ payment, onClose, onAction, processing, onViewImage }) => {
+const PaymentDetailsModal = ({ payment, onClose, onAction, processing, onViewImage, formatDate }) => {
   const [reason, setReason] = useState('');
   const [actionType, setActionType] = useState('');
 
@@ -451,14 +343,14 @@ const PaymentDetailsModal = ({ payment, onClose, onAction, processing, onViewIma
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content payment-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
+    <div className="payment-modal-overlay" onClick={onClose}>
+      <div className="payment-modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="payment-modal-header">
           <h2>Payment Details</h2>
-          <button className="close-btn" onClick={onClose}>×</button>
+          <button className="payment-modal-close-btn" onClick={onClose}>×</button>
         </div>
 
-        <div className="modal-body">
+        <div className="payment-modal-body">
           <div className="payment-info">
             <div className="info-section">
               <h3>Payment Information</h3>
@@ -493,77 +385,111 @@ const PaymentDetailsModal = ({ payment, onClose, onAction, processing, onViewIma
                     <span>{payment.bookingReference}</span>
                   </div>
                   <div className="info-item">
-                    <label>Route:</label>
-                    <span>{payment.route}</span>
+                    <label>From:</label>
+                    <span>{payment.from}</span>
                   </div>
                   <div className="info-item">
-                    <label>Bus Number:</label>
-                    <span>#{payment.busNumber}</span>
+                    <label>To:</label>
+                    <span>{payment.to}</span>
                   </div>
                   <div className="info-item">
-                    <label>Departure:</label>
-                    <span>{payment.departureTime}</span>
+                    <label>Passenger Name:</label>
+                    <span>{payment.fullName}</span>
                   </div>
                   <div className="info-item">
-                    <label>Passenger:</label>
-                    <span>{payment.passengerName}</span>
+                    <label>Email:</label>
+                    <span>{payment.email}</span>
                   </div>
                   <div className="info-item">
-                    <label>Seat Number:</label>
-                    <span>{payment.seatNumber || 'N/A'}</span>
+                    <label>Trip Type:</label>
+                    <span>{payment.isRoundTrip ? 'Round Trip' : 'One Way'}</span>
+                  </div>
+                  <div className="info-item">
+                    <label>Selected Bus:</label>
+                    <span>#{payment.selectedBusIds?.[0] || 'N/A'}</span>
+                  </div>
+                  <div className="info-item">
+                    <label>Reserved Date:</label>
+                    <span>{formatDate(payment.timestamp)}</span>
                   </div>
                 </div>
               </div>
             )}
 
             {payment.paymentProof && (
-              <div className="info-section">
-                <h3>Payment Proof</h3>
+              <div className="info-section payment-proof-section">
+                <h3><FaReceipt /> Payment Receipt Verification</h3>
+                <p className="verification-instruction">
+                  Review the payment receipt submitted by the customer. Verify the amount, payment method, and authenticity before approving the reservation.
+                </p>
                 <div className="payment-proof">
-                  <img
-                    src={payment.paymentProof}
-                    alt="Payment proof"
-                    className="proof-thumbnail"
-                    onClick={() => onViewImage(payment.paymentProof)}
-                  />
-                  <button
-                    className="view-full-btn"
-                    onClick={() => onViewImage(payment.paymentProof)}
-                  >
-                    <FaEye /> View Full Size
-                  </button>
+                  <div className="proof-image-container">
+                    <img
+                      src={payment.paymentProof}
+                      alt="Payment receipt submitted by customer"
+                      className="proof-thumbnail"
+                      onClick={() => onViewImage(payment.paymentProof)}
+                    />
+                    <div className="proof-overlay">
+                      <FaEye className="view-icon" />
+                      <span>Click to enlarge</span>
+                    </div>
+                  </div>
+                  <div className="proof-actions">
+                    <button
+                      className="view-full-btn"
+                      onClick={() => onViewImage(payment.paymentProof)}
+                    >
+                      <FaEye /> View Full Size Receipt
+                    </button>
+                  </div>
+                </div>
+                <div className="verification-checklist">
+                  <h4>Verification Checklist:</h4>
+                  <ul>
+                    <li><FaCheckCircle /> Amount matches reservation total: <strong>{new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(payment.amount)}</strong></li>
+                    <li><FaCheckCircle /> Payment method is valid</li>
+                    <li><FaCheckCircle /> Receipt appears authentic</li>
+                    <li><FaCheckCircle /> Transaction date is reasonable</li>
+                  </ul>
                 </div>
               </div>
             )}
 
             {payment.status === 'pending' && (
-              <div className="action-section">
-                <h3>Verification Actions</h3>
+              <div className="action-section receipt-verification-actions">
+                <h3><FaClipboardCheck /> Receipt Verification Decision</h3>
+                <p className="action-instruction">
+                  Based on your review of the payment receipt above, decide the reservation status:
+                </p>
                 <div className="action-buttons">
                   <button
                     className="action-btn approve"
                     onClick={() => onAction(payment.id, 'approve')}
                     disabled={processing}
                   >
-                    <FaCheck /> Approve Payment
+                    <FaCheckCircle /> Accept Receipt & Confirm Reservation
                   </button>
                   <button
                     className="action-btn reject"
                     onClick={() => {
-                      const reason = prompt('Reason for rejection (optional):');
+                      const reason = prompt('Reason for rejecting receipt (e.g., invalid amount, fake receipt, etc.):');
                       onAction(payment.id, 'reject', reason || '');
                     }}
                     disabled={processing}
                   >
-                    <FaTimes /> Reject Payment
+                    <FaTimesCircle /> Reject Receipt & Cancel Reservation
                   </button>
                   <button
                     className="action-btn review"
                     onClick={() => onAction(payment.id, 'review')}
                     disabled={processing}
                   >
-                    <FaClock /> Mark for Review
+                    <FaRedo /> Need More Review
                   </button>
+                </div>
+                <div className="action-note">
+                  <strong>Note:</strong> Approving will confirm the customer's bus reservation. Rejecting will cancel their booking.
                 </div>
               </div>
             )}
@@ -577,10 +503,10 @@ const PaymentDetailsModal = ({ payment, onClose, onAction, processing, onViewIma
 // Image Modal Component
 const ImageModal = ({ imageUrl, onClose }) => {
   return (
-    <div className="modal-overlay image-modal-overlay" onClick={onClose}>
-      <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
-        <button className="close-btn" onClick={onClose}>×</button>
-        <img src={imageUrl} alt="Payment proof full size" className="full-size-image" />
+    <div className="payment-image-modal-overlay" onClick={onClose}>
+      <div className="payment-image-modal-content" onClick={(e) => e.stopPropagation()}>
+        <button className="payment-image-modal-close-btn" onClick={onClose}>×</button>
+        <img src={imageUrl} alt="Payment proof full size" className="payment-full-size-image" />
       </div>
     </div>
   );

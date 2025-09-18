@@ -4,6 +4,27 @@
   min-height: 100%;
 }
 
+/* Bus Reservation Status Styles */
+.status-available {
+  color: #4CAF50 !important;
+  font-weight: bold;
+}
+
+.status-reserved {
+  color: #FF9800 !important;
+  font-weight: bold;
+}
+
+.status-not-available {
+  color: #F44336 !important;
+  font-weight: bold;
+}
+
+.status-unknown {
+  color: #757575 !important;
+  font-weight: bold;
+}
+
 /* NEW MODERN HEADER STYLES */
 .conductor-header {
   background: #007c91;
@@ -641,10 +662,15 @@
   border-radius: 12px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .conductor-details-content {
   padding: 30px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .details-header {
@@ -675,7 +701,7 @@
 
 .details-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 15px;
   margin-bottom: 20px;
 }

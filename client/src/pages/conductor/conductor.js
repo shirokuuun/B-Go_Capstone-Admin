@@ -893,6 +893,58 @@ class ConductorService {
     return email.split('@')[0].replace(/\./g, '_');
   }
 
+  // Helper function to get coding day from plate number
+  getCodingDayFromPlate(plateNumber) {
+    if (!plateNumber) return 'Unknown';
+    const lastDigit = plateNumber.slice(-1);
+    switch (lastDigit) {
+      case '1':
+      case '2':
+        return 'Monday';
+      case '3':
+      case '4':
+        return 'Tuesday';
+      case '5':
+      case '6':
+        return 'Wednesday';
+      case '7':
+      case '8':
+        return 'Thursday';
+      case '9':
+      case '0':
+        return 'Friday';
+      default:
+        return 'Unknown';
+    }
+  }
+
+  // Check if bus is available for reservation today (based on coding day)
+  isBusAvailableForReservationToday(plateNumber) {
+    if (!plateNumber) return false;
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const codingDay = this.getCodingDayFromPlate(plateNumber);
+
+    const dayMap = {
+      'Monday': 1,
+      'Tuesday': 2,
+      'Wednesday': 3,
+      'Thursday': 4,
+      'Friday': 5
+    };
+
+    return dayMap[codingDay] === dayOfWeek;
+  }
+
+  // Calculate bus availability status
+  calculateBusAvailabilityStatus(plateNumber, isOnline) {
+    if (!plateNumber) return 'unknown';
+
+    const isAvailableToday = this.isBusAvailableForReservationToday(plateNumber);
+
+    return isAvailableToday ? 'available' : 'not-available';
+  }
+
   // NEW: Delete all trips for a conductor (for fresh start on reactivation)
   async deleteAllConductorTrips(conductorId) {
     try {
@@ -998,6 +1050,7 @@ class ConductorService {
         email: email, // Restore original email
         name: conductorData.name, // Use new name from form
         route: conductorData.route, // Use new route from form
+        plateNumber: conductorData.plateNumber, // Use new plate number from form
         // password removed for security - only stored in Firebase Auth
         isOnline: false,
         status: "active", // Change from "deleted" to "active"
@@ -1055,10 +1108,10 @@ class ConductorService {
   // Create new conductor (matches your current implementation but with improvements)
   async createConductor(formData) {
     try {
-      const { busNumber, email, name, route, password } = formData;
+      const { busNumber, email, name, route, password, plateNumber } = formData;
       
       // Validate required fields
-      if (!busNumber || !email || !name || !route || !password) {
+      if (!busNumber || !email || !name || !route || !password || !plateNumber) {
         throw new Error('All fields are required');
       }
 
@@ -1110,7 +1163,8 @@ class ConductorService {
           const reactivatedConductor = await this.reactivateDeletedConductor(email, {
             busNumber,
             name,
-            route
+            route,
+            plateNumber
           });
           
           if (reactivatedConductor) {
@@ -1144,6 +1198,7 @@ class ConductorService {
         email: email,
         name: name,
         route: route,
+        plateNumber: plateNumber,
         // password removed for security - only stored in Firebase Auth
         isOnline: false,
         createdAt: serverTimestamp(),
@@ -1151,13 +1206,18 @@ class ConductorService {
         lastSeen: null,
         currentLocation: null,
         uid: user.uid, // Link to Firebase Auth user
-        
+
         // Initialize trip counters
         totalTrips: 0,
         todayTrips: 0,
-        
+
         // Status tracking
-        status: 'offline'
+        status: 'offline',
+
+        // Bus availability status for mobile app
+        busAvailabilityStatus: this.calculateBusAvailabilityStatus(plateNumber, false), // false = offline
+        availableForReservation: this.isBusAvailableForReservationToday(plateNumber),
+        codingDay: this.getCodingDayFromPlate(plateNumber) // Calculate from plate number
       };
 
       await setDoc(doc(conductorDb, 'conductors', documentId), conductorData);
@@ -1273,6 +1333,13 @@ class ConductorService {
         ...updateData,
         updatedAt: serverTimestamp()
       };
+
+      // If plateNumber is being updated, recalculate availability status
+      if (updateData.plateNumber) {
+        updatedData.codingDay = this.getCodingDayFromPlate(updateData.plateNumber);
+        // Since we don't know if conductor is online here, keep current availability status
+        // The status will be updated when conductor goes online/offline
+      }
 
       await updateDoc(conductorRef, updatedData);
 
@@ -1573,6 +1640,64 @@ class ConductorService {
         success: false,
         error: error.message,
         conductors: []
+      };
+    }
+  }
+
+  // NEW: Sync all conductor availability status
+  async syncAllConductorStatus() {
+    try {
+      const conductorsRef = collection(db, 'conductors');
+      const snapshot = await getDocs(conductorsRef);
+
+      let updatedCount = 0;
+      const updatePromises = [];
+
+      for (const doc of snapshot.docs) {
+        const conductorData = doc.data();
+
+        // Skip deleted conductors
+        if (conductorData.status === 'deleted') {
+          continue;
+        }
+
+        if (conductorData.plateNumber) {
+          const newAvailableForReservation = this.isBusAvailableForReservationToday(conductorData.plateNumber);
+          const newBusAvailabilityStatus = this.calculateBusAvailabilityStatus(conductorData.plateNumber, conductorData.isOnline);
+          const newCodingDay = this.getCodingDayFromPlate(conductorData.plateNumber);
+
+          // Only update if values have changed
+          if (conductorData.availableForReservation !== newAvailableForReservation ||
+              conductorData.busAvailabilityStatus !== newBusAvailabilityStatus ||
+              conductorData.codingDay !== newCodingDay) {
+
+            updatePromises.push(
+              updateDoc(doc.ref, {
+                availableForReservation: newAvailableForReservation,
+                busAvailabilityStatus: newBusAvailabilityStatus,
+                codingDay: newCodingDay,
+                updatedAt: serverTimestamp()
+              })
+            );
+            updatedCount++;
+          }
+        }
+      }
+
+      // Execute all updates in parallel
+      await Promise.all(updatePromises);
+
+      return {
+        success: true,
+        message: `Successfully synced availability status for ${updatedCount} conductors`,
+        updatedCount
+      };
+
+    } catch (error) {
+      console.error('Error syncing conductor availability status:', error);
+      return {
+        success: false,
+        error: error.message
       };
     }
   }

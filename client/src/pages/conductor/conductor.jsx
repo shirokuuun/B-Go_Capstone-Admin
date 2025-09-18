@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import conductorService from '/src/pages/conductor/conductor.js';
 import './conductor.css';
 import { IoMdAdd } from "react-icons/io";
-import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaTrash } from 'react-icons/fa';
+import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaTrash, FaEdit, FaSync } from 'react-icons/fa';
 
 const Conductor = () => {
   const [conductors, setConductors] = useState([]);
@@ -13,6 +13,71 @@ const Conductor = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState('name');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingConductor, setEditingConductor] = useState(null);
+  const [syncingStatus, setSyncingStatus] = useState(false);
+
+  // Helper function to extract bus number from conductor name
+  const extractBusNumber = (name) => {
+    if (!name) return 'N/A';
+    // Extract number from patterns like "Batangas 2 Conductor" or "Route_123"
+    const numberMatch = name.match(/\b(\d+)\b/);
+    return numberMatch ? numberMatch[1] : 'N/A';
+  };
+
+  // Helper function to get day based on plate number coding
+  const getCodingDay = (plateNumber) => {
+    if (!plateNumber) return 'Unknown';
+    const lastDigit = plateNumber.slice(-1);
+    switch (lastDigit) {
+      case '1':
+      case '2':
+        return 'Monday';
+      case '3':
+      case '4':
+        return 'Tuesday';
+      case '5':
+      case '6':
+        return 'Wednesday';
+      case '7':
+      case '8':
+        return 'Thursday';
+      case '9':
+      case '0':
+        return 'Friday';
+      default:
+        return 'Unknown';
+    }
+  };
+
+  // Helper function to check if bus is available for reservation today (ON coding day)
+  const isBusAvailableForReservation = (plateNumber) => {
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+    const codingDay = getCodingDay(plateNumber);
+    return today === codingDay; // Available when it's the coding day
+  };
+
+  // Helper function to get bus availability status
+  const getBusAvailabilityStatus = (conductor) => {
+    if (!conductor.plateNumber) return 'unknown';
+
+    const isReservationDay = isBusAvailableForReservation(conductor.plateNumber);
+
+    if (isReservationDay) return 'available'; // Available for reservation on coding day
+    return 'not_available'; // Not available for reservation on non-coding days
+  };
+
+  // Helper function to get status display info
+  const getStatusDisplayInfo = (status) => {
+    switch (status) {
+      case 'available':
+        return { text: 'Available for Reservation', class: 'status-available', color: '#4CAF50' };
+      case 'not_available':
+        return { text: 'Not Available for Reservation', class: 'status-not-available', color: '#F44336' };
+      default:
+        return { text: 'Unknown', class: 'status-unknown', color: '#757575' };
+    }
+  };
 
   useEffect(() => {
     // Clean up any existing listeners first
@@ -104,16 +169,45 @@ const Conductor = () => {
     }
   };
 
+  const handleEditConductor = (conductor) => {
+    setEditingConductor(conductor);
+    setShowEditModal(true);
+  };
 
-
+  const handleSyncAllStatus = async () => {
+    setSyncingStatus(true);
+    try {
+      const result = await conductorService.syncAllConductorStatus();
+      if (result.success) {
+        alert(`✅ Status sync completed!\n\nUpdated ${result.updatedCount} conductors`);
+        // Refresh the conductor list
+        setTimeout(() => {
+          conductorService.refreshConductorsList().then(result => {
+            if (result.success) {
+              setConductors(result.conductors);
+            }
+          });
+        }, 1000);
+      } else {
+        alert(`❌ Error syncing status: ${result.error}`);
+      }
+    } catch (error) {
+      console.error("Error syncing status:", error);
+      alert(`❌ Error syncing status: ${error.message}`);
+    } finally {
+      setSyncingStatus(false);
+    }
+  };
 
   const filteredAndSortedConductors = () => {
     let filtered = conductors.filter(conductor => {
-      const matchesSearch = 
+      const matchesSearch =
         conductor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         conductor.route?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         conductor.busNumber?.toString().includes(searchTerm.toLowerCase()) ||
-        conductor.email?.toLowerCase().includes(searchTerm.toLowerCase());
+        conductor.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        conductor.plateNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        extractBusNumber(conductor.name).toString().includes(searchTerm.toLowerCase());
 
       const matchesStatus = 
         filterStatus === 'all' ||
@@ -177,7 +271,15 @@ const Conductor = () => {
 
             {/* Action Buttons */}
             <div className="conductor-action-buttons">
-              <button 
+              <button
+                onClick={handleSyncAllStatus}
+                className="conductor-sync-btn"
+                disabled={syncingStatus}
+              >
+                <FaSync className={`mr-2 ${syncingStatus ? 'animate-spin' : ''}`} />
+                {syncingStatus ? 'Syncing...' : 'Sync Status'}
+              </button>
+              <button
                 onClick={() => setShowAddModal(true)}
                 className="conductor-add-btn"
               >
@@ -274,7 +376,12 @@ const Conductor = () => {
           </div>
 
           <div className="conductor-list">
-            {filteredAndSortedConductors().map((conductor) => (
+            {filteredAndSortedConductors().map((conductor) => {
+              // Pre-calculate status to avoid multiple calls
+              const busStatus = getBusAvailabilityStatus(conductor);
+              const statusInfo = getStatusDisplayInfo(busStatus);
+
+              return (
               <div
                 key={conductor.id}
                 className={`conductor-item ${selectedConductor?.id === conductor.id ? 'selected' : ''}`}
@@ -303,7 +410,23 @@ const Conductor = () => {
                   </div>
                   <div className="detail-row">
                     <span className="detail-label">Bus:</span>
-                    <span className="detail-value">#{conductor.busNumber || 'N/A'}</span>
+                    <span className="detail-value">#{extractBusNumber(conductor.name)}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Plate:</span>
+                    <span className="detail-value">{conductor.plateNumber || 'N/A'}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Status:</span>
+                    <span
+                      className={`detail-value ${statusInfo.class}`}
+                      style={{
+                        color: statusInfo.color,
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      {statusInfo.text}
+                    </span>
                   </div>
                   <div className="detail-row">
                     <span className="detail-label">Trips:</span>
@@ -313,17 +436,29 @@ const Conductor = () => {
 
                 <div className="conductor-actions">
                   <button
+                    className="action-btn edit-conductor"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEditConductor(conductor);
+                    }}
+                    title="Edit Conductor"
+                  >
+                    <FaEdit />
+                  </button>
+                  <button
                     className="action-btn delete-conductor"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleDeleteConductor(conductor.id);
                     }}
+                    title="Delete Conductor"
                   >
-                    Delete
+                    <FaTrash />
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
 
             {filteredAndSortedConductors().length === 0 && (
               <div className="no-conductors">
@@ -368,6 +503,28 @@ const Conductor = () => {
         />
       )}
 
+      {showEditModal && editingConductor && (
+        <EditConductorModal
+          conductor={editingConductor}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingConductor(null);
+          }}
+          onSuccess={() => {
+            setShowEditModal(false);
+            setEditingConductor(null);
+            // Force refresh after update to ensure real-time update
+            setTimeout(() => {
+              conductorService.refreshConductorsList().then(result => {
+                if (result.success) {
+                  setConductors(result.conductors);
+                }
+              });
+            }, 1000);
+          }}
+        />
+      )}
+
     </div>
   );
 };
@@ -378,7 +535,8 @@ const AddConductorModal = ({ onClose, onSuccess }) => {
     email: '',
     name: '',
     route: '',
-    password: ''
+    password: '',
+    plateNumber: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -484,6 +642,19 @@ const AddConductorModal = ({ onClose, onSuccess }) => {
             </div>
 
             <div className="form-group">
+              <label htmlFor="plateNumber">Plate Number</label>
+              <input
+                type="text"
+                id="plateNumber"
+                name="plateNumber"
+                value={formData.plateNumber}
+                onChange={handleChange}
+                placeholder="Enter plate number (e.g., ABC-1234)"
+                required
+              />
+            </div>
+
+            <div className="form-group">
               <label htmlFor="password">Password</label>
               <input
                 type="password"
@@ -528,8 +699,250 @@ const AddConductorModal = ({ onClose, onSuccess }) => {
   );
 };
 
+const EditConductorModal = ({ conductor, onClose, onSuccess }) => {
+  const [formData, setFormData] = useState({
+    busNumber: conductor?.busNumber || '',
+    email: conductor?.email || '',
+    name: conductor?.name || '',
+    route: conductor?.route || '',
+    plateNumber: conductor?.plateNumber || ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const result = await conductorService.updateConductor(conductor.id, {
+        busNumber: parseInt(formData.busNumber),
+        name: formData.name,
+        route: formData.route,
+        plateNumber: formData.plateNumber
+      });
+
+      if (result.success) {
+        console.log('Conductor updated successfully');
+        onSuccess();
+      } else {
+        throw new Error(result.error || 'Failed to update conductor');
+      }
+    } catch (error) {
+      console.error('Error updating conductor:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Edit Conductor</h2>
+          <button className="close-btn" onClick={onClose}>×</button>
+        </div>
+
+        <div className="modal-body">
+          <form onSubmit={handleSubmit} className="edit-conductor-form">
+            {error && (
+              <div className="error-message">
+                {error}
+              </div>
+            )}
+
+            <div className="form-group">
+              <label htmlFor="edit-name">Full Name</label>
+              <input
+                type="text"
+                id="edit-name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="Enter conductor's full name"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="edit-email">Email Address</label>
+              <input
+                type="email"
+                id="edit-email"
+                name="email"
+                value={formData.email}
+                disabled
+                title="Email cannot be changed"
+                className="disabled-field"
+              />
+              <small className="field-note">Email cannot be changed</small>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="edit-busNumber">Bus Number</label>
+              <input
+                type="number"
+                id="edit-busNumber"
+                name="busNumber"
+                value={formData.busNumber}
+                onChange={handleChange}
+                placeholder="Enter bus number"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="edit-route">Route</label>
+              <input
+                type="text"
+                id="edit-route"
+                name="route"
+                value={formData.route}
+                onChange={handleChange}
+                placeholder="Enter route (e.g., Batangas - Manila)"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="edit-plateNumber">Plate Number</label>
+              <input
+                type="text"
+                id="edit-plateNumber"
+                name="plateNumber"
+                value={formData.plateNumber}
+                onChange={handleChange}
+                placeholder="Enter plate number (e.g., ABC-1234)"
+                required
+              />
+            </div>
+
+            <div className="form-actions">
+              <button
+                type="button"
+                className="cancel-btn"
+                onClick={onClose}
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="submit-btn"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <div className="loading-spinner-small"></div>
+                    Updating...
+                  </>
+                ) : (
+                  'Update Conductor'
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ENHANCED: Real-time Conductor Details Component
 const ConductorDetails = ({ conductor }) => {
+  // Helper function to extract bus number from conductor name
+  const extractBusNumber = (name) => {
+    if (!name) return 'N/A';
+    // Extract number from patterns like "Batangas 2 Conductor" or "Route_123"
+    const numberMatch = name.match(/\b(\d+)\b/);
+    return numberMatch ? numberMatch[1] : 'N/A';
+  };
+
+  // Helper function to get day based on plate number coding
+  const getCodingDay = (plateNumber) => {
+    if (!plateNumber) return 'Unknown';
+    const lastDigit = plateNumber.slice(-1);
+    switch (lastDigit) {
+      case '1':
+      case '2':
+        return 'Monday';
+      case '3':
+      case '4':
+        return 'Tuesday';
+      case '5':
+      case '6':
+        return 'Wednesday';
+      case '7':
+      case '8':
+        return 'Thursday';
+      case '9':
+      case '0':
+        return 'Friday';
+      default:
+        return 'Unknown';
+    }
+  };
+
+  // Helper function to check if bus is available for reservation today (ON coding day)
+  const isBusAvailableForReservation = (plateNumber) => {
+    if (!plateNumber) return false;
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const codingDay = getCodingDay(plateNumber);
+
+    const dayMap = {
+      'Monday': 1,
+      'Tuesday': 2,
+      'Wednesday': 3,
+      'Thursday': 4,
+      'Friday': 5
+    };
+
+    return dayMap[codingDay] === dayOfWeek;
+  };
+
+  const getBusAvailabilityStatus = (conductor) => {
+    if (!conductor.plateNumber) return 'unknown';
+
+    const isOnline = conductor.isOnline;
+    const isAvailableToday = isBusAvailableForReservation(conductor.plateNumber);
+
+    if (isOnline && isAvailableToday) {
+      return 'online-available';
+    } else if (isOnline && !isAvailableToday) {
+      return 'online-not-coding';
+    } else if (!isOnline && isAvailableToday) {
+      return 'offline-coding';
+    } else {
+      return 'offline-not-coding';
+    }
+  };
+
+  const getStatusDisplayInfo = (status) => {
+    switch (status) {
+      case 'online-available':
+        return { text: 'Available for Reservation', class: 'available', color: '#4CAF50' };
+      case 'online-not-coding':
+        return { text: 'Online (Not Coding Day)', class: 'online-not-coding', color: '#FF9800' };
+      case 'offline-coding':
+        return { text: 'Offline (Coding Day)', class: 'offline-coding', color: '#2196F3' };
+      case 'offline-not-coding':
+        return { text: 'Offline (Not Coding Day)', class: 'offline', color: '#9E9E9E' };
+      default:
+        return { text: 'Unknown Status', class: 'unknown', color: '#757575' };
+    }
+  };
+
   return (
     <div className="conductor-details-content">
       <div className="details-header">
@@ -562,6 +975,10 @@ const ConductorDetails = ({ conductor }) => {
           <div className="detail-item">
             <span className="label">Bus Number:</span>
             <span className="value">#{conductor.busNumber || 'N/A'}</span>
+          </div>
+          <div className="detail-item">
+            <span className="label">Plate Number:</span>
+            <span className="value">{conductor.plateNumber || 'N/A'}</span>
           </div>
           <div className="detail-item">
             <span className="label">Last Seen:</span>
@@ -605,6 +1022,40 @@ const ConductorDetails = ({ conductor }) => {
           ) : (
             <p>No location data available</p>
           )}
+        </div>
+
+        <div className="detail-section">
+          <h3>Bus Reservation Status</h3>
+          <div className="detail-item">
+            <span className="label">Bus Number:</span>
+            <span className="value">#{extractBusNumber(conductor.name)}</span>
+          </div>
+          <div className="detail-item">
+            <span className="label">Plate Number:</span>
+            <span className="value">{conductor.plateNumber || 'N/A'}</span>
+          </div>
+          <div className="detail-item">
+            <span className="label">Coding Day:</span>
+            <span className="value">{getCodingDay(conductor.plateNumber)}</span>
+          </div>
+          <div className="detail-item">
+            <span className="label">Availability Status:</span>
+            <span
+              className={`value ${getStatusDisplayInfo(getBusAvailabilityStatus(conductor)).class}`}
+              style={{
+                color: getStatusDisplayInfo(getBusAvailabilityStatus(conductor)).color,
+                fontWeight: 'bold'
+              }}
+            >
+              {getStatusDisplayInfo(getBusAvailabilityStatus(conductor)).text}
+            </span>
+          </div>
+          <div className="detail-item">
+            <span className="label">Available for Reservation Today:</span>
+            <span className="value">
+              {conductor.plateNumber && isBusAvailableForReservation(conductor.plateNumber) ? 'Yes (Coding Day)' : 'No (Not Coding Day)'}
+            </span>
+          </div>
         </div>
 
         <div className="detail-section">
