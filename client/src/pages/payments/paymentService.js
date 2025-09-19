@@ -6,6 +6,7 @@ import {
   onSnapshot,
   doc,
   updateDoc,
+  deleteDoc,
   serverTimestamp,
   getDocs
 } from 'firebase/firestore';
@@ -19,82 +20,123 @@ class PaymentService {
     const q = query(reservationsRef, orderBy('timestamp', 'desc'));
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const reservationsList = [];
+      try {
+        // Process reservations immediately for basic data
+        const reservationsList = snapshot.docs.map(doc => {
+          const data = doc.data();
 
-      // Process reservations and fetch bus prices
-      for (const doc of snapshot.docs) {
-        const data = doc.data();
+          // Get price from reservation data first
+          let busPrice = data.totalAmount || data.amount || data.Price || data.price || 2000;
 
-        // Try to get the actual bus price from multiple sources
-        let busPrice = data.totalAmount || data.amount || data.Price || data.price || 0;
-
-        // If no price found in reservation data, try to fetch from bus data
-        if (busPrice === 0 && data.selectedBusIds && data.selectedBusIds.length > 0) {
-          try {
-            // Try to fetch bus data by plate number first
-            const busRef = collection(db, 'AvailableBuses');
-            let busQuery = query(busRef, where('plateNumber', '==', data.selectedBusIds[0]));
-            let busSnapshot = await getDocs(busQuery);
-
-            // If not found by plate number, try by bus number
-            if (busSnapshot.empty) {
-              busQuery = query(busRef, where('busID', '==', data.selectedBusIds[0]));
-              busSnapshot = await getDocs(busQuery);
-            }
-
-            // If still not found, try matching by name containing the bus number
-            if (busSnapshot.empty) {
-              const allBusesSnapshot = await getDocs(busRef);
-              allBusesSnapshot.forEach((busDoc) => {
-                const busData = busDoc.data();
-                if (busData.name && busData.name.includes(data.selectedBusIds[0])) {
-                  busPrice = busData.Price || busPrice;
-                }
-              });
-            } else {
-              const busData = busSnapshot.docs[0].data();
-              busPrice = busData.Price || busPrice;
-            }
-          } catch (error) {
-            console.warn('Error fetching bus price:', error);
-          }
-        }
-
-        // If still no price found, check if this is an old reservation and set a default
-        if (busPrice === 0) {
-          // For existing reservations without price data, use a reasonable default
-          busPrice = 2000; // Keep existing reservations at 2000 for backwards compatibility
-        }
-
-        // Transform reservation data to match payment structure
-        reservationsList.push({
-          id: doc.id,
-          ...data,
-          // Map reservation fields to payment fields for compatibility
-          type: 'bus_reservation',
-          bookingReference: doc.id,
-          passengerName: data.fullName,
-          route: `${data.from} → ${data.to}`,
-          amount: busPrice,
-          paymentMethod: data.paymentMethod || 'Unknown',
-          status: data.paymentStatus || 'pending',
-          createdAt: data.timestamp,
-          busNumber: data.selectedBusIds?.[0] || 'N/A',
-          travelDate: data.travelDate || data.timestamp,
-          // Payment proof/receipt from user
-          paymentProof: data.paymentProof || data.receiptImage || data.paymentReceipt,
-          // Keep original reservation data
-          originalReservation: data
+          // Transform reservation data to match payment structure
+          return {
+            id: doc.id,
+            ...data,
+            // Map reservation fields to payment fields for compatibility
+            type: 'bus_reservation',
+            bookingReference: doc.id,
+            passengerName: data.fullName,
+            route: `${data.from} → ${data.to}`,
+            amount: busPrice,
+            paymentMethod: data.paymentMethod || 'Unknown',
+            status: data.paymentStatus || 'pending',
+            createdAt: data.timestamp,
+            busNumber: data.selectedBusIds?.[0] || 'N/A',
+            travelDate: data.travelDate || data.timestamp,
+            // Payment proof/receipt from user
+            paymentProof: data.paymentProof || data.receiptImage || data.paymentReceipt,
+            // Keep original reservation data
+            originalReservation: data
+          };
         });
-      }
 
-      callback(reservationsList);
+        // Send immediate update to UI
+        callback(reservationsList);
+
+        // Then fetch missing bus prices in background (if needed)
+        const needsPriceUpdate = reservationsList.some(reservation =>
+          reservation.amount === 2000 &&
+          reservation.originalReservation.selectedBusIds?.length > 0 &&
+          !reservation.originalReservation.totalAmount &&
+          !reservation.originalReservation.amount
+        );
+
+        if (needsPriceUpdate) {
+          // Background price fetching without blocking UI updates
+          this.updateReservationPrices(reservationsList, callback);
+        }
+
+      } catch (error) {
+        console.error('Error processing reservations snapshot:', error);
+        callback([], error);
+      }
     }, (error) => {
       console.error('Error fetching reservations:', error);
       callback([], error);
     });
 
     return unsubscribe;
+  }
+
+  // Background method to update reservation prices without blocking UI
+  async updateReservationPrices(reservationsList, callback) {
+    try {
+      const updatedReservations = [...reservationsList];
+      let hasUpdates = false;
+
+      for (let i = 0; i < updatedReservations.length; i++) {
+        const reservation = updatedReservations[i];
+
+        // Skip if already has proper price
+        if (reservation.amount !== 2000 || !reservation.originalReservation.selectedBusIds?.length) {
+          continue;
+        }
+
+        try {
+          // Try to fetch bus data by plate number first
+          const busRef = collection(db, 'AvailableBuses');
+          let busQuery = query(busRef, where('plateNumber', '==', reservation.originalReservation.selectedBusIds[0]));
+          let busSnapshot = await getDocs(busQuery);
+
+          // If not found by plate number, try by bus number
+          if (busSnapshot.empty) {
+            busQuery = query(busRef, where('busID', '==', reservation.originalReservation.selectedBusIds[0]));
+            busSnapshot = await getDocs(busQuery);
+          }
+
+          // If still not found, try matching by name containing the bus number
+          if (busSnapshot.empty) {
+            const allBusesSnapshot = await getDocs(busRef);
+            allBusesSnapshot.forEach((busDoc) => {
+              const busData = busDoc.data();
+              if (busData.name && busData.name.includes(reservation.originalReservation.selectedBusIds[0])) {
+                updatedReservations[i] = {
+                  ...updatedReservations[i],
+                  amount: busData.Price || 2000
+                };
+                hasUpdates = true;
+              }
+            });
+          } else {
+            const busData = busSnapshot.docs[0].data();
+            updatedReservations[i] = {
+              ...updatedReservations[i],
+              amount: busData.Price || 2000
+            };
+            hasUpdates = true;
+          }
+        } catch (error) {
+          console.warn('Error fetching bus price for reservation:', reservation.id, error);
+        }
+      }
+
+      // Only call callback if there were actual price updates
+      if (hasUpdates) {
+        callback(updatedReservations);
+      }
+    } catch (error) {
+      console.error('Error updating reservation prices:', error);
+    }
   }
 
   // Handle reservation payment verification actions
@@ -165,6 +207,37 @@ class PaymentService {
 
     } catch (error) {
       console.error(`Error ${action}ing reservation payment:`, error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // Delete payment record
+  async deletePayment(reservationId) {
+    try {
+      // Delete reservation document
+      const reservationRef = doc(db, 'reservations', reservationId);
+      await deleteDoc(reservationRef);
+
+      // Log activity
+      await logActivity(
+        ACTIVITY_TYPES.PAYMENT_DELETE,
+        `Payment record deleted: ${reservationId}`,
+        {
+          reservationId: reservationId,
+          action: 'delete'
+        }
+      );
+
+      return {
+        success: true,
+        message: 'Payment record deleted successfully'
+      };
+
+    } catch (error) {
+      console.error('Error deleting payment record:', error);
       return {
         success: false,
         error: error.message

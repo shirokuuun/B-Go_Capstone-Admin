@@ -4,7 +4,6 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Layout from "/src/components/layout/layout.jsx";
 import Dashboard from "/src/pages/dashboard/dashboard.jsx";
-import BusReservation from "/src/pages/BusReservation/BusReservation.jsx";
 import IDVerification from "/src/pages/verification/IDVerification.jsx";
 import TripSchedules from "./pages/schedules/TripSchedules.jsx";
 import Ticketing from "/src/pages/ticketing/ticketing.jsx";
@@ -57,14 +56,6 @@ createRoot(document.getElementById("root")).render(
             element={
               <PageTransitionWrapper>
                 <Dashboard />
-              </PageTransitionWrapper>
-            }
-          />
-          <Route
-            path="reservation"
-            element={
-              <PageTransitionWrapper>
-                <BusReservation />
               </PageTransitionWrapper>
             }
           />

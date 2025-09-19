@@ -17,7 +17,8 @@ import {
   FaTimesCircle,
   FaReceipt,
   FaClipboardCheck,
-  FaRedo
+  FaRedo,
+  FaTrash
 } from 'react-icons/fa';
 
 function PaymentTransactions() {
@@ -70,6 +71,36 @@ function PaymentTransactions() {
     } catch (error) {
       console.error('Error handling payment action:', error);
       alert(`Error: ${error.message}`);
+    } finally {
+      setProcessingPayment(null);
+    }
+  };
+
+  // Handle payment deletion
+  const handleDeletePayment = async (paymentId) => {
+    if (!window.confirm('Are you sure you want to delete this payment record? This action cannot be undone.')) {
+      return;
+    }
+
+    setProcessingPayment(paymentId);
+
+    try {
+      const result = await paymentService.deletePayment(paymentId);
+
+      if (result.success) {
+        // Close modal if open
+        setSelectedPayment(null);
+
+        // Optimistic update - remove from local state immediately
+        setPayments(prevPayments =>
+          prevPayments.filter(payment => payment.id !== paymentId)
+        );
+      } else {
+        alert(`Error deleting payment: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error deleting payment:', error);
+      alert(`Error deleting payment: ${error.message}`);
     } finally {
       setProcessingPayment(null);
     }
@@ -292,6 +323,13 @@ function PaymentTransactions() {
                     >
                       <FaEye /> View Details & Verify Receipt
                     </button>
+                    <button
+                      className="action-btn delete"
+                      onClick={() => handleDeletePayment(payment.id)}
+                      disabled={processingPayment === payment.id}
+                    >
+                      <FaTrash /> {processingPayment === payment.id ? 'Deleting...' : 'Delete'}
+                    </button>
                   </div>
                 </div>
               );
@@ -306,6 +344,7 @@ function PaymentTransactions() {
           payment={selectedPayment}
           onClose={() => setSelectedPayment(null)}
           onAction={handlePaymentAction}
+          onDelete={handleDeletePayment}
           processing={processingPayment === selectedPayment.id}
           onViewImage={(imageUrl) => {
             setSelectedImage(imageUrl);
@@ -330,7 +369,7 @@ function PaymentTransactions() {
 }
 
 // Payment Details Modal Component
-const PaymentDetailsModal = ({ payment, onClose, onAction, processing, onViewImage, formatDate }) => {
+const PaymentDetailsModal = ({ payment, onClose, onAction, onDelete, processing, onViewImage, formatDate }) => {
   const [reason, setReason] = useState('');
   const [actionType, setActionType] = useState('');
 
@@ -493,6 +532,26 @@ const PaymentDetailsModal = ({ payment, onClose, onAction, processing, onViewIma
                 </div>
               </div>
             )}
+
+            {/* Delete Section */}
+            <div className="action-section delete-section">
+              <h3><FaTrash /> Delete Payment Record</h3>
+              <p className="action-instruction">
+                Permanently delete this payment record from the system. This action cannot be undone.
+              </p>
+              <div className="action-buttons">
+                <button
+                  className="action-btn delete"
+                  onClick={() => onDelete(payment.id)}
+                  disabled={processing}
+                >
+                  <FaTrash /> Delete Payment Record
+                </button>
+              </div>
+              <div className="action-note">
+                <strong>Warning:</strong> This will permanently remove the payment record from the database.
+              </div>
+            </div>
           </div>
         </div>
       </div>
