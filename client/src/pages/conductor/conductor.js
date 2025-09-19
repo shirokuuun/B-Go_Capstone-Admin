@@ -490,34 +490,35 @@ class ConductorService {
               }
             }
 
-            // Auto-sync bus availability status if it's outdated (preserve manually set "reserved" status)
-            if (conductorData.plateNumber) {
-              // Skip auto-sync entirely if status is manually set to "reserved"
-              if (conductorData.busAvailabilityStatus !== 'reserved') {
-                const currentAvailableForReservation = this.isBusAvailableForReservationToday(conductorData.plateNumber);
-                const currentBusAvailabilityStatus = this.calculateBusAvailabilityStatus(conductorData.plateNumber, conductorData.isOnline);
-
-                // Only auto-update if values don't match computed values
-                const shouldUpdateStatus = conductorData.availableForReservation !== currentAvailableForReservation ||
-                                         conductorData.busAvailabilityStatus !== currentBusAvailabilityStatus;
-
-                if (shouldUpdateStatus) {
-                  try {
-                    await updateDoc(doc.ref, {
-                      availableForReservation: currentAvailableForReservation,
-                      busAvailabilityStatus: currentBusAvailabilityStatus,
-                      updatedAt: serverTimestamp()
-                    });
-
-                    // Update the local data to reflect the changes
-                    conductorData.availableForReservation = currentAvailableForReservation;
-                    conductorData.busAvailabilityStatus = currentBusAvailabilityStatus;
-                  } catch (statusUpdateError) {
-                    console.warn(`⚠️ Failed to update bus availability status for ${doc.id}:`, statusUpdateError);
-                  }
-                }
-              }
-            }
+            // DISABLED: Auto-sync bus availability status to prevent permission errors during reservation creation
+            // The mobile app will handle updating conductor availability status directly
+            // if (conductorData.plateNumber) {
+            //   // Skip auto-sync entirely if status is manually set to "reserved"
+            //   if (conductorData.busAvailabilityStatus !== 'reserved') {
+            //     const currentAvailableForReservation = this.isBusAvailableForReservationToday(conductorData.plateNumber);
+            //     const currentBusAvailabilityStatus = this.calculateBusAvailabilityStatus(conductorData.plateNumber, conductorData.isOnline);
+            //
+            //     // Only auto-update if values don't match computed values
+            //     const shouldUpdateStatus = conductorData.availableForReservation !== currentAvailableForReservation ||
+            //                              conductorData.busAvailabilityStatus !== currentBusAvailabilityStatus;
+            //
+            //     if (shouldUpdateStatus) {
+            //       try {
+            //         await updateDoc(doc.ref, {
+            //           availableForReservation: currentAvailableForReservation,
+            //           busAvailabilityStatus: currentBusAvailabilityStatus,
+            //           updatedAt: serverTimestamp()
+            //         });
+            //
+            //         // Update the local data to reflect the changes
+            //         conductorData.availableForReservation = currentAvailableForReservation;
+            //         conductorData.busAvailabilityStatus = currentBusAvailabilityStatus;
+            //       } catch (statusUpdateError) {
+            //         console.warn(`⚠️ Failed to update bus availability status for ${doc.id}:`, statusUpdateError);
+            //       }
+            //     }
+            //   }
+            // }
 
             return {
               id: doc.id,
@@ -583,34 +584,35 @@ class ConductorService {
         if (doc.exists()) {
           const conductorData = doc.data();
 
-          // Auto-sync bus availability status if it's outdated (preserve manually set "reserved" status)
-          if (conductorData.plateNumber) {
-            // Skip auto-sync entirely if status is manually set to "reserved"
-            if (conductorData.busAvailabilityStatus !== 'reserved') {
-              const currentAvailableForReservation = this.isBusAvailableForReservationToday(conductorData.plateNumber);
-              const currentBusAvailabilityStatus = this.calculateBusAvailabilityStatus(conductorData.plateNumber, conductorData.isOnline);
-
-              // Only auto-update if values don't match computed values
-              const shouldUpdateStatus = conductorData.availableForReservation !== currentAvailableForReservation ||
-                                       conductorData.busAvailabilityStatus !== currentBusAvailabilityStatus;
-
-              if (shouldUpdateStatus) {
-                try {
-                  await updateDoc(doc.ref, {
-                    availableForReservation: currentAvailableForReservation,
-                    busAvailabilityStatus: currentBusAvailabilityStatus,
-                    updatedAt: serverTimestamp()
-                  });
-
-                  // Update the local data to reflect the changes
-                  conductorData.availableForReservation = currentAvailableForReservation;
-                  conductorData.busAvailabilityStatus = currentBusAvailabilityStatus;
-                } catch (statusUpdateError) {
-                  console.warn(`⚠️ Failed to update bus availability status for ${conductorId}:`, statusUpdateError);
-                }
-              }
-            }
-          }
+          // DISABLED: Auto-sync bus availability status to prevent permission errors during reservation creation
+          // The mobile app will handle updating conductor availability status directly
+          // if (conductorData.plateNumber) {
+          //   // Skip auto-sync entirely if status is manually set to "reserved"
+          //   if (conductorData.busAvailabilityStatus !== 'reserved') {
+          //     const currentAvailableForReservation = this.isBusAvailableForReservationToday(conductorData.plateNumber);
+          //     const currentBusAvailabilityStatus = this.calculateBusAvailabilityStatus(conductorData.plateNumber, conductorData.isOnline);
+          //
+          //     // Only auto-update if values don't match computed values
+          //     const shouldUpdateStatus = conductorData.availableForReservation !== currentAvailableForReservation ||
+          //                              conductorData.busAvailabilityStatus !== currentBusAvailabilityStatus;
+          //
+          //     if (shouldUpdateStatus) {
+          //       try {
+          //         await updateDoc(doc.ref, {
+          //           availableForReservation: currentAvailableForReservation,
+          //           busAvailabilityStatus: currentBusAvailabilityStatus,
+          //           updatedAt: serverTimestamp()
+          //         });
+          //
+          //         // Update the local data to reflect the changes
+          //         conductorData.availableForReservation = currentAvailableForReservation;
+          //         conductorData.busAvailabilityStatus = currentBusAvailabilityStatus;
+          //       } catch (statusUpdateError) {
+          //         console.warn(`⚠️ Failed to update bus availability status for ${conductorId}:`, statusUpdateError);
+          //       }
+          //     }
+          //   }
+          // }
 
           // Get trips data when conductor data changes
           const { allTrips } = await this.getConductorTrips(conductorId, 10); // Latest 10 trips
