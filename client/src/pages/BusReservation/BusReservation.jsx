@@ -373,7 +373,7 @@ function EditBusModal({ onClose, onUpdate, loading, initialData }) {
     name: '',
     plateNumber: '',
     codingDays: [],
-    Price: 2000
+    Price: 0
   });
 
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -384,7 +384,7 @@ function EditBusModal({ onClose, onUpdate, loading, initialData }) {
         name: initialData.name || '',
         plateNumber: initialData.plateNumber || '',
         codingDays: initialData.codingDays || [],
-        Price: initialData.Price || 2000
+        Price: initialData.Price || 0
       });
     }
   }, [initialData]);
@@ -453,7 +453,7 @@ function EditBusModal({ onClose, onUpdate, loading, initialData }) {
               type="number"
               className="bus-reservation-form-input"
               value={formData.Price}
-              onChange={(e) => setFormData({ ...formData, Price: parseInt(e.target.value) || 2000 })}
+              onChange={(e) => setFormData({ ...formData, Price: parseInt(e.target.value) || 0 })}
               min="1"
               required
             />

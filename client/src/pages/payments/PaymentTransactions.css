@@ -321,6 +321,7 @@
   color: white;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  margin-right: 10px;
 }
 
 .payment-amount {
@@ -339,7 +340,7 @@
   border-radius: 12px;
   padding: 15px;
   margin-bottom: 15px;
-  border-left: 4px solid #2196F3;
+  border-left: 4px solid #007c91;
 }
 
 .detail-row {

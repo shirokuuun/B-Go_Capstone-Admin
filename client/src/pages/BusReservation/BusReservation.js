@@ -46,7 +46,7 @@ export const addNewBus = async (busData) => {
       name: busData.name,
       plateNumber: busData.plateNumber,
       codingDays: busData.codingDays,
-      Price: 2000, 
+      Price: busData.Price || 0, 
       busID: busData.plateNumber, 
       status: 'active',
       createdAt: new Date(),
@@ -353,7 +353,7 @@ export const updateBus = async (busId, busData) => {
       name: busData.name,
       plateNumber: busData.plateNumber,
       codingDays: busData.codingDays || [],
-      Price: busData.Price || 2000,
+      Price: busData.Price || 0,
       busID: busData.plateNumber,
       updatedAt: Timestamp.fromDate(new Date())
     };

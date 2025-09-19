@@ -298,8 +298,6 @@ const UserManagement = () => {
             <option value="email-desc">Email (Z-A)</option>
             <option value="createdAt-desc">Newest First</option>
             <option value="createdAt-asc">Oldest First</option>
-            <option value="lastLogin-desc">Recent Login</option>
-            <option value="lastLogin-asc">Oldest Login</option>
           </select>
         </div>
         <div className="usermgmt-stats">

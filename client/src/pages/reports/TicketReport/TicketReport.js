@@ -469,17 +469,16 @@ export const getRoutePerformanceData = async (timeRange, route, ticketType = '')
       const routeTrips = allTrips.filter(trip => trip.tripDirection === routeData.route);
       
       // Group trips by unique trip identifier to count actual trips (not individual tickets)
+      // Use the same logic as Daily Revenue Report for consistency
       const uniqueTrips = new Set();
       routeTrips.forEach(trip => {
-        // Create a unique identifier for each trip using conductor, date, and trip name
-        // This ensures trips with same name but different days/conductors are counted separately
-        const tripDate = trip.date || trip.createdAt || 'unknown-date';
-        const conductorId = trip.conductorId || trip.conductor || 'unknown-conductor';
-        const tripName = trip.tripId || trip.tripNumber || trip.id || 'unknown-trip';
-        const tripId = `${conductorId}_${tripDate}_${tripName}`;
-        uniqueTrips.add(tripId);
+        // Use same format as Daily Revenue Report: conductorId_date_tripId
+        if (trip.conductorId && trip.tripId) {
+          const tripDate = trip.date || trip.createdAt || 'unknown-date';
+          uniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripId}`);
+        }
       });
-      
+
       const numberOfTrips = uniqueTrips.size > 0 ? uniqueTrips.size : routeTrips.length;
       const averagePassengersPerTrip = numberOfTrips > 0 ? routeData.passengers / numberOfTrips : routeData.passengers;
       const utilization = Math.round((averagePassengersPerTrip / 27) * 100); // Based on 27-passenger capacity

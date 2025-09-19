@@ -849,32 +849,6 @@ const RemittanceReport = () => {
             </button>
           </div>
 
-          {/* Filter Summary */}
-          {(selectedTicketType || selectedTripDirection || selectedConductor) && (
-            <div className="revenue-breakdown-section" style={{ marginBottom: '20px' }}>
-              <h3 className="revenue-breakdown-title">Active Filters</h3>
-              <div style={{ padding: '15px', backgroundColor: '#e3f2fd', borderRadius: '8px' }}>
-                {selectedTicketType && (
-                  <p style={{ margin: '5px 0', color: '#1565c0' }}>
-                    <strong>Ticket Type:</strong> {selectedTicketType}
-                  </p>
-                )}
-                {selectedTripDirection && (
-                  <p style={{ margin: '5px 0', color: '#1565c0' }}>
-                    <strong>Trip Direction:</strong> {selectedTripDirection}
-                  </p>
-                )}
-                {selectedConductor && (
-                  <p style={{ margin: '5px 0', color: '#1565c0' }}>
-                    <strong>Conductor:</strong> {selectedConductor}
-                  </p>
-                )}
-                <p style={{ margin: '5px 0', fontSize: '14px', color: '#666' }}>
-                  Showing {filteredRemittanceData.length} of {remittanceData.length} total trips
-                </p>
-              </div>
-            </div>
-          )}
 
           {/* Main Remittance Table */}
           <div className="revenue-breakdown-section">

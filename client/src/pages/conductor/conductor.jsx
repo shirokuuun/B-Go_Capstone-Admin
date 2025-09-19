@@ -61,6 +61,12 @@ const Conductor = () => {
   const getBusAvailabilityStatus = (conductor) => {
     if (!conductor.plateNumber) return 'unknown';
 
+    // First check if there's a manually set status in Firestore
+    if (conductor.busAvailabilityStatus) {
+      return conductor.busAvailabilityStatus;
+    }
+
+    // Fall back to computed status based on coding day
     const isReservationDay = isBusAvailableForReservation(conductor.plateNumber);
 
     if (isReservationDay) return 'available'; // Available for reservation on coding day
@@ -72,7 +78,10 @@ const Conductor = () => {
     switch (status) {
       case 'available':
         return { text: 'Available for Reservation', class: 'status-available', color: '#4CAF50' };
+      case 'reserved':
+        return { text: 'Reserved', class: 'status-reserved', color: '#FF9800' };
       case 'not_available':
+      case 'not-available':
         return { text: 'Not Available for Reservation', class: 'status-not-available', color: '#F44336' };
       default:
         return { text: 'Unknown', class: 'status-unknown', color: '#757575' };
@@ -914,30 +923,25 @@ const ConductorDetails = ({ conductor }) => {
   const getBusAvailabilityStatus = (conductor) => {
     if (!conductor.plateNumber) return 'unknown';
 
-    const isOnline = conductor.isOnline;
-    const isAvailableToday = isBusAvailableForReservation(conductor.plateNumber);
-
-    if (isOnline && isAvailableToday) {
-      return 'online-available';
-    } else if (isOnline && !isAvailableToday) {
-      return 'online-not-coding';
-    } else if (!isOnline && isAvailableToday) {
-      return 'offline-coding';
-    } else {
-      return 'offline-not-coding';
+    // First check if there's a manually set status in Firestore
+    if (conductor.busAvailabilityStatus) {
+      return conductor.busAvailabilityStatus;
     }
+
+    // Fall back to computed status based on coding day
+    const isAvailableToday = isBusAvailableForReservation(conductor.plateNumber);
+    return isAvailableToday ? 'available' : 'not-available';
   };
 
   const getStatusDisplayInfo = (status) => {
     switch (status) {
-      case 'online-available':
+      case 'available':
         return { text: 'Available for Reservation', class: 'available', color: '#4CAF50' };
-      case 'online-not-coding':
-        return { text: 'Online (Not Coding Day)', class: 'online-not-coding', color: '#FF9800' };
-      case 'offline-coding':
-        return { text: 'Offline (Coding Day)', class: 'offline-coding', color: '#2196F3' };
-      case 'offline-not-coding':
-        return { text: 'Offline (Not Coding Day)', class: 'offline', color: '#9E9E9E' };
+      case 'reserved':
+        return { text: 'Reserved', class: 'reserved', color: '#FF9800' };
+      case 'not-available':
+      case 'not_available':
+        return { text: 'Not Available for Reservation', class: 'not-available', color: '#F44336' };
       default:
         return { text: 'Unknown Status', class: 'unknown', color: '#757575' };
     }
@@ -1041,10 +1045,17 @@ const ConductorDetails = ({ conductor }) => {
           <div className="detail-item">
             <span className="label">Availability Status:</span>
             <span
-              className={`value ${getStatusDisplayInfo(getBusAvailabilityStatus(conductor)).class}`}
+              className={`value availability-status ${getStatusDisplayInfo(getBusAvailabilityStatus(conductor)).class}`}
               style={{
                 color: getStatusDisplayInfo(getBusAvailabilityStatus(conductor)).color,
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                border: `2px solid ${getStatusDisplayInfo(getBusAvailabilityStatus(conductor)).color}`,
+                display: 'inline-block',
+                minHeight: '20px',
+                textAlign: 'center'
               }}
             >
               {getStatusDisplayInfo(getBusAvailabilityStatus(conductor)).text}
@@ -1053,7 +1064,10 @@ const ConductorDetails = ({ conductor }) => {
           <div className="detail-item">
             <span className="label">Available for Reservation Today:</span>
             <span className="value">
-              {conductor.plateNumber && isBusAvailableForReservation(conductor.plateNumber) ? 'Yes (Coding Day)' : 'No (Not Coding Day)'}
+              {conductor.availableForReservation !== undefined
+                ? (conductor.availableForReservation ? 'Yes' : 'No (Reserved or Not Available)')
+                : (conductor.plateNumber && isBusAvailableForReservation(conductor.plateNumber) ? 'Yes (Coding Day)' : 'No (Not Coding Day)')
+              }
             </span>
           </div>
         </div>

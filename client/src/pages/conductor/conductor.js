@@ -463,24 +463,24 @@ class ConductorService {
     }
 
     const conductorsRef = collection(db, 'conductors');
-    
+
     const unsubscribe = onSnapshot(conductorsRef, async (snapshot) => {
       try {
         const conductors = [];
-        
+
         // Process conductors in parallel for better performance
         const conductorPromises = snapshot.docs
           .filter(doc => doc.data().status !== 'deleted') // Filter out deleted
           .map(async (doc) => {
           try {
             const conductorData = doc.data();
-            
+
             // Use remittance-based counting logic for accurate trip counts
             let tripsCount;
-            
+
             // Always calculate using the new remittance logic for accuracy
             tripsCount = await this.getConductorTripsCount(doc.id);
-            
+
             // Update the cache in the background for consistency
             if (conductorData.totalTrips !== tripsCount) {
               try {
@@ -489,7 +489,36 @@ class ConductorService {
                 console.warn(`⚠️ Failed to update cache for ${doc.id}:`, updateError);
               }
             }
-            
+
+            // Auto-sync bus availability status if it's outdated (preserve manually set "reserved" status)
+            if (conductorData.plateNumber) {
+              // Skip auto-sync entirely if status is manually set to "reserved"
+              if (conductorData.busAvailabilityStatus !== 'reserved') {
+                const currentAvailableForReservation = this.isBusAvailableForReservationToday(conductorData.plateNumber);
+                const currentBusAvailabilityStatus = this.calculateBusAvailabilityStatus(conductorData.plateNumber, conductorData.isOnline);
+
+                // Only auto-update if values don't match computed values
+                const shouldUpdateStatus = conductorData.availableForReservation !== currentAvailableForReservation ||
+                                         conductorData.busAvailabilityStatus !== currentBusAvailabilityStatus;
+
+                if (shouldUpdateStatus) {
+                  try {
+                    await updateDoc(doc.ref, {
+                      availableForReservation: currentAvailableForReservation,
+                      busAvailabilityStatus: currentBusAvailabilityStatus,
+                      updatedAt: serverTimestamp()
+                    });
+
+                    // Update the local data to reflect the changes
+                    conductorData.availableForReservation = currentAvailableForReservation;
+                    conductorData.busAvailabilityStatus = currentBusAvailabilityStatus;
+                  } catch (statusUpdateError) {
+                    console.warn(`⚠️ Failed to update bus availability status for ${doc.id}:`, statusUpdateError);
+                  }
+                }
+              }
+            }
+
             return {
               id: doc.id,
               ...conductorData,
@@ -504,15 +533,15 @@ class ConductorService {
             };
           }
         });
-        
+
         const results = await Promise.allSettled(conductorPromises);
-        
+
         results.forEach((result) => {
           if (result.status === 'fulfilled') {
             conductors.push(result.value);
           }
         });
-        
+
         callback(conductors);
       } catch (error) {
         console.error('Error in conductors listener:', error);
@@ -520,20 +549,20 @@ class ConductorService {
       }
     }, (error) => {
       console.error('Error setting up conductors listener:', error);
-      
+
       // Clean up all listeners on error
       if (this.cleanupOnError) {
         this.removeAllListeners();
       }
-      
+
       callback([]);
     });
-    
+
     this.listeners.set('conductors', unsubscribe);
-    
+
     // Also track globally
     window.firestoreListeners.push(unsubscribe);
-    
+
     return unsubscribe;
   }
 
@@ -541,41 +570,70 @@ class ConductorService {
   setupConductorDetailsListener(conductorId, callback) {
     // Remove existing listener for this conductor if it exists
     this.removeConductorDetailsListener(conductorId);
-    
+
     // Check listener limit
     if (this.listeners.size >= this.maxListeners) {
       this.removeAllListeners();
     }
 
     const conductorRef = doc(db, 'conductors', conductorId);
-    
+
     const unsubscribe = onSnapshot(conductorRef, async (doc) => {
       try {
         if (doc.exists()) {
           const conductorData = doc.data();
-          
+
+          // Auto-sync bus availability status if it's outdated (preserve manually set "reserved" status)
+          if (conductorData.plateNumber) {
+            // Skip auto-sync entirely if status is manually set to "reserved"
+            if (conductorData.busAvailabilityStatus !== 'reserved') {
+              const currentAvailableForReservation = this.isBusAvailableForReservationToday(conductorData.plateNumber);
+              const currentBusAvailabilityStatus = this.calculateBusAvailabilityStatus(conductorData.plateNumber, conductorData.isOnline);
+
+              // Only auto-update if values don't match computed values
+              const shouldUpdateStatus = conductorData.availableForReservation !== currentAvailableForReservation ||
+                                       conductorData.busAvailabilityStatus !== currentBusAvailabilityStatus;
+
+              if (shouldUpdateStatus) {
+                try {
+                  await updateDoc(doc.ref, {
+                    availableForReservation: currentAvailableForReservation,
+                    busAvailabilityStatus: currentBusAvailabilityStatus,
+                    updatedAt: serverTimestamp()
+                  });
+
+                  // Update the local data to reflect the changes
+                  conductorData.availableForReservation = currentAvailableForReservation;
+                  conductorData.busAvailabilityStatus = currentBusAvailabilityStatus;
+                } catch (statusUpdateError) {
+                  console.warn(`⚠️ Failed to update bus availability status for ${conductorId}:`, statusUpdateError);
+                }
+              }
+            }
+          }
+
           // Get trips data when conductor data changes
           const { allTrips } = await this.getConductorTrips(conductorId, 10); // Latest 10 trips
-          
+
           // Use remittance counting logic for trip counts
           const totalTrips = await this.getConductorTripsCount(conductorId);
-          
+
           // Calculate today trips using remittance logic
           const today = new Date().toISOString().split('T')[0];
           let todayTrips = 0;
-          
+
           try {
             const todayDocRef = doc(db, 'conductors', conductorId, 'dailyTrips', today);
             const todayDoc = await getDoc(todayDocRef);
-            
+
             if (todayDoc.exists()) {
               const tripNames = ['trip1', 'trip2', 'trip3', 'trip4', 'trip5', 'trip6', 'trip7', 'trip8', 'trip9', 'trip10'];
-              
+
               for (const tripName of tripNames) {
                 try {
                   const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', today, tripName, 'tickets', 'tickets');
                   const ticketsSnapshot = await getDocs(ticketsRef);
-                  
+
                   if (ticketsSnapshot.docs.length > 0) {
                     todayTrips++;
                   }
@@ -586,7 +644,7 @@ class ConductorService {
             }
           } catch (error) {
             }
-          
+
           callback({
             id: doc.id,
             ...conductorData,
@@ -617,7 +675,7 @@ class ConductorService {
       console.error('Error in conductor details listener:', error);
       callback(null);
     });
-    
+
     this.listeners.set(`conductor_details_${conductorId}`, unsubscribe);
     return unsubscribe;
   }
@@ -1322,12 +1380,14 @@ class ConductorService {
   async updateConductor(documentId, updateData) {
     try {
       const conductorRef = doc(db, 'conductors', documentId);
-      
-      // Check if conductor exists
-      const exists = await this.checkConductorExists(documentId);
-      if (!exists) {
+
+      // Check if conductor exists and get current data for logging
+      const conductorDoc = await getDoc(conductorRef);
+      if (!conductorDoc.exists()) {
         throw new Error('Conductor not found');
       }
+
+      const currentData = conductorDoc.data();
 
       const updatedData = {
         ...updateData,
@@ -1342,6 +1402,27 @@ class ConductorService {
       }
 
       await updateDoc(conductorRef, updatedData);
+
+      // Log the activity with details of what was changed
+      const changedFields = [];
+      Object.keys(updateData).forEach(key => {
+        if (currentData[key] !== updateData[key]) {
+          changedFields.push(`${key}: "${currentData[key]}" → "${updateData[key]}"`);
+        }
+      });
+
+      await logActivity(
+        ACTIVITY_TYPES.CONDUCTOR_UPDATE,
+        `Admin updated conductor: ${currentData.name || documentId}`,
+        {
+          conductorId: documentId,
+          conductorName: currentData.name,
+          plateNumber: currentData.plateNumber,
+          changes: changedFields,
+          updatedFields: Object.keys(updateData),
+          timestamp: new Date().toISOString()
+        }
+      );
 
       return {
         success: true,
@@ -1361,7 +1442,11 @@ class ConductorService {
   async updateConductorStatus(documentId, isOnline) {
     try {
       const conductorRef = doc(db, 'conductors', documentId);
-      
+
+      // Get current conductor data for logging
+      const conductorDoc = await getDoc(conductorRef);
+      const conductorData = conductorDoc.exists() ? conductorDoc.data() : {};
+
       const statusUpdate = {
         isOnline: isOnline,
         lastSeen: serverTimestamp(),
@@ -1370,6 +1455,21 @@ class ConductorService {
       };
 
       await updateDoc(conductorRef, statusUpdate);
+
+      // Log the activity
+      await logActivity(
+        ACTIVITY_TYPES.CONDUCTOR_UPDATE,
+        `Admin updated conductor status: ${conductorData.name || documentId} is now ${isOnline ? 'online' : 'offline'}`,
+        {
+          conductorId: documentId,
+          conductorName: conductorData.name,
+          plateNumber: conductorData.plateNumber,
+          previousStatus: conductorData.isOnline ? 'online' : 'offline',
+          newStatus: isOnline ? 'online' : 'offline',
+          action: 'status_change',
+          timestamp: new Date().toISOString()
+        }
+      );
 
       return {
         success: true,
@@ -1605,7 +1705,23 @@ class ConductorService {
     try {
       const conductorRef = doc(db, 'conductors', documentId);
       await setDoc(conductorRef, conductorData);
-      
+
+      // Log the activity
+      await logActivity(
+        ACTIVITY_TYPES.CONDUCTOR_CREATE,
+        `Admin created new conductor: ${conductorData.name}`,
+        {
+          conductorId: documentId,
+          conductorName: conductorData.name,
+          email: conductorData.email,
+          plateNumber: conductorData.plateNumber,
+          route: conductorData.route,
+          busNumber: conductorData.busNumber,
+          action: 'conductor_creation',
+          timestamp: new Date().toISOString()
+        }
+      );
+
       return {
         success: true,
         message: 'Conductor document created successfully'
@@ -1687,6 +1803,18 @@ class ConductorService {
       // Execute all updates in parallel
       await Promise.all(updatePromises);
 
+      // Log the activity
+      await logActivity(
+        ACTIVITY_TYPES.CONDUCTOR_UPDATE,
+        `Admin synchronized availability status for ${updatedCount} conductors`,
+        {
+          action: 'bulk_status_sync',
+          updatedCount: updatedCount,
+          totalProcessed: snapshot.docs.length,
+          timestamp: new Date().toISOString()
+        }
+      );
+
       return {
         success: true,
         message: `Successfully synced availability status for ${updatedCount} conductors`,
@@ -1725,8 +1853,19 @@ class ConductorService {
       
       // Execute all updates in parallel
       await Promise.all(updatePromises);
-      
-      
+
+      // Log the activity
+      await logActivity(
+        ACTIVITY_TYPES.CONDUCTOR_UPDATE,
+        `Admin synchronized trip counts for ${updatedCount} conductors`,
+        {
+          action: 'bulk_trip_count_sync',
+          updatedCount: updatedCount,
+          totalProcessed: snapshot.docs.length,
+          timestamp: new Date().toISOString()
+        }
+      );
+
       return {
         success: true,
         message: `Successfully synced trip counts for ${updatedCount} conductors`,

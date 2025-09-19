@@ -18,10 +18,54 @@ class PaymentService {
     const reservationsRef = collection(db, 'reservations');
     const q = query(reservationsRef, orderBy('timestamp', 'desc'));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
       const reservationsList = [];
-      snapshot.forEach((doc) => {
+
+      // Process reservations and fetch bus prices
+      for (const doc of snapshot.docs) {
         const data = doc.data();
+
+        // Try to get the actual bus price from multiple sources
+        let busPrice = data.totalAmount || data.amount || data.Price || data.price || 0;
+
+        // If no price found in reservation data, try to fetch from bus data
+        if (busPrice === 0 && data.selectedBusIds && data.selectedBusIds.length > 0) {
+          try {
+            // Try to fetch bus data by plate number first
+            const busRef = collection(db, 'AvailableBuses');
+            let busQuery = query(busRef, where('plateNumber', '==', data.selectedBusIds[0]));
+            let busSnapshot = await getDocs(busQuery);
+
+            // If not found by plate number, try by bus number
+            if (busSnapshot.empty) {
+              busQuery = query(busRef, where('busID', '==', data.selectedBusIds[0]));
+              busSnapshot = await getDocs(busQuery);
+            }
+
+            // If still not found, try matching by name containing the bus number
+            if (busSnapshot.empty) {
+              const allBusesSnapshot = await getDocs(busRef);
+              allBusesSnapshot.forEach((busDoc) => {
+                const busData = busDoc.data();
+                if (busData.name && busData.name.includes(data.selectedBusIds[0])) {
+                  busPrice = busData.Price || busPrice;
+                }
+              });
+            } else {
+              const busData = busSnapshot.docs[0].data();
+              busPrice = busData.Price || busPrice;
+            }
+          } catch (error) {
+            console.warn('Error fetching bus price:', error);
+          }
+        }
+
+        // If still no price found, check if this is an old reservation and set a default
+        if (busPrice === 0) {
+          // For existing reservations without price data, use a reasonable default
+          busPrice = 2000; // Keep existing reservations at 2000 for backwards compatibility
+        }
+
         // Transform reservation data to match payment structure
         reservationsList.push({
           id: doc.id,
@@ -31,7 +75,7 @@ class PaymentService {
           bookingReference: doc.id,
           passengerName: data.fullName,
           route: `${data.from} → ${data.to}`,
-          amount: data.totalAmount || 0,
+          amount: busPrice,
           paymentMethod: data.paymentMethod || 'Unknown',
           status: data.paymentStatus || 'pending',
           createdAt: data.timestamp,
@@ -42,7 +86,8 @@ class PaymentService {
           // Keep original reservation data
           originalReservation: data
         });
-      });
+      }
+
       callback(reservationsList);
     }, (error) => {
       console.error('Error fetching reservations:', error);
@@ -182,7 +227,7 @@ class PaymentService {
       bus_reservation: {
         icon: icons.FaBus || null,
         label: 'Bus Reservation',
-        color: '#2196F3'
+        color: '#007c91'
       },
       general: {
         icon: icons.FaMoneyBill || null,
