@@ -6,25 +6,18 @@ import {
   FaMoneyBill,
   FaTicketAlt,
   FaMobile,
-  FaCheck,
-  FaTimes,
   FaClock,
   FaEye,
-  FaFilter,
   FaSearch,
   FaExclamationTriangle,
   FaCheckCircle,
   FaTimesCircle,
-  FaReceipt,
-  FaClipboardCheck,
-  FaRedo,
   FaTrash
 } from 'react-icons/fa';
 
 function PaymentTransactions() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPayment, setSelectedPayment] = useState(null);
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -62,10 +55,7 @@ function PaymentTransactions() {
     try {
       const result = await paymentService.handlePaymentAction(reservationId, action, reason);
 
-      if (result.success) {
-        // Close modal if open
-        setSelectedPayment(null);
-      } else {
+      if (!result.success) {
         alert(`Error: ${result.error}`);
       }
     } catch (error) {
@@ -88,9 +78,6 @@ function PaymentTransactions() {
       const result = await paymentService.deletePayment(paymentId);
 
       if (result.success) {
-        // Close modal if open
-        setSelectedPayment(null);
-
         // Optimistic update - remove from local state immediately
         setPayments(prevPayments =>
           prevPayments.filter(payment => payment.id !== paymentId)
@@ -205,9 +192,9 @@ function PaymentTransactions() {
             >
               <option value="all">All Status</option>
               <option value="pending">Pending</option>
-              <option value="under_review">Under Review</option>
-              <option value="verified">Verified</option>
-              <option value="rejected">Rejected</option>
+              <option value="receipt_uploaded">Receipt Uploaded</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="cancelled">Cancelled</option>
             </select>
           </div>
 
@@ -260,13 +247,13 @@ function PaymentTransactions() {
                           <strong>Booking:</strong> {payment.bookingReference}
                         </div>
                         <div className="detail-row">
-                          <strong>Route:</strong> {payment.route}
+                          <strong>Route:</strong> {payment.from} → {payment.to}
                         </div>
                         <div className="detail-row">
-                          <strong>Bus:</strong> #{payment.busNumber}
+                          <strong>Selected Bus:</strong> {payment.selectedBusIds?.[0] || 'N/A'}
                         </div>
                         <div className="detail-row">
-                          <strong>Passenger:</strong> {payment.passengerName}
+                          <strong>Customer:</strong> {payment.fullName}
                         </div>
                         <div className="detail-row">
                           <strong>Email:</strong> {payment.email}
@@ -275,8 +262,18 @@ function PaymentTransactions() {
                           <strong>Trip Type:</strong> {payment.isRoundTrip ? 'Round Trip' : 'One Way'}
                         </div>
                         <div className="detail-row">
-                          <strong>Reserved:</strong> {formatDate(payment.timestamp)}
+                          <strong>Payment Method:</strong> {payment.paymentMethod}
                         </div>
+                        {payment.receiptUploadedAt && (
+                          <div className="detail-row">
+                            <strong>Receipt Uploaded:</strong> {formatDate(payment.receiptUploadedAt)}
+                          </div>
+                        )}
+                        {payment.reference && (
+                          <div className="detail-row">
+                            <strong>Reference:</strong> {payment.reference}
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -285,44 +282,51 @@ function PaymentTransactions() {
                         <div className="detail-row">
                           <strong>Payment Receipt:</strong>
                         </div>
-                        <div className="receipt-thumbnail-container">
+                        <div
+                          className="receipt-thumbnail-container"
+                          onClick={() => {
+                            setSelectedImage(payment.paymentProof);
+                            setShowImageModal(true);
+                          }}
+                        >
                           <img
                             src={payment.paymentProof}
                             alt="Payment receipt"
-                            className="receipt-thumbnail"
-                            onClick={() => {
-                              setSelectedImage(payment.paymentProof);
-                              setShowImageModal(true);
-                            }}
+                            className="receipt-thumbnail clickable-receipt"
                           />
                           <div className="receipt-overlay">
                             <FaEye className="view-icon" />
-                            <span>Click to view</span>
+                            <span>Click to view full size</span>
                           </div>
                         </div>
-                      </div>
-                    )}
-
-                    <div className="detail-row">
-                      <strong>Payment Method:</strong> {payment.paymentMethod}
-                    </div>
-                    <div className="detail-row">
-                      <strong>Created:</strong> {formatDate(payment.createdAt)}
-                    </div>
-                    {payment.reference && (
-                      <div className="detail-row">
-                        <strong>Reference:</strong> {payment.reference}
                       </div>
                     )}
                   </div>
 
                   <div className="payment-actions">
-                    <button
-                      className="action-btn view"
-                      onClick={() => setSelectedPayment(payment)}
-                    >
-                      <FaEye /> View Details & Verify Receipt
-                    </button>
+                    {(payment.status === 'pending' || payment.originalReservation?.status === 'receipt_uploaded') && (
+                      <div className="verification-actions">
+                        <button
+                          className="action-btn approve"
+                          onClick={() => handlePaymentAction(payment.id, 'approve')}
+                          disabled={processingPayment === payment.id || !payment.paymentProof}
+                        >
+                          <FaCheckCircle /> {processingPayment === payment.id ? 'Processing...' : 'Accept & Confirm'}
+                        </button>
+                        <button
+                          className="action-btn reject"
+                          onClick={() => {
+                            const reason = prompt('Reason for rejecting receipt (e.g., invalid amount, fake receipt, etc.):');
+                            if (reason !== null) {
+                              handlePaymentAction(payment.id, 'reject', reason || 'No reason provided');
+                            }
+                          }}
+                          disabled={processingPayment === payment.id}
+                        >
+                          <FaTimesCircle /> {processingPayment === payment.id ? 'Processing...' : 'Reject'}
+                        </button>
+                      </div>
+                    )}
                     <button
                       className="action-btn delete"
                       onClick={() => handleDeletePayment(payment.id)}
@@ -338,21 +342,6 @@ function PaymentTransactions() {
         </div>
       </div>
 
-      {/* Payment Details Modal */}
-      {selectedPayment && (
-        <PaymentDetailsModal
-          payment={selectedPayment}
-          onClose={() => setSelectedPayment(null)}
-          onAction={handlePaymentAction}
-          onDelete={handleDeletePayment}
-          processing={processingPayment === selectedPayment.id}
-          onViewImage={(imageUrl) => {
-            setSelectedImage(imageUrl);
-            setShowImageModal(true);
-          }}
-          formatDate={formatDate}
-        />
-      )}
 
       {/* Image Modal */}
       {showImageModal && (
@@ -368,196 +357,6 @@ function PaymentTransactions() {
   );
 }
 
-// Payment Details Modal Component
-const PaymentDetailsModal = ({ payment, onClose, onAction, onDelete, processing, onViewImage, formatDate }) => {
-  const [reason, setReason] = useState('');
-  const [actionType, setActionType] = useState('');
-
-  const handleAction = () => {
-    if (actionType) {
-      onAction(payment.id, actionType, reason);
-      setReason('');
-      setActionType('');
-    }
-  };
-
-  return (
-    <div className="payment-modal-overlay" onClick={onClose}>
-      <div className="payment-modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="payment-modal-header">
-          <h2>Payment Details</h2>
-          <button className="payment-modal-close-btn" onClick={onClose}>×</button>
-        </div>
-
-        <div className="payment-modal-body">
-          <div className="payment-info">
-            <div className="info-section">
-              <h3>Payment Information</h3>
-              <div className="info-grid">
-                <div className="info-item">
-                  <label>Amount:</label>
-                  <span>{new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(payment.amount)}</span>
-                </div>
-                <div className="info-item">
-                  <label>Method:</label>
-                  <span>{payment.paymentMethod}</span>
-                </div>
-                <div className="info-item">
-                  <label>Reference:</label>
-                  <span>{payment.reference || 'N/A'}</span>
-                </div>
-                <div className="info-item">
-                  <label>Status:</label>
-                  <span className={`status-badge ${payment.status}`}>
-                    {payment.status.replace('_', ' ').toUpperCase()}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {payment.type === 'bus_reservation' && (
-              <div className="info-section">
-                <h3>Bus Reservation Details</h3>
-                <div className="info-grid">
-                  <div className="info-item">
-                    <label>Booking Reference:</label>
-                    <span>{payment.bookingReference}</span>
-                  </div>
-                  <div className="info-item">
-                    <label>From:</label>
-                    <span>{payment.from}</span>
-                  </div>
-                  <div className="info-item">
-                    <label>To:</label>
-                    <span>{payment.to}</span>
-                  </div>
-                  <div className="info-item">
-                    <label>Passenger Name:</label>
-                    <span>{payment.fullName}</span>
-                  </div>
-                  <div className="info-item">
-                    <label>Email:</label>
-                    <span>{payment.email}</span>
-                  </div>
-                  <div className="info-item">
-                    <label>Trip Type:</label>
-                    <span>{payment.isRoundTrip ? 'Round Trip' : 'One Way'}</span>
-                  </div>
-                  <div className="info-item">
-                    <label>Selected Bus:</label>
-                    <span>#{payment.selectedBusIds?.[0] || 'N/A'}</span>
-                  </div>
-                  <div className="info-item">
-                    <label>Reserved Date:</label>
-                    <span>{formatDate(payment.timestamp)}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {payment.paymentProof && (
-              <div className="info-section payment-proof-section">
-                <h3><FaReceipt /> Payment Receipt Verification</h3>
-                <p className="verification-instruction">
-                  Review the payment receipt submitted by the customer. Verify the amount, payment method, and authenticity before approving the reservation.
-                </p>
-                <div className="payment-proof">
-                  <div className="proof-image-container">
-                    <img
-                      src={payment.paymentProof}
-                      alt="Payment receipt submitted by customer"
-                      className="proof-thumbnail"
-                      onClick={() => onViewImage(payment.paymentProof)}
-                    />
-                    <div className="proof-overlay">
-                      <FaEye className="view-icon" />
-                      <span>Click to enlarge</span>
-                    </div>
-                  </div>
-                  <div className="proof-actions">
-                    <button
-                      className="view-full-btn"
-                      onClick={() => onViewImage(payment.paymentProof)}
-                    >
-                      <FaEye /> View Full Size Receipt
-                    </button>
-                  </div>
-                </div>
-                <div className="verification-checklist">
-                  <h4>Verification Checklist:</h4>
-                  <ul>
-                    <li><FaCheckCircle /> Amount matches reservation total: <strong>{new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(payment.amount)}</strong></li>
-                    <li><FaCheckCircle /> Payment method is valid</li>
-                    <li><FaCheckCircle /> Receipt appears authentic</li>
-                    <li><FaCheckCircle /> Transaction date is reasonable</li>
-                  </ul>
-                </div>
-              </div>
-            )}
-
-            {payment.status === 'pending' && (
-              <div className="action-section receipt-verification-actions">
-                <h3><FaClipboardCheck /> Receipt Verification Decision</h3>
-                <p className="action-instruction">
-                  Based on your review of the payment receipt above, decide the reservation status:
-                </p>
-                <div className="action-buttons">
-                  <button
-                    className="action-btn approve"
-                    onClick={() => onAction(payment.id, 'approve')}
-                    disabled={processing}
-                  >
-                    <FaCheckCircle /> Accept Receipt & Confirm Reservation
-                  </button>
-                  <button
-                    className="action-btn reject"
-                    onClick={() => {
-                      const reason = prompt('Reason for rejecting receipt (e.g., invalid amount, fake receipt, etc.):');
-                      onAction(payment.id, 'reject', reason || '');
-                    }}
-                    disabled={processing}
-                  >
-                    <FaTimesCircle /> Reject Receipt & Cancel Reservation
-                  </button>
-                  <button
-                    className="action-btn review"
-                    onClick={() => onAction(payment.id, 'review')}
-                    disabled={processing}
-                  >
-                    <FaRedo /> Need More Review
-                  </button>
-                </div>
-                <div className="action-note">
-                  <strong>Note:</strong> Approving will confirm the customer's bus reservation. Rejecting will cancel their booking.
-                </div>
-              </div>
-            )}
-
-            {/* Delete Section */}
-            <div className="action-section delete-section">
-              <h3><FaTrash /> Delete Payment Record</h3>
-              <p className="action-instruction">
-                Permanently delete this payment record from the system. This action cannot be undone.
-              </p>
-              <div className="action-buttons">
-                <button
-                  className="action-btn delete"
-                  onClick={() => onDelete(payment.id)}
-                  disabled={processing}
-                >
-                  <FaTrash /> Delete Payment Record
-                </button>
-              </div>
-              <div className="action-note">
-                <strong>Warning:</strong> This will permanently remove the payment record from the database.
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // Image Modal Component
 const ImageModal = ({ imageUrl, onClose }) => {

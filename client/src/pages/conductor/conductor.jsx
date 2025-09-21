@@ -17,76 +17,10 @@ const Conductor = () => {
   const [editingConductor, setEditingConductor] = useState(null);
   const [syncingStatus, setSyncingStatus] = useState(false);
 
-  // Helper function to extract bus number from conductor name
-  const extractBusNumber = (name) => {
-    if (!name) return 'N/A';
-    // Extract number from patterns like "Batangas 2 Conductor" or "Route_123"
-    const numberMatch = name.match(/\b(\d+)\b/);
-    return numberMatch ? numberMatch[1] : 'N/A';
-  };
 
-  // Helper function to get day based on plate number coding
-  const getCodingDay = (plateNumber) => {
-    if (!plateNumber) return 'Unknown';
-    const lastDigit = plateNumber.slice(-1);
-    switch (lastDigit) {
-      case '1':
-      case '2':
-        return 'Monday';
-      case '3':
-      case '4':
-        return 'Tuesday';
-      case '5':
-      case '6':
-        return 'Wednesday';
-      case '7':
-      case '8':
-        return 'Thursday';
-      case '9':
-      case '0':
-        return 'Friday';
-      default:
-        return 'Unknown';
-    }
-  };
 
-  // Helper function to check if bus is available for reservation today (ON coding day)
-  const isBusAvailableForReservation = (plateNumber) => {
-    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-    const codingDay = getCodingDay(plateNumber);
-    return today === codingDay; // Available when it's the coding day
-  };
 
-  // Helper function to get bus availability status
-  const getBusAvailabilityStatus = (conductor) => {
-    if (!conductor.plateNumber) return 'unknown';
 
-    // First check if there's a manually set status in Firestore
-    if (conductor.busAvailabilityStatus) {
-      return conductor.busAvailabilityStatus;
-    }
-
-    // Fall back to computed status based on coding day
-    const isReservationDay = isBusAvailableForReservation(conductor.plateNumber);
-
-    if (isReservationDay) return 'available'; // Available for reservation on coding day
-    return 'not_available'; // Not available for reservation on non-coding days
-  };
-
-  // Helper function to get status display info
-  const getStatusDisplayInfo = (status) => {
-    switch (status) {
-      case 'available':
-        return { text: 'Available for Reservation', class: 'status-available', color: '#4CAF50' };
-      case 'reserved':
-        return { text: 'Reserved', class: 'status-reserved', color: '#FF9800' };
-      case 'not_available':
-      case 'not-available':
-        return { text: 'Not Available for Reservation', class: 'status-not-available', color: '#F44336' };
-      default:
-        return { text: 'Unknown', class: 'status-unknown', color: '#757575' };
-    }
-  };
 
   useEffect(() => {
     // Clean up any existing listeners first
@@ -216,7 +150,7 @@ const Conductor = () => {
         conductor.busNumber?.toString().includes(searchTerm.toLowerCase()) ||
         conductor.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         conductor.plateNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        extractBusNumber(conductor.name).toString().includes(searchTerm.toLowerCase());
+        conductorService.extractBusNumber(conductor.name).toString().includes(searchTerm.toLowerCase());
 
       const matchesStatus = 
         filterStatus === 'all' ||
@@ -387,8 +321,8 @@ const Conductor = () => {
           <div className="conductor-list">
             {filteredAndSortedConductors().map((conductor) => {
               // Pre-calculate status to avoid multiple calls
-              const busStatus = getBusAvailabilityStatus(conductor);
-              const statusInfo = getStatusDisplayInfo(busStatus);
+              const busStatus = conductorService.getBusAvailabilityStatus(conductor);
+              const statusInfo = conductorService.getStatusDisplayInfo(busStatus);
 
               return (
               <div
@@ -419,14 +353,14 @@ const Conductor = () => {
                   </div>
                   <div className="detail-row">
                     <span className="detail-label">Bus:</span>
-                    <span className="detail-value">#{extractBusNumber(conductor.name)}</span>
+                    <span className="detail-value">#{conductorService.extractBusNumber(conductor.name)}</span>
                   </div>
                   <div className="detail-row">
                     <span className="detail-label">Plate:</span>
                     <span className="detail-value">{conductor.plateNumber || 'N/A'}</span>
                   </div>
                   <div className="detail-row">
-                    <span className="detail-label">Status:</span>
+                    <span className="detail-label">Reservation Status:</span>
                     <span
                       className={`detail-value ${statusInfo.class}`}
                       style={{
@@ -869,83 +803,9 @@ const EditConductorModal = ({ conductor, onClose, onSuccess }) => {
 
 // ENHANCED: Real-time Conductor Details Component
 const ConductorDetails = ({ conductor }) => {
-  // Helper function to extract bus number from conductor name
-  const extractBusNumber = (name) => {
-    if (!name) return 'N/A';
-    // Extract number from patterns like "Batangas 2 Conductor" or "Route_123"
-    const numberMatch = name.match(/\b(\d+)\b/);
-    return numberMatch ? numberMatch[1] : 'N/A';
-  };
 
-  // Helper function to get day based on plate number coding
-  const getCodingDay = (plateNumber) => {
-    if (!plateNumber) return 'Unknown';
-    const lastDigit = plateNumber.slice(-1);
-    switch (lastDigit) {
-      case '1':
-      case '2':
-        return 'Monday';
-      case '3':
-      case '4':
-        return 'Tuesday';
-      case '5':
-      case '6':
-        return 'Wednesday';
-      case '7':
-      case '8':
-        return 'Thursday';
-      case '9':
-      case '0':
-        return 'Friday';
-      default:
-        return 'Unknown';
-    }
-  };
 
-  // Helper function to check if bus is available for reservation today (ON coding day)
-  const isBusAvailableForReservation = (plateNumber) => {
-    if (!plateNumber) return false;
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    const codingDay = getCodingDay(plateNumber);
 
-    const dayMap = {
-      'Monday': 1,
-      'Tuesday': 2,
-      'Wednesday': 3,
-      'Thursday': 4,
-      'Friday': 5
-    };
-
-    return dayMap[codingDay] === dayOfWeek;
-  };
-
-  const getBusAvailabilityStatus = (conductor) => {
-    if (!conductor.plateNumber) return 'unknown';
-
-    // First check if there's a manually set status in Firestore
-    if (conductor.busAvailabilityStatus) {
-      return conductor.busAvailabilityStatus;
-    }
-
-    // Fall back to computed status based on coding day
-    const isAvailableToday = isBusAvailableForReservation(conductor.plateNumber);
-    return isAvailableToday ? 'available' : 'not-available';
-  };
-
-  const getStatusDisplayInfo = (status) => {
-    switch (status) {
-      case 'available':
-        return { text: 'Available for Reservation', class: 'available', color: '#4CAF50' };
-      case 'reserved':
-        return { text: 'Reserved', class: 'reserved', color: '#FF9800' };
-      case 'not-available':
-      case 'not_available':
-        return { text: 'Not Available for Reservation', class: 'not-available', color: '#F44336' };
-      default:
-        return { text: 'Unknown Status', class: 'unknown', color: '#757575' };
-    }
-  };
 
   return (
     <div className="conductor-details-content">
@@ -1032,7 +892,7 @@ const ConductorDetails = ({ conductor }) => {
           <h3>Bus Reservation Status</h3>
           <div className="detail-item">
             <span className="label">Bus Number:</span>
-            <span className="value">#{extractBusNumber(conductor.name)}</span>
+            <span className="value">#{conductorService.extractBusNumber(conductor.name)}</span>
           </div>
           <div className="detail-item">
             <span className="label">Plate Number:</span>
@@ -1040,34 +900,25 @@ const ConductorDetails = ({ conductor }) => {
           </div>
           <div className="detail-item">
             <span className="label">Coding Day:</span>
-            <span className="value">{getCodingDay(conductor.plateNumber)}</span>
+            <span className="value">{conductor.codingDay || 'Unknown'}</span>
           </div>
           <div className="detail-item">
-            <span className="label">Availability Status:</span>
+            <span className="label">Reservation Status:</span>
             <span
-              className={`value availability-status ${getStatusDisplayInfo(getBusAvailabilityStatus(conductor)).class}`}
+              className={`value availability-status ${conductorService.getStatusDisplayInfo(conductorService.getBusAvailabilityStatus(conductor)).class}`}
               style={{
-                color: getStatusDisplayInfo(getBusAvailabilityStatus(conductor)).color,
+                color: conductorService.getStatusDisplayInfo(conductorService.getBusAvailabilityStatus(conductor)).color,
                 fontWeight: 'bold',
                 backgroundColor: 'rgba(255, 255, 255, 0.9)',
                 padding: '4px 8px',
                 borderRadius: '4px',
-                border: `2px solid ${getStatusDisplayInfo(getBusAvailabilityStatus(conductor)).color}`,
+                border: `2px solid ${conductorService.getStatusDisplayInfo(conductorService.getBusAvailabilityStatus(conductor)).color}`,
                 display: 'inline-block',
                 minHeight: '20px',
                 textAlign: 'center'
               }}
             >
-              {getStatusDisplayInfo(getBusAvailabilityStatus(conductor)).text}
-            </span>
-          </div>
-          <div className="detail-item">
-            <span className="label">Available for Reservation Today:</span>
-            <span className="value">
-              {conductor.availableForReservation !== undefined
-                ? (conductor.availableForReservation ? 'Yes' : 'No (Reserved or Not Available)')
-                : (conductor.plateNumber && isBusAvailableForReservation(conductor.plateNumber) ? 'Yes (Coding Day)' : 'No (Not Coding Day)')
-              }
+              {conductorService.getStatusDisplayInfo(conductorService.getBusAvailabilityStatus(conductor)).text}
             </span>
           </div>
         </div>

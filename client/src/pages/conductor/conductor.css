@@ -4,24 +4,19 @@
   min-height: 100%;
 }
 
-/* Bus Reservation Status Styles */
-.status-available {
-  color: #4CAF50 !important;
-  font-weight: bold;
-}
-
-.status-reserved {
+/* Bus Reservation Status Styles for Conductor List */
+.conductor-list-status-pending {
   color: #FF9800 !important;
   font-weight: bold;
 }
 
-.status-not-available {
+.conductor-list-status-confirmed {
   color: #F44336 !important;
   font-weight: bold;
 }
 
-.status-unknown {
-  color: #757575 !important;
+.conductor-list-status-no-reservation {
+  color: #4CAF50 !important;
   font-weight: bold;
 }
 
@@ -37,28 +32,22 @@
   max-width: none !important;
 }
 
-.availability-status.available {
-  color: #2e7d32 !important;
-  background-color: rgba(76, 175, 80, 0.1) !important;
-  border-color: #4CAF50 !important;
+.availability-status.pending {
+  color: #d97706 !important;
+  background-color: rgba(255, 152, 0, 0.1) !important;
+  border-color: #FF9800 !important;
 }
 
-.availability-status.reserved {
-  color: #2e7d32 !important;
-  background-color: rgba(76, 175, 80, 0.1) !important;
-  border-color: #4CAF50 !important;
-}
-
-.availability-status.not-available {
+.availability-status.confirmed {
   color: #c62828 !important;
   background-color: rgba(244, 67, 54, 0.1) !important;
   border-color: #F44336 !important;
 }
 
-.availability-status.unknown {
-  color: #424242 !important;
-  background-color: rgba(117, 117, 117, 0.1) !important;
-  border-color: #757575 !important;
+.availability-status.no-reservation {
+  color: #2e7d32 !important;
+  background-color: rgba(76, 175, 80, 0.1) !important;
+  border-color: #4CAF50 !important;
 }
 
 /* NEW MODERN HEADER STYLES */

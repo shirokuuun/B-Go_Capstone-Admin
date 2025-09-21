@@ -978,32 +978,34 @@ class ConductorService {
     }
   }
 
-  // Check if bus is available for reservation today (based on coding day)
-  isBusAvailableForReservationToday(plateNumber) {
-    if (!plateNumber) return false;
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    const codingDay = this.getCodingDayFromPlate(plateNumber);
-
-    const dayMap = {
-      'Monday': 1,
-      'Tuesday': 2,
-      'Wednesday': 3,
-      'Thursday': 4,
-      'Friday': 5
-    };
-
-    return dayMap[codingDay] === dayOfWeek;
+  // Helper function to extract bus number from conductor name
+  extractBusNumber(name) {
+    if (!name) return 'N/A';
+    // Extract number from patterns like "Batangas 2 Conductor" or "Route_123"
+    const numberMatch = name.match(/\b(\d+)\b/);
+    return numberMatch ? numberMatch[1] : 'N/A';
   }
 
-  // Calculate bus availability status
-  calculateBusAvailabilityStatus(plateNumber, isOnline) {
-    if (!plateNumber) return 'unknown';
-
-    const isAvailableToday = this.isBusAvailableForReservationToday(plateNumber);
-
-    return isAvailableToday ? 'available' : 'not-available';
+  // Helper function to get bus availability status
+  getBusAvailabilityStatus(conductor) {
+    // Return the busAvailabilityStatus from the conductor data
+    // The app will handle the filtering logic
+    return conductor.busAvailabilityStatus || 'no_reservation';
   }
+
+  // Helper function to get status display info for reservation status
+  getStatusDisplayInfo(status) {
+    switch (status) {
+      case 'pending':
+        return { text: 'Pending', class: 'conductor-list-status-pending', color: '#FF9800' };
+      case 'confirmed':
+        return { text: 'Reserved', class: 'conductor-list-status-confirmed', color: '#F44336' };
+      default:
+        return { text: 'No reservation yet', class: 'conductor-list-status-no-reservation', color: '#4CAF50' };
+    }
+  }
+
+
 
   // NEW: Delete all trips for a conductor (for fresh start on reactivation)
   async deleteAllConductorTrips(conductorId) {
@@ -1274,9 +1276,9 @@ class ConductorService {
         // Status tracking
         status: 'offline',
 
-        // Bus availability status for mobile app
-        busAvailabilityStatus: this.calculateBusAvailabilityStatus(plateNumber, false), // false = offline
-        availableForReservation: this.isBusAvailableForReservationToday(plateNumber),
+        // Bus availability status for mobile app (initially no reservation)
+        busAvailabilityStatus: null, // App will handle setting this
+        availableForReservation: null, // App will handle setting this
         codingDay: this.getCodingDayFromPlate(plateNumber) // Calculate from plate number
       };
 
@@ -1396,11 +1398,10 @@ class ConductorService {
         updatedAt: serverTimestamp()
       };
 
-      // If plateNumber is being updated, recalculate availability status
+      // If plateNumber is being updated, recalculate coding day
       if (updateData.plateNumber) {
         updatedData.codingDay = this.getCodingDayFromPlate(updateData.plateNumber);
-        // Since we don't know if conductor is online here, keep current availability status
-        // The status will be updated when conductor goes online/offline
+        // App will handle updating availability status
       }
 
       await updateDoc(conductorRef, updatedData);
@@ -1762,7 +1763,7 @@ class ConductorService {
     }
   }
 
-  // NEW: Sync all conductor availability status
+  // NEW: Sync all conductor coding days
   async syncAllConductorStatus() {
     try {
       const conductorsRef = collection(db, 'conductors');
@@ -1780,19 +1781,12 @@ class ConductorService {
         }
 
         if (conductorData.plateNumber) {
-          const newAvailableForReservation = this.isBusAvailableForReservationToday(conductorData.plateNumber);
-          const newBusAvailabilityStatus = this.calculateBusAvailabilityStatus(conductorData.plateNumber, conductorData.isOnline);
           const newCodingDay = this.getCodingDayFromPlate(conductorData.plateNumber);
 
-          // Only update if values have changed
-          if (conductorData.availableForReservation !== newAvailableForReservation ||
-              conductorData.busAvailabilityStatus !== newBusAvailabilityStatus ||
-              conductorData.codingDay !== newCodingDay) {
-
+          // Only update coding day if it has changed
+          if (conductorData.codingDay !== newCodingDay) {
             updatePromises.push(
               updateDoc(doc.ref, {
-                availableForReservation: newAvailableForReservation,
-                busAvailabilityStatus: newBusAvailabilityStatus,
                 codingDay: newCodingDay,
                 updatedAt: serverTimestamp()
               })
@@ -1808,9 +1802,9 @@ class ConductorService {
       // Log the activity
       await logActivity(
         ACTIVITY_TYPES.CONDUCTOR_UPDATE,
-        `Admin synchronized availability status for ${updatedCount} conductors`,
+        `Admin synchronized coding days for ${updatedCount} conductors`,
         {
-          action: 'bulk_status_sync',
+          action: 'bulk_coding_day_sync',
           updatedCount: updatedCount,
           totalProcessed: snapshot.docs.length,
           timestamp: new Date().toISOString()
@@ -1819,12 +1813,12 @@ class ConductorService {
 
       return {
         success: true,
-        message: `Successfully synced availability status for ${updatedCount} conductors`,
+        message: `Successfully synced coding days for ${updatedCount} conductors`,
         updatedCount
       };
 
     } catch (error) {
-      console.error('Error syncing conductor availability status:', error);
+      console.error('Error syncing conductor coding days:', error);
       return {
         success: false,
         error: error.message

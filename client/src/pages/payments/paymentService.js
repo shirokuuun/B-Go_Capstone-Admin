@@ -5,6 +5,7 @@ import {
   orderBy,
   onSnapshot,
   doc,
+  getDoc,
   updateDoc,
   deleteDoc,
   serverTimestamp,
@@ -28,7 +29,7 @@ class PaymentService {
           // Get price from reservation data first
           let busPrice = data.totalAmount || data.amount || data.Price || data.price || 2000;
 
-          // Transform reservation data to match payment structure
+          // Transform reservation data to match payment structure using new fields
           return {
             id: doc.id,
             ...data,
@@ -38,13 +39,21 @@ class PaymentService {
             passengerName: data.fullName,
             route: `${data.from} → ${data.to}`,
             amount: busPrice,
-            paymentMethod: data.paymentMethod || 'Unknown',
-            status: data.paymentStatus || 'pending',
+            paymentMethod: data.paymentMethod || 'GCash/Bank Transfer',
+            status: this.mapReservationStatus(data.status),
             createdAt: data.timestamp,
             busNumber: data.selectedBusIds?.[0] || 'N/A',
             travelDate: data.travelDate || data.timestamp,
-            // Payment proof/receipt from user
-            paymentProof: data.paymentProof || data.receiptImage || data.paymentReceipt,
+            // Payment proof/receipt from user - using new field names
+            paymentProof: data.receiptUrl,
+            receiptUploadedAt: data.receiptUploadedAt,
+            // New reservation fields
+            email: data.email,
+            from: data.from,
+            to: data.to,
+            fullName: data.fullName,
+            isRoundTrip: data.isRoundTrip,
+            selectedBusIds: data.selectedBusIds,
             // Keep original reservation data
             originalReservation: data
           };
@@ -76,6 +85,22 @@ class PaymentService {
     });
 
     return unsubscribe;
+  }
+
+  // Map reservation status to payment status for display
+  mapReservationStatus(reservationStatus) {
+    switch (reservationStatus) {
+      case 'pending':
+        return 'pending';
+      case 'receipt_uploaded':
+        return 'pending';
+      case 'confirmed':
+        return 'verified';
+      case 'cancelled':
+        return 'rejected';
+      default:
+        return 'pending';
+    }
   }
 
   // Background method to update reservation prices without blocking UI
@@ -142,42 +167,50 @@ class PaymentService {
   // Handle reservation payment verification actions
   async handlePaymentAction(reservationId, action, reason = '') {
     try {
-      let newPaymentStatus;
       let newReservationStatus;
+      let newBusAvailabilityStatus;
       let actionDescription;
 
       switch (action) {
         case 'approve':
-          newPaymentStatus = 'verified';
           newReservationStatus = 'confirmed';
+          newBusAvailabilityStatus = 'confirmed';
           actionDescription = 'approved';
           break;
         case 'reject':
-          newPaymentStatus = 'rejected';
           newReservationStatus = 'cancelled';
+          newBusAvailabilityStatus = 'rejected';
           actionDescription = 'rejected';
           break;
         case 'review':
-          newPaymentStatus = 'under_review';
-          newReservationStatus = 'pending_payment';
+          newReservationStatus = 'pending';
+          newBusAvailabilityStatus = 'pending';
           actionDescription = 'marked for review';
           break;
         case 'pending':
-          newPaymentStatus = 'pending';
-          newReservationStatus = 'pending_payment';
+          newReservationStatus = 'receipt_uploaded';
+          newBusAvailabilityStatus = 'pending';
           actionDescription = 'marked as pending';
           break;
         default:
           throw new Error('Invalid action');
       }
 
-      // Update reservation with payment status
+      // Get reservation data first to get the bus IDs
       const reservationRef = doc(db, 'reservations', reservationId);
+      const reservationSnap = await getDoc(reservationRef);
+
+      if (!reservationSnap.exists()) {
+        throw new Error('Reservation not found');
+      }
+
+      const reservationData = reservationSnap.data();
+
+      // Update reservation status
       const updateData = {
-        paymentStatus: newPaymentStatus,
         status: newReservationStatus,
         [`${action}edAt`]: serverTimestamp(),
-        [`${action}edBy`]: 'admin', // Replace with current user
+        [`${action}edBy`]: 'admin',
         updatedAt: serverTimestamp()
       };
 
@@ -187,6 +220,41 @@ class PaymentService {
 
       await updateDoc(reservationRef, updateData);
 
+      // Update conductor's busAvailabilityStatus and reservationDetails for each selected bus
+      if (reservationData.selectedBusIds && reservationData.selectedBusIds.length > 0) {
+        const conductorUpdatePromises = reservationData.selectedBusIds.map(async (busId) => {
+          try {
+            // Find conductor by busId in selectedBusIds array or reservationId
+            const conductorsRef = collection(db, 'conductors');
+
+            // First try to find by selectedBusIds array containing the busId
+            let conductorQuery = query(conductorsRef, where('selectedBusIds', 'array-contains', busId));
+            let conductorSnap = await getDocs(conductorQuery);
+
+            // If not found, try by reservationId
+            if (conductorSnap.empty) {
+              conductorQuery = query(conductorsRef, where('reservationId', '==', reservationId));
+              conductorSnap = await getDocs(conductorQuery);
+            }
+
+            if (!conductorSnap.empty) {
+              const conductorRef = doc(db, 'conductors', conductorSnap.docs[0].id);
+
+              // Update both busAvailabilityStatus and reservationDetails.status
+              await updateDoc(conductorRef, {
+                busAvailabilityStatus: newBusAvailabilityStatus,
+                'reservationDetails.status': newReservationStatus,
+                updatedAt: serverTimestamp()
+              });
+            }
+          } catch (conductorError) {
+            console.warn(`Error updating conductor for bus ${busId}:`, conductorError);
+          }
+        });
+
+        await Promise.all(conductorUpdatePromises);
+      }
+
       // Log activity
       await logActivity(
         ACTIVITY_TYPES.PAYMENT_UPDATE,
@@ -194,8 +262,9 @@ class PaymentService {
         {
           reservationId: reservationId,
           action: action,
-          newPaymentStatus: newPaymentStatus,
           newReservationStatus: newReservationStatus,
+          newBusAvailabilityStatus: newBusAvailabilityStatus,
+          affectedBuses: reservationData.selectedBusIds || [],
           reason: reason
         }
       );
@@ -249,7 +318,8 @@ class PaymentService {
   filterPayments(payments, filterType, filterStatus, searchTerm) {
     return payments.filter(payment => {
       const matchesType = filterType === 'all' || payment.type === filterType;
-      const matchesStatus = filterStatus === 'all' || payment.status === filterStatus;
+      // Filter by original reservation status, not mapped display status
+      const matchesStatus = filterStatus === 'all' || payment.originalReservation?.status === filterStatus;
       const matchesSearch = searchTerm === '' ||
         payment.bookingReference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         payment.passengerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -286,10 +356,9 @@ class PaymentService {
   // Get payment statistics
   getPaymentStatistics(payments) {
     return {
-      pending: payments.filter(p => p.status === 'pending').length,
-      verified: payments.filter(p => p.status === 'verified').length,
-      rejected: payments.filter(p => p.status === 'rejected').length,
-      underReview: payments.filter(p => p.status === 'under_review').length,
+      pending: payments.filter(p => p.originalReservation?.status === 'pending' || p.originalReservation?.status === 'receipt_uploaded').length,
+      verified: payments.filter(p => p.originalReservation?.status === 'confirmed').length,
+      rejected: payments.filter(p => p.originalReservation?.status === 'cancelled').length,
       total: payments.length
     };
   }
