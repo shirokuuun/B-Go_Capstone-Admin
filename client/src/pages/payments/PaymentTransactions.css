@@ -113,12 +113,12 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 1rem;
-  max-width: 600px;
+  max-width: 800px;
 }
 
 @media (min-width: 768px) {
   .payment-stats-container {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
@@ -157,6 +157,10 @@
 
 .payment-stat-card.payment-rejected .payment-stat-icon-wrapper {
   background-color: rgba(239, 68, 68, 0.2);
+}
+
+.payment-stat-card.payment-completed .payment-stat-icon-wrapper {
+  background-color: rgba(25, 118, 210, 0.2);
 }
 
 .payment-stat-icon {

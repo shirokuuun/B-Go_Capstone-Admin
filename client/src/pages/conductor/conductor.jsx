@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import conductorService from '/src/pages/conductor/conductor.js';
 import './conductor.css';
 import { IoMdAdd } from "react-icons/io";
-import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaTrash, FaEdit, FaSync } from 'react-icons/fa';
+import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaTrash, FaEdit, FaSync, FaCheck } from 'react-icons/fa';
 
 const Conductor = () => {
   const [conductors, setConductors] = useState([]);
@@ -139,6 +139,24 @@ const Conductor = () => {
       alert(`❌ Error syncing status: ${error.message}`);
     } finally {
       setSyncingStatus(false);
+    }
+  };
+
+  const handleMarkAsCompleted = async (conductorId) => {
+    if (!window.confirm('Mark this reservation as completed? This will make the bus available for new reservations.')) {
+      return;
+    }
+
+    try {
+      const result = await conductorService.markReservationAsCompleted(conductorId);
+      if (result.success) {
+        alert('✅ Reservation marked as completed successfully!');
+      } else {
+        alert(`❌ Error: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error marking reservation as completed:', error);
+      alert(`❌ Error: ${error.message}`);
     }
   };
 
@@ -378,6 +396,18 @@ const Conductor = () => {
                 </div>
 
                 <div className="conductor-actions">
+                  {(conductor.busAvailabilityStatus === 'confirmed' || conductor.busAvailabilityStatus === 'reserved') && (
+                    <button
+                      className="action-btn mark-completed"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMarkAsCompleted(conductor.id);
+                      }}
+                      title="Mark as Completed"
+                    >
+                      <FaCheck />
+                    </button>
+                  )}
                   <button
                     className="action-btn edit-conductor"
                     onClick={(e) => {
@@ -803,9 +833,23 @@ const EditConductorModal = ({ conductor, onClose, onSuccess }) => {
 
 // ENHANCED: Real-time Conductor Details Component
 const ConductorDetails = ({ conductor }) => {
+  const handleMarkAsCompleted = async () => {
+    if (!window.confirm('Mark this reservation as completed? This will make the bus available for new reservations.')) {
+      return;
+    }
 
-
-
+    try {
+      const result = await conductorService.markReservationAsCompleted(conductor.id);
+      if (result.success) {
+        alert('✅ Reservation marked as completed successfully!');
+      } else {
+        alert(`❌ Error: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error marking reservation as completed:', error);
+      alert(`❌ Error: ${error.message}`);
+    }
+  };
 
   return (
     <div className="conductor-details-content">
@@ -921,6 +965,16 @@ const ConductorDetails = ({ conductor }) => {
               {conductorService.getStatusDisplayInfo(conductorService.getBusAvailabilityStatus(conductor)).text}
             </span>
           </div>
+          {(conductor.busAvailabilityStatus === 'confirmed' || conductor.busAvailabilityStatus === 'reserved') && (
+            <div className="detail-item" style={{ marginTop: '16px' }}>
+              <button
+                className="mark-completed-btn"
+                onClick={handleMarkAsCompleted}
+              >
+                <FaCheck /> Mark as Completed
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="detail-section">

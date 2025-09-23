@@ -12,7 +12,8 @@ import {
   FaExclamationTriangle,
   FaCheckCircle,
   FaTimesCircle,
-  FaTrash
+  FaTrash,
+  FaCheck
 } from 'react-icons/fa';
 
 function PaymentTransactions() {
@@ -159,6 +160,16 @@ function PaymentTransactions() {
                       <div className="payment-stat-label">Rejected</div>
                     </div>
                   </div>
+
+                  <div className="payment-stat-card payment-completed">
+                    <div className="payment-stat-icon-wrapper">
+                      <FaCheck className="payment-stat-icon" />
+                    </div>
+                    <div className="payment-stat-content">
+                      <div className="payment-stat-number">{stats.completed}</div>
+                      <div className="payment-stat-label">Completed</div>
+                    </div>
+                  </div>
                 </>
               );
             })()}
@@ -194,6 +205,7 @@ function PaymentTransactions() {
               <option value="pending">Pending</option>
               <option value="receipt_uploaded">Receipt Uploaded</option>
               <option value="confirmed">Confirmed</option>
+              <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
             </select>
           </div>

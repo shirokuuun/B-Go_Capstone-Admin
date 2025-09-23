@@ -641,18 +641,25 @@
 
 .conductor-actions {
   display: flex;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
 }
 
 .action-btn {
-  padding: 8px 16px;
+  padding: 6px 8px;
   border: none;
-  border-radius: 6px;
-  font-size: 0.85rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 28px;
 }
 
 .action-btn.view-trips {
@@ -673,6 +680,49 @@
 .action-btn.delete-conductor:hover{
   background: rgb(232, 72, 72);
   transform: translateY(-1px);
+}
+
+.action-btn.edit-conductor {
+  background: #007c91;
+  color: white;
+}
+
+.action-btn.edit-conductor:hover {
+  background: #005f73;
+  transform: translateY(-1px);
+}
+
+.action-btn.mark-completed {
+  background: #4CAF50;
+  color: white;
+}
+
+.action-btn.mark-completed:hover {
+  background: #45a049;
+  transform: translateY(-1px);
+}
+
+.mark-completed-btn {
+  width: 100%;
+  padding: 12px 24px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.mark-completed-btn:hover {
+  background: #45a049;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
 }
 
 .no-conductors {

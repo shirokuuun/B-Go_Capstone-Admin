@@ -98,6 +98,8 @@ class PaymentService {
         return 'verified';
       case 'cancelled':
         return 'rejected';
+      case 'completed':
+        return 'completed';
       default:
         return 'pending';
     }
@@ -207,10 +209,11 @@ class PaymentService {
       const reservationData = reservationSnap.data();
 
       // Update reservation status
+      const actionPastTense = action === 'approve' ? 'approved' : `${action}ed`;
       const updateData = {
         status: newReservationStatus,
-        [`${action}edAt`]: serverTimestamp(),
-        [`${action}edBy`]: 'admin',
+        [`${actionPastTense}At`]: serverTimestamp(),
+        [`${actionPastTense}By`]: 'admin',
         updatedAt: serverTimestamp()
       };
 
@@ -359,6 +362,7 @@ class PaymentService {
       pending: payments.filter(p => p.originalReservation?.status === 'pending' || p.originalReservation?.status === 'receipt_uploaded').length,
       verified: payments.filter(p => p.originalReservation?.status === 'confirmed').length,
       rejected: payments.filter(p => p.originalReservation?.status === 'cancelled').length,
+      completed: payments.filter(p => p.originalReservation?.status === 'completed').length,
       total: payments.length
     };
   }
@@ -396,7 +400,8 @@ class PaymentService {
       under_review: '#2196F3',
       verified: '#4CAF50',
       rejected: '#F44336',
-      refunding: '#9C27B0'
+      refunding: '#9C27B0',
+      completed: '#1976D2'
     };
   }
 }

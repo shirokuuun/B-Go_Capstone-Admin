@@ -34,24 +34,19 @@ const NotificationDropdown = ({ notifications, isOpen, onClose }) => {
   };
 
   const handleNotificationClick = (notification) => {
-    // Check if it's an SOS request notification
-    const isSOS = notification.type === 'error' || 
-                  notification.title?.toLowerCase().includes('sos') || 
-                  notification.message?.toLowerCase().includes('sos') ||
-                  notification.category === 'sos' ||
-                  notification.title?.toLowerCase().includes('emergency') ||
-                  notification.message?.toLowerCase().includes('emergency');
-    
-    if (isSOS) {
+    // Check notification category and navigate accordingly
+    if (notification.category === 'sos') {
       // Navigate to SOS request page
       navigate('/admin/sos');
-      setTimeout(() => {
-        onClose();
-      }, 100);
-    } else {
-      // For non-SOS notifications, just close the dropdown
-      onClose();
+    } else if (notification.category === 'reservation' || notification.category === 'receipt') {
+      // Navigate to Payment Transactions page for reservations and receipts
+      navigate('/admin/payments');
     }
+
+    // Close dropdown after navigation
+    setTimeout(() => {
+      onClose();
+    }, 100);
   };
 
   return (
@@ -98,12 +93,6 @@ const NotificationDropdown = ({ notifications, isOpen, onClose }) => {
           ))
         )}
       </div>
-      
-      {notifications.length > 0 && (
-        <div className="notification-footer">
-          <button className="view-all-btn">View All Notifications</button>
-        </div>
-      )}
     </div>
   );
 };

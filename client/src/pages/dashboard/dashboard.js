@@ -433,14 +433,69 @@ class DashboardService {
     }
   }
 
+  async getBusReservationsSummary() {
+    try {
+      const conductorsRef = collection(db, 'conductors');
+      const conductorsSnapshot = await getDocs(conductorsRef);
+
+      let totalReserved = 0;
+      let completedCount = 0;
+      let reservedCount = 0;
+      let cancelledCount = 0;
+      let pendingCount = 0;
+      let noReservationCount = 0;
+
+      conductorsSnapshot.forEach(doc => {
+        const data = doc.data();
+        const status = data.busAvailabilityStatus;
+
+        // Count by status
+        if (status === 'confirmed' || status === 'reserved') {
+          totalReserved++;
+          reservedCount++;
+        } else if (status === 'completed') {
+          completedCount++;
+        } else if (status === 'cancelled') {
+          cancelledCount++;
+        } else if (status === 'pending') {
+          pendingCount++;
+        } else if (status === 'no-reservation' || !status) {
+          noReservationCount++;
+        }
+      });
+
+      return {
+        totalReserved,
+        completedCount,
+        reservedCount,
+        cancelledCount,
+        pendingCount,
+        noReservationCount,
+        totalBuses: conductorsSnapshot.size
+      };
+    } catch (error) {
+      console.error('Error fetching bus reservations summary:', error);
+      return {
+        totalReserved: 0,
+        completedCount: 0,
+        reservedCount: 0,
+        cancelledCount: 0,
+        pendingCount: 0,
+        noReservationCount: 0,
+        totalBuses: 0
+      };
+    }
+  }
+
   async getDashboardData(filter = 'today', customDate = null) {
     try {
-      const [tripSummary, sosSummary, conductorsSummary, idVerificationSummary, revenueTrend] = await Promise.all([
+      const [tripSummary, sosSummary, conductorsSummary, idVerificationSummary, revenueTrend, busReservations] = await Promise.all([
         this.getTripSummary(filter, customDate),
         this.getSOSRequestSummary(filter, customDate),
         this.getConductorsSummary(),
         this.getIDVerificationSummary(),
-        this.getRevenueTrend()
+        this.getRevenueTrend(),
+        this.getBusReservationsSummary()
       ]);
 
       return {
@@ -448,7 +503,8 @@ class DashboardService {
         sos: sosSummary,
         conductors: conductorsSummary,
         idVerification: idVerificationSummary,
-        revenueTrend: revenueTrend
+        revenueTrend: revenueTrend,
+        busReservations: busReservations
       };
     } catch (error) {
       console.error('Error fetching dashboard data:', error);

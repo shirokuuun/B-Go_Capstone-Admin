@@ -35,74 +35,117 @@ export const listenToSOSNotifications = (callback) => {
   });
 };
 
-// Listen to payment transactions for notifications (commented out for now)
-/*
-export const listenToPaymentNotifications = (callback) => {
-  // Uncomment and modify this when you have payment data structure
+// Listen to new bus reservations for notifications
+export const listenToReservationNotifications = (callback) => {
   const q = query(
-    collection(db, "payments"), // Replace with your actual payment collection name
+    collection(db, "reservations"),
     orderBy("timestamp", "desc"),
     limit(10)
   );
-  
+
   return onSnapshot(q, (querySnapshot) => {
     const notifications = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      
-      // Create notification object for payments
-      notifications.push({
-        id: `payment_${doc.id}`,
-        title: `Payment ${data.status}`,
-        message: `Payment of ₱${data.amount} has been ${data.status.toLowerCase()}`,
-        type: data.status?.toLowerCase() === 'completed' ? 'success' : 'info',
-        timestamp: data.timestamp?.seconds ? new Date(data.timestamp.seconds * 1000) : new Date(),
-        read: false,
-        category: 'payment',
-        sourceId: doc.id,
-        sourceData: data
-      });
+
+      // Show notification for new reservations (pending status)
+      if (data.status === 'pending') {
+        notifications.push({
+          id: `reservation_${doc.id}`,
+          title: `New Bus Reservation`,
+          message: `${data.fullName || 'User'} reserved bus for ${data.from} → ${data.to}`,
+          type: 'info',
+          timestamp: data.timestamp?.seconds ? new Date(data.timestamp.seconds * 1000) : new Date(),
+          read: false,
+          category: 'reservation',
+          sourceId: doc.id,
+          sourceData: data
+        });
+      }
     });
-    
+
     callback(notifications);
   });
 };
-*/
+
+// Listen to receipt uploads for notifications
+export const listenToReceiptUploadNotifications = (callback) => {
+  const q = query(
+    collection(db, "reservations"),
+    orderBy("receiptUploadedAt", "desc"),
+    limit(10)
+  );
+
+  return onSnapshot(q, (querySnapshot) => {
+    const notifications = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+
+      // Show notification when receipt is uploaded (status: receipt_uploaded)
+      if (data.status === 'receipt_uploaded' && data.receiptUrl) {
+        notifications.push({
+          id: `receipt_${doc.id}`,
+          title: `Payment Receipt Uploaded`,
+          message: `${data.fullName || 'User'} uploaded payment receipt - Needs verification`,
+          type: 'warning',
+          timestamp: data.receiptUploadedAt?.seconds ? new Date(data.receiptUploadedAt.seconds * 1000) : new Date(),
+          read: false,
+          category: 'receipt',
+          sourceId: doc.id,
+          sourceData: data
+        });
+      }
+    });
+
+    callback(notifications);
+  });
+};
 
 // Combined notification listener
 export const listenToAllNotifications = (callback) => {
   const notifications = [];
   let sosNotifications = [];
-  // let paymentNotifications = [];
+  let reservationNotifications = [];
+  let receiptNotifications = [];
 
   // Listen to SOS notifications
   const unsubscribeSOS = listenToSOSNotifications((sosNotifs) => {
     sosNotifications = sosNotifs;
-    const allNotifications = [...sosNotifications /* , ...paymentNotifications */];
-    
+    const allNotifications = [...sosNotifications, ...reservationNotifications, ...receiptNotifications];
+
     // Sort by timestamp (newest first)
     allNotifications.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    
+
     callback(allNotifications);
   });
 
-  /* 
-  // Uncomment when payment data is available
-  const unsubscribePayments = listenToPaymentNotifications((paymentNotifs) => {
-    paymentNotifications = paymentNotifs;
-    const allNotifications = [...sosNotifications, ...paymentNotifications];
-    
+  // Listen to reservation notifications
+  const unsubscribeReservations = listenToReservationNotifications((reservationNotifs) => {
+    reservationNotifications = reservationNotifs;
+    const allNotifications = [...sosNotifications, ...reservationNotifications, ...receiptNotifications];
+
     // Sort by timestamp (newest first)
     allNotifications.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    
+
     callback(allNotifications);
   });
-  */
+
+  // Listen to receipt upload notifications
+  const unsubscribeReceipts = listenToReceiptUploadNotifications((receiptNotifs) => {
+    receiptNotifications = receiptNotifs;
+    const allNotifications = [...sosNotifications, ...reservationNotifications, ...receiptNotifications];
+
+    // Sort by timestamp (newest first)
+    allNotifications.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    callback(allNotifications);
+  });
 
   // Return cleanup function
   return () => {
     unsubscribeSOS();
-    // unsubscribePayments(); // Uncomment when payments are enabled
+    unsubscribeReservations();
+    unsubscribeReceipts();
   };
 };
 

@@ -73,6 +73,15 @@ function Dashboard() {
               verifiedUsers: 0,
               verificationRate: 0
             },
+            busReservations: {
+              totalReserved: 0,
+              completedCount: 0,
+              reservedCount: 0,
+              cancelledCount: 0,
+              pendingCount: 0,
+              noReservationCount: 0,
+              totalBuses: 0
+            },
             revenueTrend: []
           });
         }
@@ -221,6 +230,16 @@ function Dashboard() {
                 <span className="metric-value">{dashboardData.trips.avgPassengers}</span>
               </div>
             </div>
+
+            <div className="metric-card reservation-card">
+              <div className="metric-icon">
+                <i className="fas fa-bus"></i>
+              </div>
+              <div className="metric-content">
+                <span className="metric-label">Bus Reservations</span>
+                <span className="metric-value">{dashboardData.busReservations.totalReserved}</span>
+              </div>
+            </div>
           </div>
 
           {/* Main Content Grid */}
@@ -328,6 +347,78 @@ function Dashboard() {
                   </div>
                 </div>
               </div>
+
+              {/* Bus Reservation Status Chart */}
+              <div className="chart-card bus-reservation-status-card">
+                <h3>Bus Reservation Status <span style={{ fontSize: '0.9rem', fontWeight: '500', color: '#718096' }}>({dashboardData.busReservations.totalBuses} Total Buses)</span></h3>
+                <div className="chart-content">
+                  <div className="bus-status-chart-container">
+                    <div className="status-breakdown-chart">
+                      <div className="status-bars-horizontal">
+                        <div className="status-bar-item">
+                          <div className="status-info">
+                            <span className="status-label">Reserved</span>
+                            <span className="status-count">{dashboardData.busReservations.reservedCount}</span>
+                          </div>
+                          <div className="status-progress-bar">
+                            <div
+                              className="status-progress-fill reserved-fill"
+                              style={{
+                                width: `${dashboardData.busReservations.totalBuses === 0 ? 0 : (dashboardData.busReservations.reservedCount / dashboardData.busReservations.totalBuses) * 100}%`
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+
+                        <div className="status-bar-item">
+                          <div className="status-info">
+                            <span className="status-label">Pending</span>
+                            <span className="status-count">{dashboardData.busReservations.pendingCount}</span>
+                          </div>
+                          <div className="status-progress-bar">
+                            <div
+                              className="status-progress-fill pending-fill"
+                              style={{
+                                width: `${dashboardData.busReservations.totalBuses === 0 ? 0 : (dashboardData.busReservations.pendingCount / dashboardData.busReservations.totalBuses) * 100}%`
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+
+                        <div className="status-bar-item">
+                          <div className="status-info">
+                            <span className="status-label">Cancelled</span>
+                            <span className="status-count">{dashboardData.busReservations.cancelledCount}</span>
+                          </div>
+                          <div className="status-progress-bar">
+                            <div
+                              className="status-progress-fill cancelled-fill"
+                              style={{
+                                width: `${dashboardData.busReservations.totalBuses === 0 ? 0 : (dashboardData.busReservations.cancelledCount / dashboardData.busReservations.totalBuses) * 100}%`
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+
+                        <div className="status-bar-item">
+                          <div className="status-info">
+                            <span className="status-label">Available</span>
+                            <span className="status-count">{dashboardData.busReservations.noReservationCount}</span>
+                          </div>
+                          <div className="status-progress-bar">
+                            <div
+                              className="status-progress-fill available-fill"
+                              style={{
+                                width: `${dashboardData.busReservations.totalBuses === 0 ? 0 : (dashboardData.busReservations.noReservationCount / dashboardData.busReservations.totalBuses) * 100}%`
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             {/* Right Column - Progress and Details */}
             <div className="details-column">
@@ -404,6 +495,7 @@ function Dashboard() {
                   </div>
                 </div>
               </div>
+
             </div>
           </div>
         </>

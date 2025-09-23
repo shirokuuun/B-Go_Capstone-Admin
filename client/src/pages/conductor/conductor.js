@@ -23,9 +23,9 @@ import { db, auth } from '/src/firebase/firebase';
 class ConductorService {
   constructor() {
     this.listeners = new Map();
-    this.maxListeners = 5; // Allow multiple listeners for list + details
+    this.maxListeners = 10; // Allow multiple listeners for list + details + reservations
     this.cleanupOnError = true;
-    
+
     // Force cleanup on page load/refresh
     this.forceCleanup();
   }
@@ -490,35 +490,6 @@ class ConductorService {
               }
             }
 
-            // DISABLED: Auto-sync bus availability status to prevent permission errors during reservation creation
-            // The mobile app will handle updating conductor availability status directly
-            // if (conductorData.plateNumber) {
-            //   // Skip auto-sync entirely if status is manually set to "reserved"
-            //   if (conductorData.busAvailabilityStatus !== 'reserved') {
-            //     const currentAvailableForReservation = this.isBusAvailableForReservationToday(conductorData.plateNumber);
-            //     const currentBusAvailabilityStatus = this.calculateBusAvailabilityStatus(conductorData.plateNumber, conductorData.isOnline);
-            //
-            //     // Only auto-update if values don't match computed values
-            //     const shouldUpdateStatus = conductorData.availableForReservation !== currentAvailableForReservation ||
-            //                              conductorData.busAvailabilityStatus !== currentBusAvailabilityStatus;
-            //
-            //     if (shouldUpdateStatus) {
-            //       try {
-            //         await updateDoc(doc.ref, {
-            //           availableForReservation: currentAvailableForReservation,
-            //           busAvailabilityStatus: currentBusAvailabilityStatus,
-            //           updatedAt: serverTimestamp()
-            //         });
-            //
-            //         // Update the local data to reflect the changes
-            //         conductorData.availableForReservation = currentAvailableForReservation;
-            //         conductorData.busAvailabilityStatus = currentBusAvailabilityStatus;
-            //       } catch (statusUpdateError) {
-            //         console.warn(`⚠️ Failed to update bus availability status for ${doc.id}:`, statusUpdateError);
-            //       }
-            //     }
-            //   }
-            // }
 
             return {
               id: doc.id,
@@ -584,35 +555,6 @@ class ConductorService {
         if (doc.exists()) {
           const conductorData = doc.data();
 
-          // DISABLED: Auto-sync bus availability status to prevent permission errors during reservation creation
-          // The mobile app will handle updating conductor availability status directly
-          // if (conductorData.plateNumber) {
-          //   // Skip auto-sync entirely if status is manually set to "reserved"
-          //   if (conductorData.busAvailabilityStatus !== 'reserved') {
-          //     const currentAvailableForReservation = this.isBusAvailableForReservationToday(conductorData.plateNumber);
-          //     const currentBusAvailabilityStatus = this.calculateBusAvailabilityStatus(conductorData.plateNumber, conductorData.isOnline);
-          //
-          //     // Only auto-update if values don't match computed values
-          //     const shouldUpdateStatus = conductorData.availableForReservation !== currentAvailableForReservation ||
-          //                              conductorData.busAvailabilityStatus !== currentBusAvailabilityStatus;
-          //
-          //     if (shouldUpdateStatus) {
-          //       try {
-          //         await updateDoc(doc.ref, {
-          //           availableForReservation: currentAvailableForReservation,
-          //           busAvailabilityStatus: currentBusAvailabilityStatus,
-          //           updatedAt: serverTimestamp()
-          //         });
-          //
-          //         // Update the local data to reflect the changes
-          //         conductorData.availableForReservation = currentAvailableForReservation;
-          //         conductorData.busAvailabilityStatus = currentBusAvailabilityStatus;
-          //       } catch (statusUpdateError) {
-          //         console.warn(`⚠️ Failed to update bus availability status for ${conductorId}:`, statusUpdateError);
-          //       }
-          //     }
-          //   }
-          // }
 
           // Get trips data when conductor data changes
           const { allTrips } = await this.getConductorTrips(conductorId, 10); // Latest 10 trips
@@ -947,7 +889,178 @@ class ConductorService {
   removeConductorStatusListener(conductorId) {
     this.removeListener(`conductor_status_${conductorId}`);
   }
-  
+
+  // NEW: Real-time listener for reservations
+  setupReservationsListener(callback) {
+    this.removeListener('reservations');
+
+    const reservationsRef = collection(db, 'reservations');
+    const reservationsQuery = query(reservationsRef, orderBy('timestamp', 'desc'));
+
+    const unsubscribe = onSnapshot(reservationsQuery, (snapshot) => {
+      try {
+        const reservations = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        callback(reservations);
+      } catch (error) {
+        console.error('Error in reservations listener:', error);
+        callback([]);
+      }
+    }, (error) => {
+      console.error('Error setting up reservations listener:', error);
+      callback([]);
+    });
+
+    this.listeners.set('reservations', unsubscribe);
+    return unsubscribe;
+  }
+
+  // NEW: Real-time listener for conductor reservations (by conductor ID)
+  setupConductorReservationsListener(conductorId, callback) {
+    const listenerKey = `conductor_reservations_${conductorId}`;
+    this.removeListener(listenerKey);
+
+    const reservationsRef = collection(db, 'reservations');
+    const reservationsQuery = query(
+      reservationsRef,
+      where('selectedBusIds', 'array-contains', conductorId),
+      orderBy('timestamp', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(reservationsQuery, (snapshot) => {
+      try {
+        const reservations = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        callback(reservations);
+      } catch (error) {
+        console.error(`Error in conductor reservations listener for ${conductorId}:`, error);
+        callback([]);
+      }
+    }, (error) => {
+      console.error(`Error setting up conductor reservations listener for ${conductorId}:`, error);
+      callback([]);
+    });
+
+    this.listeners.set(listenerKey, unsubscribe);
+    return unsubscribe;
+  }
+
+  // NEW: Remove reservation listeners
+  removeReservationsListener() {
+    this.removeListener('reservations');
+  }
+
+  removeConductorReservationsListener(conductorId) {
+    this.removeListener(`conductor_reservations_${conductorId}`);
+  }
+
+  // NEW: Mark reservation as completed
+  async markReservationAsCompleted(conductorId) {
+    try {
+      const conductorRef = doc(db, 'conductors', conductorId);
+      const conductorDoc = await getDoc(conductorRef);
+
+      if (!conductorDoc.exists()) {
+        throw new Error('Conductor not found');
+      }
+
+      const conductorData = conductorDoc.data();
+
+      // Check if bus is reserved
+      if (conductorData.busAvailabilityStatus !== 'confirmed' && conductorData.busAvailabilityStatus !== 'reserved') {
+        throw new Error('Bus is not currently reserved');
+      }
+
+      // Check if reservation date has passed
+      if (conductorData.reservationDetails?.travelDate) {
+        const travelDate = conductorData.reservationDetails.travelDate;
+        let reservationDate;
+
+        // Handle Firestore Timestamp or string date
+        if (travelDate.toDate) {
+          reservationDate = travelDate.toDate();
+        } else if (typeof travelDate === 'string') {
+          reservationDate = new Date(travelDate);
+        } else {
+          reservationDate = new Date(travelDate);
+        }
+
+        // Get current date at midnight for accurate comparison
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        reservationDate.setHours(0, 0, 0, 0);
+
+        // Check if reservation date has passed
+        if (reservationDate > today) {
+          throw new Error(`Cannot mark as completed. Travel date is ${reservationDate.toLocaleDateString()}. Please wait until after the travel date.`);
+        }
+      }
+
+      // Update conductor document
+      const updateData = {
+        busAvailabilityStatus: 'no-reservation',
+        'reservationDetails.status': 'completed',
+        updatedAt: serverTimestamp()
+      };
+
+      await updateDoc(conductorRef, updateData);
+
+      // Update reservation document status to completed
+      if (conductorData.reservationId) {
+        try {
+          const reservationRef = doc(db, 'reservations', conductorData.reservationId);
+          const reservationDoc = await getDoc(reservationRef);
+
+          if (reservationDoc.exists()) {
+            await updateDoc(reservationRef, {
+              status: 'completed',
+              completedAt: serverTimestamp(),
+              completedBy: 'admin',
+              updatedAt: serverTimestamp()
+            });
+          }
+        } catch (reservationError) {
+          console.warn('Error updating reservation status:', reservationError);
+        }
+      }
+
+      // Log the activity
+      await logActivity(
+        ACTIVITY_TYPES.CONDUCTOR_UPDATE,
+        `Reservation marked as completed for conductor: ${conductorData.name || conductorId}`,
+        {
+          conductorId: conductorId,
+          conductorName: conductorData.name,
+          plateNumber: conductorData.plateNumber,
+          previousStatus: conductorData.busAvailabilityStatus,
+          newStatus: 'no-reservation',
+          reservationStatus: 'completed',
+          reservationId: conductorData.reservationId || null,
+          action: 'mark_reservation_completed',
+          timestamp: new Date().toISOString()
+        }
+      );
+
+      return {
+        success: true,
+        message: 'Reservation marked as completed successfully'
+      };
+
+    } catch (error) {
+      console.error('Error marking reservation as completed:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
   // Extract document ID from email (matches your current logic)
   extractDocumentId(email) {
     return email.split('@')[0].replace(/\./g, '_');
@@ -1277,8 +1390,7 @@ class ConductorService {
         status: 'offline',
 
         // Bus availability status for mobile app (initially no reservation)
-        busAvailabilityStatus: null, // App will handle setting this
-        availableForReservation: null, // App will handle setting this
+        busAvailabilityStatus: 'no-reservation', // Initially available for reservation
         codingDay: this.getCodingDayFromPlate(plateNumber) // Calculate from plate number
       };
 
