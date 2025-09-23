@@ -951,7 +951,7 @@ class ConductorService {
     return unsubscribe;
   }
 
-  // NEW: Remove reservation listeners
+  //Remove reservation listeners
   removeReservationsListener() {
     this.removeListener('reservations');
   }
@@ -960,7 +960,7 @@ class ConductorService {
     this.removeListener(`conductor_reservations_${conductorId}`);
   }
 
-  // NEW: Mark reservation as completed
+  // Mark reservation as completed
   async markReservationAsCompleted(conductorId) {
     try {
       const conductorRef = doc(db, 'conductors', conductorId);
