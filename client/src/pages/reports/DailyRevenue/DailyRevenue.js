@@ -252,13 +252,17 @@ const getTripDirection = async (conductorId, dateId, tripName) => {
 // Fetch conductor trips only (pre-booking now handled separately)
 export const fetchConductorTripsAndPreBooking = async (date, selectedRoute = null) => {
   try {
+    console.log(`Starting fetchConductorTripsAndPreBooking for date: ${date}, route: ${selectedRoute}`);
+    const startTime = Date.now();
+
     const conductorsRef = collection(db, 'conductors');
     const conductorsSnapshot = await getDocs(conductorsRef);
-    let conductorTrips = [];
+    console.log(`Found ${conductorsSnapshot.docs.length} conductors to process`);
 
-
-    for (const conductorDoc of conductorsSnapshot.docs) {
+    // Process all conductors in parallel instead of sequential
+    const conductorPromises = conductorsSnapshot.docs.map(async (conductorDoc) => {
       const conductorId = conductorDoc.id;
+      let conductorTrips = [];
 
       try {
         // If no date is provided, get all trips from all dates
@@ -267,22 +271,38 @@ export const fetchConductorTripsAndPreBooking = async (date, selectedRoute = nul
           const dailyTripsRef = collection(db, `conductors/${conductorId}/dailyTrips`);
           const dailyTripsSnapshot = await getDocs(dailyTripsRef);
 
-          for (const dateDoc of dailyTripsSnapshot.docs) {
+          // Process all date docs in parallel for this conductor
+          const datePromises = dailyTripsSnapshot.docs.map(async (dateDoc) => {
             const dateId = dateDoc.id;
-            await processTripsForDate(conductorId, dateId, conductorTrips, [], date, selectedRoute);
-          }
+            const dateConductorTrips = [];
+            await processTripsForDate(conductorId, dateId, dateConductorTrips, [], date, selectedRoute);
+            return dateConductorTrips;
+          });
+
+          const dateResults = await Promise.all(datePromises);
+          conductorTrips = dateResults.flat();
         } else {
           // Process specific date
           await processTripsForDate(conductorId, date, conductorTrips, [], date, selectedRoute);
         }
-      } catch (conductorError) {
-        continue;
-      }
-    }
 
+        return conductorTrips;
+      } catch (conductorError) {
+        console.warn(`Error processing conductor ${conductorId}:`, conductorError.message);
+        return [];
+      }
+    });
+
+    // Wait for all conductors to complete in parallel
+    const allConductorResults = await Promise.all(conductorPromises);
+    const conductorTrips = allConductorResults.flat();
+
+    const endTime = Date.now();
+    console.log(`fetchConductorTripsAndPreBooking completed in ${endTime - startTime}ms, found ${conductorTrips.length} trips`);
 
     return { conductorTrips };
   } catch (error) {
+    console.error('Error in fetchConductorTripsAndPreBooking:', error);
     return { conductorTrips: [] };
   }
 };
@@ -292,47 +312,49 @@ const processTripsForDate = async (conductorId, dateId, conductorTrips, preBooki
   try {
     // Get all trip names dynamically instead of hardcoding
     const tripNames = await getAllTripNames(conductorId, dateId);
-    
-    
-    for (const tripName of tripNames) {
+
+    // Process all trips in parallel instead of sequential
+    const tripPromises = tripNames.map(async (tripName) => {
       try {
         // Get trip direction first if route filtering is enabled
         let tripDirection = null;
         if (selectedRoute) {
           tripDirection = await getTripDirection(conductorId, dateId, tripName);
-          
+
           // Skip this trip if it doesn't match the selected route
           if (tripDirection !== selectedRoute) {
-            continue;
+            return [];
           }
         }
 
         // Check if this trip exists by trying to get its tickets
         const ticketsCollectionRef = collection(db, `conductors/${conductorId}/dailyTrips/${dateId}/${tripName}/tickets/tickets`);
         const ticketsSnapshot = await getDocs(ticketsCollectionRef);
-        
+
         if (ticketsSnapshot.docs.length > 0) {
-          
+
           // If we haven't fetched the trip direction yet, fetch it now for ticket processing
           if (!tripDirection) {
             tripDirection = await getTripDirection(conductorId, dateId, tripName);
           }
-          
+
+          const tripTickets = [];
+
           for (const ticketDoc of ticketsSnapshot.docs) {
             const ticketData = ticketDoc.data();
             const ticketId = ticketDoc.id;
-            
-            
+
+
             // Check if we should include this ticket based on date filter
             if (filterDate) {
               const ticketTimestamp = ticketData.timestamp?.toDate ? ticketData.timestamp.toDate() : new Date(ticketData.timestamp);
               const ticketDateString = ticketTimestamp.toISOString().split('T')[0];
-              
+
               if (ticketDateString !== filterDate) {
                 continue;
               }
             }
-            
+
             // Process valid tickets - only conductor trips now (pre-booking handled separately)
             if (ticketData.totalFare && ticketData.quantity) {
               const processedTicket = {
@@ -368,31 +390,49 @@ const processTripsForDate = async (conductorId, dateId, conductorTrips, preBooki
                 // Skip pre-bookings here - they're handled by fetchPreBookingFromNewPath
               } else {
                 // conductorTicket or no documentType = Conductor trips
-                conductorTrips.push({
+                tripTickets.push({
                   ...processedTicket,
                   source: 'Conductor Trips'
                 });
               }
             }
           }
+
+          return tripTickets;
         }
+
+        return [];
       } catch (tripError) {
-        // This is normal - not all trip numbers will exist
+        console.warn(`Error processing trip ${tripName} for conductor ${conductorId}:`, tripError.message);
+        return [];
       }
-    }
+    });
+
+    // Wait for all trips to complete and flatten results
+    const tripResults = await Promise.all(tripPromises);
+    const allTripTickets = tripResults.flat();
+
+    // Add results to conductorTrips array
+    conductorTrips.push(...allTripTickets);
   } catch (error) {
+    console.warn(`Error processing trips for conductor ${conductorId} on date ${dateId}:`, error.message);
   }
 };
 
 // Fetch pre-booking data from the new path structure
 export const fetchPreBookingFromNewPath = async (date, selectedRoute = null) => {
   try {
+    console.log(`Starting fetchPreBookingFromNewPath for date: ${date}, route: ${selectedRoute}`);
+    const startTime = Date.now();
+
     const conductorsRef = collection(db, 'conductors');
     const conductorsSnapshot = await getDocs(conductorsRef);
-    let allPreBookings = [];
+    console.log(`Processing ${conductorsSnapshot.docs.length} conductors for pre-bookings`);
 
-    for (const conductorDoc of conductorsSnapshot.docs) {
+    // Process all conductors in parallel instead of sequential
+    const conductorPromises = conductorsSnapshot.docs.map(async (conductorDoc) => {
       const conductorId = conductorDoc.id;
+      let conductorPreBookings = [];
 
       try {
         // If no date is provided, get all trips from all dates
@@ -401,20 +441,34 @@ export const fetchPreBookingFromNewPath = async (date, selectedRoute = null) => 
           const dailyTripsRef = collection(db, `conductors/${conductorId}/dailyTrips`);
           const dailyTripsSnapshot = await getDocs(dailyTripsRef);
 
-          for (const dateDoc of dailyTripsSnapshot.docs) {
+          // Process all date docs in parallel for this conductor
+          const datePromises = dailyTripsSnapshot.docs.map(async (dateDoc) => {
             const dateId = dateDoc.id;
-            await processPreBookingsForDate(conductorId, dateId, allPreBookings, date, selectedRoute);
-          }
+            const datePreBookings = [];
+            await processPreBookingsForDate(conductorId, dateId, datePreBookings, date, selectedRoute);
+            return datePreBookings;
+          });
+
+          const dateResults = await Promise.all(datePromises);
+          conductorPreBookings = dateResults.flat();
         } else {
           // Process specific date
-          await processPreBookingsForDate(conductorId, date, allPreBookings, date, selectedRoute);
+          await processPreBookingsForDate(conductorId, date, conductorPreBookings, date, selectedRoute);
         }
 
+        return conductorPreBookings;
       } catch (conductorError) {
-        console.error(`Error fetching pre-bookings for conductor ${conductorId}:`, conductorError);
-        continue;
+        console.warn(`Error fetching pre-bookings for conductor ${conductorId}:`, conductorError.message);
+        return [];
       }
-    }
+    });
+
+    // Wait for all conductors to complete in parallel
+    const allConductorResults = await Promise.all(conductorPromises);
+    const allPreBookings = allConductorResults.flat();
+
+    const endTime = Date.now();
+    console.log(`fetchPreBookingFromNewPath completed in ${endTime - startTime}ms, found ${allPreBookings.length} pre-bookings`);
 
     return allPreBookings;
   } catch (error) {
@@ -429,7 +483,8 @@ const processPreBookingsForDate = async (conductorId, dateId, allPreBookings, fi
     // Get all trip names dynamically
     const tripNames = await getAllTripNames(conductorId, dateId);
 
-    for (const tripName of tripNames) {
+    // Process all trips in parallel instead of sequential
+    const tripPromises = tripNames.map(async (tripName) => {
       try {
         // Get trip direction first if route filtering is enabled
         let tripDirection = null;
@@ -438,7 +493,7 @@ const processPreBookingsForDate = async (conductorId, dateId, allPreBookings, fi
 
           // Skip this trip if it doesn't match the selected route
           if (tripDirection !== selectedRoute) {
-            continue;
+            return [];
           }
         }
 
@@ -451,6 +506,8 @@ const processPreBookingsForDate = async (conductorId, dateId, allPreBookings, fi
           if (!tripDirection) {
             tripDirection = await getTripDirection(conductorId, dateId, tripName);
           }
+
+          const tripPreBookings = [];
 
           for (const preBookingDoc of preBookingsSnapshot.docs) {
             const preBookingData = preBookingDoc.data();
@@ -468,7 +525,7 @@ const processPreBookingsForDate = async (conductorId, dateId, allPreBookings, fi
 
             // Process valid pre-bookings (check for totalFare and quantity)
             if (preBookingData.totalFare && preBookingData.quantity) {
-              allPreBookings.push({
+              tripPreBookings.push({
                 id: preBookingId,
                 conductorId: conductorId,
                 tripId: tripName,
@@ -503,27 +560,42 @@ const processPreBookingsForDate = async (conductorId, dateId, allPreBookings, fi
               });
             }
           }
+
+          return tripPreBookings;
         }
+
+        return [];
       } catch (tripError) {
-        // This is normal - not all trip numbers will exist
+        console.warn(`Error processing pre-booking trip ${tripName} for conductor ${conductorId}:`, tripError.message);
+        return [];
       }
-    }
+    });
+
+    // Wait for all trips to complete and flatten results
+    const tripResults = await Promise.all(tripPromises);
+    const allTripPreBookings = tripResults.flat();
+
+    // Add results to allPreBookings array
+    allPreBookings.push(...allTripPreBookings);
   } catch (error) {
-    console.error(`Error processing pre-bookings for conductor ${conductorId} on date ${dateId}:`, error);
+    console.warn(`Error processing pre-bookings for conductor ${conductorId} on date ${dateId}:`, error.message);
   }
 };
 
 // Fetch pre-ticketing data from the new ticket structure with route filtering
 export const fetchPreTicketing = async (date, selectedRoute = null) => {
   try {
+    console.log(`Starting fetchPreTicketing for date: ${date}, route: ${selectedRoute}`);
+    const startTime = Date.now();
 
     const conductorsRef = collection(db, 'conductors');
     const conductorsSnapshot = await getDocs(conductorsRef);
-    let allPreTickets = [];
+    console.log(`Processing ${conductorsSnapshot.docs.length} conductors for pre-tickets`);
 
-
-    for (const conductorDoc of conductorsSnapshot.docs) {
+    // Process all conductors in parallel instead of sequential
+    const conductorPromises = conductorsSnapshot.docs.map(async (conductorDoc) => {
       const conductorId = conductorDoc.id;
+      let conductorPreTickets = [];
 
       try {
         // If no date is provided, get all trips from all dates
@@ -532,21 +604,34 @@ export const fetchPreTicketing = async (date, selectedRoute = null) => {
           const dailyTripsRef = collection(db, `conductors/${conductorId}/dailyTrips`);
           const dailyTripsSnapshot = await getDocs(dailyTripsRef);
 
-          for (const dateDoc of dailyTripsSnapshot.docs) {
+          // Process all date docs in parallel for this conductor
+          const datePromises = dailyTripsSnapshot.docs.map(async (dateDoc) => {
             const dateId = dateDoc.id;
-            await processPreTicketsForDate(conductorId, dateId, allPreTickets, date, selectedRoute);
-          }
+            const datePreTickets = [];
+            await processPreTicketsForDate(conductorId, dateId, datePreTickets, date, selectedRoute);
+            return datePreTickets;
+          });
+
+          const dateResults = await Promise.all(datePromises);
+          conductorPreTickets = dateResults.flat();
         } else {
           // Process specific date
-          await processPreTicketsForDate(conductorId, date, allPreTickets, date, selectedRoute);
+          await processPreTicketsForDate(conductorId, date, conductorPreTickets, date, selectedRoute);
         }
 
+        return conductorPreTickets;
       } catch (conductorError) {
-        console.error(`Error fetching pre-tickets for conductor ${conductorId}:`, conductorError);
-        continue;
+        console.warn(`Error fetching pre-tickets for conductor ${conductorId}:`, conductorError.message);
+        return [];
       }
-    }
+    });
 
+    // Wait for all conductors to complete in parallel
+    const allConductorResults = await Promise.all(conductorPromises);
+    const allPreTickets = allConductorResults.flat();
+
+    const endTime = Date.now();
+    console.log(`fetchPreTicketing completed in ${endTime - startTime}ms, found ${allPreTickets.length} pre-tickets`);
 
     return allPreTickets;
   } catch (error) {
@@ -564,52 +649,54 @@ const processPreTicketsForDate = async (conductorId, dateId, allPreTickets, filt
   try {
     // Get all trip names dynamically instead of hardcoding
     const tripNames = await getAllTripNames(conductorId, dateId);
-    
-    
-    for (const tripName of tripNames) {
+
+    // Process all trips in parallel instead of sequential
+    const tripPromises = tripNames.map(async (tripName) => {
       try {
         // Get trip direction first if route filtering is enabled
         let tripDirection = null;
         if (selectedRoute) {
           tripDirection = await getTripDirection(conductorId, dateId, tripName);
-          
+
           // Skip this trip if it doesn't match the selected route
           if (tripDirection !== selectedRoute) {
-            continue;
+            return [];
           }
         }
 
         // Get individual tickets: /conductors/{conductorId}/dailyTrips/{date}/{tripId}/tickets/tickets/
         const individualTicketsRef = collection(db, `conductors/${conductorId}/dailyTrips/${dateId}/${tripName}/tickets/tickets`);
         const individualTicketsSnapshot = await getDocs(individualTicketsRef);
-        
+
         if (individualTicketsSnapshot.docs.length > 0) {
-          
+
           // If we haven't fetched the trip direction yet, fetch it now for ticket processing
           if (!tripDirection) {
             tripDirection = await getTripDirection(conductorId, dateId, tripName);
           }
-          
+
+          const tripPreTickets = [];
+
           for (const ticketDoc of individualTicketsSnapshot.docs) {
             const ticketData = ticketDoc.data();
             const ticketId = ticketDoc.id;
-            
+
             // Process tickets with documentType === 'preTicket' (prioritize documentType for pre-tickets)
             if (ticketData.documentType === 'preTicket' || ticketData.ticketType === 'preTicket') {
-              
+
               // Check if we should include this ticket based on date filter
               if (filterDate) {
                 const ticketTimestamp = ticketData.timestamp?.toDate ? ticketData.timestamp.toDate() : new Date(ticketData.timestamp);
                 const ticketDateString = ticketTimestamp.toISOString().split('T')[0];
-                
+
                 if (ticketDateString !== filterDate) {
                   continue;
                 }
               }
-              
+
               // Process valid pre-tickets
               if (ticketData.totalFare && ticketData.quantity) {
-                allPreTickets.push({
+                tripPreTickets.push({
                   id: ticketId,
                   conductorId: conductorId,
                   tripId: tripName,
@@ -635,13 +722,25 @@ const processPreTicketsForDate = async (conductorId, dateId, allPreTickets, filt
               }
             }
           }
+
+          return tripPreTickets;
         }
+
+        return [];
       } catch (tripError) {
-        // This is normal - not all trip numbers will exist
+        console.warn(`Error processing pre-ticket trip ${tripName} for conductor ${conductorId}:`, tripError.message);
+        return [];
       }
-    }
+    });
+
+    // Wait for all trips to complete and flatten results
+    const tripResults = await Promise.all(tripPromises);
+    const allTripPreTickets = tripResults.flat();
+
+    // Add results to allPreTickets array
+    allPreTickets.push(...allTripPreTickets);
   } catch (error) {
-    console.error(`Error processing pre-tickets for conductor ${conductorId} on date ${dateId}:`, error);
+    console.warn(`Error processing pre-tickets for conductor ${conductorId} on date ${dateId}:`, error.message);
   }
 };
 
@@ -752,17 +851,24 @@ export const prepareRouteRevenueData = (conductorTrips, preBookingTrips, preTick
 // Load all revenue data with route filtering
 export const loadRevenueData = async (selectedDate, selectedRoute = null) => {
   try {
+    console.log(`Starting loadRevenueData for date: ${selectedDate}, route: ${selectedRoute}`);
+    const overallStartTime = Date.now();
 
     // Pass null or empty string when date is cleared to fetch all data
     const dateParam = selectedDate && selectedDate.trim() !== '' ? selectedDate : null;
 
+    // All three data fetching functions already run in parallel via Promise.all
     const [{ conductorTrips }, preBookingTrips, preTicketing] = await Promise.all([
       fetchConductorTripsAndPreBooking(dateParam, selectedRoute),
       fetchPreBookingFromNewPath(dateParam, selectedRoute),
       fetchPreTicketing(dateParam, selectedRoute)
     ]);
 
+    console.log(`Data fetching completed. Processing metrics...`);
+    const metricsStartTime = Date.now();
     const metrics = calculateRevenueMetrics(conductorTrips, preBookingTrips, preTicketing);
+    const metricsEndTime = Date.now();
+    console.log(`Metrics calculation completed in ${metricsEndTime - metricsStartTime}ms`);
 
     const result = {
       conductorTrips,
@@ -770,6 +876,10 @@ export const loadRevenueData = async (selectedDate, selectedRoute = null) => {
       preTicketing,
       ...metrics
     };
+
+    const overallEndTime = Date.now();
+    console.log(`loadRevenueData completed in ${overallEndTime - overallStartTime}ms`);
+    console.log(`Total results: ${conductorTrips.length} conductor trips, ${preBookingTrips.length} pre-bookings, ${preTicketing.length} pre-tickets`);
 
     return result;
   } catch (error) {
