@@ -19,7 +19,6 @@ import {
 function PaymentTransactions() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [showImageModal, setShowImageModal] = useState(false);
@@ -95,7 +94,7 @@ function PaymentTransactions() {
   };
 
   // Filter payments using service
-  const filteredPayments = paymentService.filterPayments(payments, filterType, filterStatus, searchTerm);
+  const filteredPayments = paymentService.filterPayments(payments, filterStatus, searchTerm);
 
   // Use service methods for formatting
   const formatCurrency = paymentService.formatCurrency;
@@ -181,20 +180,6 @@ function PaymentTransactions() {
 
         {/* Filters */}
         <div className="payment-filters">
-          <div className="filter-group">
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="filter-select"
-            >
-              <option value="all">All Types</option>
-              <option value="bus_reservation">Bus Reservations</option>
-              <option value="general">General Payments</option>
-              <option value="ticket">Ticket Purchases</option>
-              <option value="app_service">App Services</option>
-            </select>
-          </div>
-
           <div className="filter-group">
             <select
               value={filterStatus}

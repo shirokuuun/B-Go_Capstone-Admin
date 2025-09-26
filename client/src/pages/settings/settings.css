@@ -3650,3 +3650,119 @@
     gap: 16px;
   }
 }
+
+/* Selected Delete Functionality Styles */
+
+/* Bulk Actions Bar */
+.settings-bulk-actions-bar {
+  background: #f8f9fa;
+  padding: 15px 20px;
+  margin: 10px 0;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Button Styles */
+.settings-btn {
+  background: #17a2b8;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-btn:hover:not(.settings-btn-primary):not(.settings-btn-secondary):not(.settings-btn-danger) {
+  background: #0056b3;
+  transform: translateY(-1px);
+}
+
+.settings-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.settings-btn-primary {
+  background: #17a2b8;
+  box-shadow: 0 4px 12px rgba(23, 162, 184, 0.3);
+}
+
+.settings-btn-primary:hover:not(:disabled) {
+  background: #138496;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(23, 162, 184, 0.4);
+}
+
+.settings-btn-secondary {
+  background: #6c757d;
+}
+
+.settings-btn-secondary:hover {
+  background: #545b62;
+}
+
+.settings-btn-danger {
+  background: #dc3545;
+}
+
+.settings-btn-danger:hover {
+  background: #c82333;
+}
+
+/* Log Row Selection Styles */
+.settings-log-row.selectable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.settings-log-row.selectable:hover {
+  background-color: #f0fdff !important;
+}
+
+.settings-log-row.selected {
+  background-color: #f0fdff !important;
+  border: 2px solid #17a2b8 !important;
+  box-shadow: 0 2px 8px rgba(23, 162, 184, 0.2);
+}
+
+/* Checkbox Styles */
+.settings-log-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #17a2b8;
+}
+
+/* Selection Mode Adjustments */
+.settings-log-row.selectable .settings-log-date {
+  padding-left: 35px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .settings-bulk-actions-bar {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .settings-bulk-actions-bar > div {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .settings-btn {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+}

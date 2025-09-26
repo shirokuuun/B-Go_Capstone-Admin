@@ -516,7 +516,9 @@ const MonthlyRevenue = ({
                 </tr>
               </thead>
               <tbody>
-                {monthlyData.dailyBreakdown.map((day, index) => (
+                {[...monthlyData.dailyBreakdown]
+                  .sort((a, b) => new Date(b.date) - new Date(a.date))
+                  .map((day, index) => (
                   <tr key={index}>
                     <td>{formatDateForBreakdown(day.date)}</td>
                     <td className="revenue-fare-amount">{formatCurrency(day.totalRevenue)}</td>

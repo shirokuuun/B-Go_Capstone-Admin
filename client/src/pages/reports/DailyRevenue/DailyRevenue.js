@@ -150,41 +150,41 @@ export const getAvailableDates = async () => {
 
     for (const conductorDoc of conductorsSnapshot.docs) {
       const conductorId = conductorDoc.id;
-      
+
       try {
         // Get all daily trips for this conductor
         const dailyTripsRef = collection(db, `conductors/${conductorId}/dailyTrips`);
         const dailyTripsSnapshot = await getDocs(dailyTripsRef);
-        
-        
+
+
         for (const dateDoc of dailyTripsSnapshot.docs) {
           const dateData = dateDoc.data();
           const dateId = dateDoc.id;
-          
-          
+
+
           // Check if the date document has a createdAt field
           if (dateData.createdAt) {
             const createdAt = dateData.createdAt.toDate ? dateData.createdAt.toDate() : new Date(dateData.createdAt);
             const dateString = createdAt.toISOString().split('T')[0];
             availableDates.add(dateString);
           }
-          
+
           // Also check if the document ID itself is a valid date (format: YYYY-MM-DD)
           if (dateId.match(/^\d{4}-\d{2}-\d{2}$/)) {
             availableDates.add(dateId);
           }
-          
+
           // Additionally, check for any trips within this date to get more dates from tickets
           try {
             // Get all trip names dynamically
             const tripNames = await getAllTripNames(conductorId, dateId);
-            
+
             for (const tripName of tripNames) {
               try {
                 // Check for tickets in: /conductors/{conductorId}/dailyTrips/{dateId}/{tripName}/tickets/tickets/
                 const ticketsRef = collection(db, `conductors/${conductorId}/dailyTrips/${dateId}/${tripName}/tickets/tickets`);
                 const ticketsSnapshot = await getDocs(ticketsRef);
-                
+
                 for (const ticketDoc of ticketsSnapshot.docs) {
                   const ticketData = ticketDoc.data();
                   // Check if ticket has timestamp field
@@ -202,6 +202,7 @@ export const getAvailableDates = async () => {
             // No trips found for date (normal)
           }
         }
+
       } catch (conductorError) {
         console.error(`Error fetching dates for conductor ${conductorId}:`, conductorError);
         continue;
@@ -248,13 +249,12 @@ const getTripDirection = async (conductorId, dateId, tripName) => {
   }
 };
 
-// Fetch conductor trips and pre-booking data from new path structure with route filtering
+// Fetch conductor trips only (pre-booking now handled separately)
 export const fetchConductorTripsAndPreBooking = async (date, selectedRoute = null) => {
   try {
     const conductorsRef = collection(db, 'conductors');
     const conductorsSnapshot = await getDocs(conductorsRef);
     let conductorTrips = [];
-    let preBookingTrips = [];
 
 
     for (const conductorDoc of conductorsSnapshot.docs) {
@@ -266,24 +266,24 @@ export const fetchConductorTripsAndPreBooking = async (date, selectedRoute = nul
           // Get all daily trips dates for this conductor
           const dailyTripsRef = collection(db, `conductors/${conductorId}/dailyTrips`);
           const dailyTripsSnapshot = await getDocs(dailyTripsRef);
-          
+
           for (const dateDoc of dailyTripsSnapshot.docs) {
             const dateId = dateDoc.id;
-            await processTripsForDate(conductorId, dateId, conductorTrips, preBookingTrips, date, selectedRoute);
+            await processTripsForDate(conductorId, dateId, conductorTrips, [], date, selectedRoute);
           }
         } else {
           // Process specific date
-          await processTripsForDate(conductorId, date, conductorTrips, preBookingTrips, date, selectedRoute);
+          await processTripsForDate(conductorId, date, conductorTrips, [], date, selectedRoute);
         }
       } catch (conductorError) {
         continue;
       }
     }
 
-    
-    return { conductorTrips, preBookingTrips };
+
+    return { conductorTrips };
   } catch (error) {
-    return { conductorTrips: [], preBookingTrips: [] };
+    return { conductorTrips: [] };
   }
 };
 
@@ -333,13 +333,13 @@ const processTripsForDate = async (conductorId, dateId, conductorTrips, preBooki
               }
             }
             
-            // Process valid tickets
+            // Process valid tickets - only conductor trips now (pre-booking handled separately)
             if (ticketData.totalFare && ticketData.quantity) {
               const processedTicket = {
                 id: ticketId,
                 conductorId: conductorId,
                 tripId: tripName,
-                tripDirection: tripDirection, 
+                tripDirection: tripDirection,
                 totalFare: parseFloat(ticketData.totalFare),
                 quantity: ticketData.quantity || 1,
                 from: ticketData.from,
@@ -347,7 +347,7 @@ const processTripsForDate = async (conductorId, dateId, conductorTrips, preBooki
                 timestamp: ticketData.timestamp,
                 discountAmount: parseFloat(ticketData.discountAmount || 0),
                 ticketType: ticketData.ticketType || ticketData.documentType || null,
-                documentType: ticketData.documentType || ticketData.ticketType || null, 
+                documentType: ticketData.documentType || ticketData.ticketType || null,
                 date: dateId,
                 startKm: ticketData.startKm,
                 endKm: ticketData.endKm,
@@ -360,15 +360,12 @@ const processTripsForDate = async (conductorId, dateId, conductorTrips, preBooki
                 ...ticketData
               };
 
-              // Categorize based on documentType (primary) then ticketType (fallback)
-              if (ticketData.documentType === 'preBooking') {
-                preBookingTrips.push({
-                  ...processedTicket,
-                  source: 'Pre-booking'
-                });
-              } else if (ticketData.documentType === 'preTicket') {
+              // Only process conductor tickets and pre-tickets (pre-booking is handled by separate function)
+              if (ticketData.documentType === 'preTicket' || ticketData.ticketType === 'preTicket') {
                 // Pre-ticketing will be handled separately in fetchPreTicketing function
-                // This is here for completeness but won't be used in the current flow
+                // Skip pre-tickets here to avoid duplication
+              } else if (ticketData.documentType === 'preBooking' || ticketData.ticketType === 'preBooking') {
+                // Skip pre-bookings here - they're handled by fetchPreBookingFromNewPath
               } else {
                 // conductorTicket or no documentType = Conductor trips
                 conductorTrips.push({
@@ -387,10 +384,139 @@ const processTripsForDate = async (conductorId, dateId, conductorTrips, preBooki
   }
 };
 
+// Fetch pre-booking data from the new path structure
+export const fetchPreBookingFromNewPath = async (date, selectedRoute = null) => {
+  try {
+    const conductorsRef = collection(db, 'conductors');
+    const conductorsSnapshot = await getDocs(conductorsRef);
+    let allPreBookings = [];
+
+    for (const conductorDoc of conductorsSnapshot.docs) {
+      const conductorId = conductorDoc.id;
+
+      try {
+        // If no date is provided, get all trips from all dates
+        if (!date) {
+          // Get all daily trips dates for this conductor
+          const dailyTripsRef = collection(db, `conductors/${conductorId}/dailyTrips`);
+          const dailyTripsSnapshot = await getDocs(dailyTripsRef);
+
+          for (const dateDoc of dailyTripsSnapshot.docs) {
+            const dateId = dateDoc.id;
+            await processPreBookingsForDate(conductorId, dateId, allPreBookings, date, selectedRoute);
+          }
+        } else {
+          // Process specific date
+          await processPreBookingsForDate(conductorId, date, allPreBookings, date, selectedRoute);
+        }
+
+      } catch (conductorError) {
+        console.error(`Error fetching pre-bookings for conductor ${conductorId}:`, conductorError);
+        continue;
+      }
+    }
+
+    return allPreBookings;
+  } catch (error) {
+    console.error('Error fetching pre-booking data:', error);
+    return [];
+  }
+};
+
+// Helper function to process pre-bookings for a specific date from new path
+const processPreBookingsForDate = async (conductorId, dateId, allPreBookings, filterDate = null, selectedRoute = null) => {
+  try {
+    // Get all trip names dynamically
+    const tripNames = await getAllTripNames(conductorId, dateId);
+
+    for (const tripName of tripNames) {
+      try {
+        // Get trip direction first if route filtering is enabled
+        let tripDirection = null;
+        if (selectedRoute) {
+          tripDirection = await getTripDirection(conductorId, dateId, tripName);
+
+          // Skip this trip if it doesn't match the selected route
+          if (tripDirection !== selectedRoute) {
+            continue;
+          }
+        }
+
+        // Get pre-bookings from new path: /conductors/{conductorId}/dailyTrips/{date}/{tripId}/preBookings/preBookings/
+        const preBookingsRef = collection(db, `conductors/${conductorId}/dailyTrips/${dateId}/${tripName}/preBookings/preBookings`);
+        const preBookingsSnapshot = await getDocs(preBookingsRef);
+
+        if (preBookingsSnapshot.docs.length > 0) {
+          // If we haven't fetched the trip direction yet, fetch it now
+          if (!tripDirection) {
+            tripDirection = await getTripDirection(conductorId, dateId, tripName);
+          }
+
+          for (const preBookingDoc of preBookingsSnapshot.docs) {
+            const preBookingData = preBookingDoc.data();
+            const preBookingId = preBookingDoc.id;
+
+            // Check if we should include this pre-booking based on date filter
+            if (filterDate) {
+              const preBookingTimestamp = preBookingData.timestamp?.toDate ? preBookingData.timestamp.toDate() : new Date(preBookingData.timestamp);
+              const preBookingDateString = preBookingTimestamp.toISOString().split('T')[0];
+
+              if (preBookingDateString !== filterDate) {
+                continue;
+              }
+            }
+
+            // Process valid pre-bookings (check for totalFare and quantity)
+            if (preBookingData.totalFare && preBookingData.quantity) {
+              allPreBookings.push({
+                id: preBookingId,
+                conductorId: conductorId,
+                tripId: tripName,
+                tripDirection: tripDirection,
+                totalFare: parseFloat(preBookingData.totalFare),
+                quantity: preBookingData.quantity,
+                from: preBookingData.from,
+                to: preBookingData.to,
+                timestamp: preBookingData.timestamp,
+                discountAmount: parseFloat(preBookingData.discountAmount || 0),
+                date: dateId,
+                startKm: preBookingData.fromKm,
+                endKm: preBookingData.toKm,
+                totalKm: preBookingData.totalKm,
+                farePerPassenger: preBookingData.farePerPassenger || [],
+                discountBreakdown: preBookingData.discountBreakdown || [],
+                active: preBookingData.active,
+                source: 'Pre-booking',
+                ticketType: preBookingData.ticketType || 'preBooking',
+                documentType: 'preBooking',
+                // Additional pre-booking specific fields
+                busNumber: preBookingData.busNumber,
+                conductorName: preBookingData.conductorName,
+                route: preBookingData.route,
+                direction: preBookingData.direction,
+                status: preBookingData.status,
+                paymentMethod: preBookingData.paymentMethod,
+                userId: preBookingData.userId,
+                preBookingId: preBookingData.preBookingId,
+                createdAt: preBookingData.createdAt,
+                paidAt: preBookingData.paidAt
+              });
+            }
+          }
+        }
+      } catch (tripError) {
+        // This is normal - not all trip numbers will exist
+      }
+    }
+  } catch (error) {
+    console.error(`Error processing pre-bookings for conductor ${conductorId} on date ${dateId}:`, error);
+  }
+};
+
 // Fetch pre-ticketing data from the new ticket structure with route filtering
 export const fetchPreTicketing = async (date, selectedRoute = null) => {
   try {
-    
+
     const conductorsRef = collection(db, 'conductors');
     const conductorsSnapshot = await getDocs(conductorsRef);
     let allPreTickets = [];
@@ -398,14 +524,14 @@ export const fetchPreTicketing = async (date, selectedRoute = null) => {
 
     for (const conductorDoc of conductorsSnapshot.docs) {
       const conductorId = conductorDoc.id;
-      
+
       try {
         // If no date is provided, get all trips from all dates
         if (!date) {
           // Get all daily trips dates for this conductor
           const dailyTripsRef = collection(db, `conductors/${conductorId}/dailyTrips`);
           const dailyTripsSnapshot = await getDocs(dailyTripsRef);
-          
+
           for (const dateDoc of dailyTripsSnapshot.docs) {
             const dateId = dateDoc.id;
             await processPreTicketsForDate(conductorId, dateId, allPreTickets, date, selectedRoute);
@@ -414,14 +540,14 @@ export const fetchPreTicketing = async (date, selectedRoute = null) => {
           // Process specific date
           await processPreTicketsForDate(conductorId, date, allPreTickets, date, selectedRoute);
         }
-        
+
       } catch (conductorError) {
         console.error(`Error fetching pre-tickets for conductor ${conductorId}:`, conductorError);
         continue;
       }
     }
 
-    
+
     return allPreTickets;
   } catch (error) {
     console.error('Error details:', {
@@ -469,7 +595,7 @@ const processPreTicketsForDate = async (conductorId, dateId, allPreTickets, filt
             const ticketId = ticketDoc.id;
             
             // Process tickets with documentType === 'preTicket' (prioritize documentType for pre-tickets)
-            if (ticketData.documentType === 'preTicket') {
+            if (ticketData.documentType === 'preTicket' || ticketData.ticketType === 'preTicket') {
               
               // Check if we should include this ticket based on date filter
               if (filterDate) {
@@ -626,12 +752,13 @@ export const prepareRouteRevenueData = (conductorTrips, preBookingTrips, preTick
 // Load all revenue data with route filtering
 export const loadRevenueData = async (selectedDate, selectedRoute = null) => {
   try {
-    
+
     // Pass null or empty string when date is cleared to fetch all data
     const dateParam = selectedDate && selectedDate.trim() !== '' ? selectedDate : null;
-    
-    const [{ conductorTrips, preBookingTrips }, preTicketing] = await Promise.all([
+
+    const [{ conductorTrips }, preBookingTrips, preTicketing] = await Promise.all([
       fetchConductorTripsAndPreBooking(dateParam, selectedRoute),
+      fetchPreBookingFromNewPath(dateParam, selectedRoute),
       fetchPreTicketing(dateParam, selectedRoute)
     ]);
 

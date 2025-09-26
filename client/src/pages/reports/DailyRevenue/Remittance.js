@@ -55,24 +55,37 @@ export const getTripDataFromDailyTrips = async (conductorId, date) => {
     for (const [key, value] of Object.entries(dailyTripsData)) {
       if (key.startsWith('trip') && typeof value === 'object' && value !== null) {
 
-        // Get tickets from dailyTrips tickets collection
-        const ticketDetails = await getTicketDetailsFromDailyTrips(conductorId, date, key);
-        
+        // Get both tickets and pre-bookings from their respective paths
+        const [ticketDetails, preBookingDetails] = await Promise.all([
+          getTicketDetailsFromDailyTrips(conductorId, date, key),
+          getPreBookingDetailsFromNewPath(conductorId, date, key)
+        ]);
 
-        // Determine trip documentType based on tickets
+        // Combine tickets and pre-bookings for unified processing
+        const allTickets = [...ticketDetails.tickets, ...preBookingDetails.preBookings];
+        const combinedRevenue = ticketDetails.totalRevenue + preBookingDetails.totalRevenue;
+        const combinedPassengers = ticketDetails.totalPassengers + preBookingDetails.totalPassengers;
+
+        // Determine trip documentType based on all tickets (check both documentType and ticketType)
         const tripDocumentType = (() => {
-          if (ticketDetails.tickets.length === 0) return 'Regular';
-          
-          // Check if all tickets have the same documentType
-          const documentTypes = [...new Set(ticketDetails.tickets.map(ticket => ticket.documentType))];
-          
-          if (documentTypes.length === 1) {
+          if (allTickets.length === 0) return 'Regular';
+
+          // Check both documentType and ticketType fields from all tickets
+          const allTicketTypes = [];
+          allTickets.forEach(ticket => {
+            if (ticket.documentType) allTicketTypes.push(ticket.documentType);
+            if (ticket.ticketType) allTicketTypes.push(ticket.ticketType);
+          });
+
+          const uniqueTypes = [...new Set(allTicketTypes)];
+
+          if (uniqueTypes.length === 1) {
             // All tickets have the same type
-            return documentTypes[0];
-          } else if (documentTypes.includes('preTicket')) {
+            return uniqueTypes[0];
+          } else if (uniqueTypes.includes('preTicket')) {
             // Mixed types, prioritize preTicket
             return 'preTicket';
-          } else if (documentTypes.includes('preBooking')) {
+          } else if (uniqueTypes.includes('preBooking')) {
             // Mixed types, prioritize preBooking
             return 'preBooking';
           } else {
@@ -88,10 +101,12 @@ export const getTripDataFromDailyTrips = async (conductorId, date) => {
           endTime: value.endTime,
           isComplete: value.isComplete,
           placeCollection: value.placeCollection,
-          totalRevenue: ticketDetails.totalRevenue,
-          totalPassengers: ticketDetails.totalPassengers,
-          ticketCount: ticketDetails.tickets.length,
-          tickets: ticketDetails.tickets,
+          totalRevenue: combinedRevenue,
+          totalPassengers: combinedPassengers,
+          ticketCount: allTickets.length,
+          tickets: allTickets, // Combined tickets and pre-bookings
+          conductorTickets: ticketDetails.tickets,
+          preBookings: preBookingDetails.preBookings,
           documentType: tripDocumentType,
           data: value // Original trip data from dailyTrips
         });
@@ -106,15 +121,15 @@ export const getTripDataFromDailyTrips = async (conductorId, date) => {
   }
 };
 
-// Function to get ticket details from dailyTrips
+// Function to get ticket details from dailyTrips (conductor tickets and pre-tickets only)
 export const getTicketDetailsFromDailyTrips = async (conductorId, date, tripNumber) => {
   try {
-    
+
     const ticketsPath = `conductors/${conductorId}/dailyTrips/${date}/${tripNumber}/tickets/tickets`;
-    
+
     const ticketsRef = collection(db, ticketsPath);
     const ticketsSnapshot = await getDocs(ticketsRef);
-    
+
     let totalRevenue = 0;
     let totalPassengers = 0;
     const tickets = [];
@@ -123,15 +138,20 @@ export const getTicketDetailsFromDailyTrips = async (conductorId, date, tripNumb
     for (const ticketDoc of ticketsSnapshot.docs) {
       const ticketData = ticketDoc.data();
       const ticketId = ticketDoc.id;
-      
-      
+
+
       if (ticketData.totalFare && ticketData.quantity) {
         const fare = parseFloat(ticketData.totalFare);
         const passengers = parseInt(ticketData.quantity);
-        
+
+        // Skip pre-booking tickets here - they're handled by getPreBookingDetailsFromNewPath
+        if (ticketData.documentType === 'preBooking' || ticketData.ticketType === 'preBooking') {
+          continue;
+        }
+
         totalRevenue += fare;
         totalPassengers += passengers;
-        
+
         tickets.push({
           id: ticketId,
           from: ticketData.from || 'N/A',
@@ -139,7 +159,8 @@ export const getTicketDetailsFromDailyTrips = async (conductorId, date, tripNumb
           fare: fare,
           passengers: passengers,
           timestamp: ticketData.timestamp,
-          documentType: ticketData.documentType || 'Regular',
+          documentType: ticketData.documentType || ticketData.ticketType || 'Regular',
+          ticketType: ticketData.ticketType || ticketData.documentType || 'Regular',
           discountAmount: ticketData.discountAmount || 0,
           startKm: ticketData.startKm,
           endKm: ticketData.endKm,
@@ -161,6 +182,78 @@ export const getTicketDetailsFromDailyTrips = async (conductorId, date, tripNumb
     console.error(`Error getting ticket details from dailyTrips for ${conductorId}/${date}/${tripNumber}:`, error);
     return {
       tickets: [],
+      totalRevenue: 0,
+      totalPassengers: 0
+    };
+  }
+};
+
+// Function to get pre-booking details from new path
+export const getPreBookingDetailsFromNewPath = async (conductorId, date, tripNumber) => {
+  try {
+
+    const preBookingsPath = `conductors/${conductorId}/dailyTrips/${date}/${tripNumber}/preBookings/preBookings`;
+
+    const preBookingsRef = collection(db, preBookingsPath);
+    const preBookingsSnapshot = await getDocs(preBookingsRef);
+
+    let totalRevenue = 0;
+    let totalPassengers = 0;
+    const preBookings = [];
+
+
+    for (const preBookingDoc of preBookingsSnapshot.docs) {
+      const preBookingData = preBookingDoc.data();
+      const preBookingId = preBookingDoc.id;
+
+
+      if (preBookingData.totalFare && preBookingData.quantity) {
+        const fare = parseFloat(preBookingData.totalFare);
+        const passengers = parseInt(preBookingData.quantity);
+
+        totalRevenue += fare;
+        totalPassengers += passengers;
+
+        preBookings.push({
+          id: preBookingId,
+          from: preBookingData.from || 'N/A',
+          to: preBookingData.to || 'N/A',
+          fare: fare,
+          passengers: passengers,
+          timestamp: preBookingData.timestamp,
+          documentType: 'preBooking',
+          ticketType: preBookingData.ticketType || 'preBooking',
+          discountAmount: preBookingData.discountAmount || 0,
+          startKm: preBookingData.fromKm,
+          endKm: preBookingData.toKm,
+          totalKm: preBookingData.totalKm,
+          farePerPassenger: preBookingData.farePerPassenger || [],
+          // Additional pre-booking specific fields
+          busNumber: preBookingData.busNumber,
+          conductorName: preBookingData.conductorName,
+          route: preBookingData.route,
+          direction: preBookingData.direction,
+          status: preBookingData.status,
+          paymentMethod: preBookingData.paymentMethod,
+          userId: preBookingData.userId,
+          preBookingId: preBookingData.preBookingId,
+          createdAt: preBookingData.createdAt,
+          paidAt: preBookingData.paidAt,
+          source: 'preBookings'
+        });
+      }
+    }
+
+
+    return {
+      preBookings,
+      totalRevenue,
+      totalPassengers
+    };
+  } catch (error) {
+    console.error(`Error getting pre-booking details from new path for ${conductorId}/${date}/${tripNumber}:`, error);
+    return {
+      preBookings: [],
       totalRevenue: 0,
       totalPassengers: 0
     };

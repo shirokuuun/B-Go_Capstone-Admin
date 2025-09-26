@@ -7,22 +7,51 @@ class DashboardService {
     try {
       const dateDocRef = doc(db, `conductors/${conductorId}/dailyTrips/${dateId}`);
       const dateDocSnapshot = await getDoc(dateDocRef);
-      
+
       if (!dateDocSnapshot.exists()) {
         return [];
       }
-      
+
       const dateData = dateDocSnapshot.data();
       const tripNames = [];
-      
+
       // Look for all fields that start with "trip" and are objects (maps)
       for (const [key, value] of Object.entries(dateData)) {
         if (key.startsWith('trip') && typeof value === 'object' && value !== null) {
           tripNames.push(key);
         }
       }
-      
+
       return tripNames;
+    } catch (error) {
+      return [];
+    }
+  }
+
+  // Helper function to fetch prebooking tickets (same as daily revenue)
+  async fetchPreBookingTickets(conductorId, dateId, tripName) {
+    try {
+      const preBookingsPath = `conductors/${conductorId}/dailyTrips/${dateId}/${tripName}/preBookings/preBookings`;
+      const preBookingsRef = collection(db, preBookingsPath);
+      const preBookingsSnapshot = await getDocs(preBookingsRef);
+
+      const preBookingTickets = [];
+
+      for (const preBookingDoc of preBookingsSnapshot.docs) {
+        const preBookingData = preBookingDoc.data();
+
+        preBookingTickets.push({
+          id: preBookingDoc.id,
+          totalFare: preBookingData.totalFare || 0,
+          quantity: preBookingData.quantity || 0,
+          from: preBookingData.from || '',
+          to: preBookingData.to || '',
+          documentType: 'preBooking',
+          ticketType: 'preBooking'
+        });
+      }
+
+      return preBookingTickets;
     } catch (error) {
       return [];
     }
@@ -76,27 +105,52 @@ class DashboardService {
           
           for (const tripName of tripNames) {
             try {
-              const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
-              const ticketsSnapshot = await getDocs(ticketsRef);
-              
-              if (ticketsSnapshot.docs.length > 0) {
-                totalTrips++; // Count each trip that has tickets
+              // Fetch both regular tickets and prebookings in parallel (like daily revenue)
+              const [ticketsSnapshot, preBookingTickets] = await Promise.all([
+                getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets')),
+                this.fetchPreBookingTickets(conductorId, dateId, tripName)
+              ]);
+
+              // Count trip if it has either regular tickets OR prebookings
+              if (ticketsSnapshot.docs.length > 0 || preBookingTickets.length > 0) {
+                totalTrips++;
               }
-              
-              // Process each ticket (includes all types: conductor, preTicket, preBooking)
+
+              // Process regular tickets (skip prebookings from regular path to avoid duplication)
               ticketsSnapshot.forEach(ticketDoc => {
                 const data = ticketDoc.data();
-                
-                // Only process tickets with valid fare and quantity (same as daily revenue)
+
+                // Skip prebooking tickets from regular path to avoid duplication
+                if (data.documentType === 'preBooking' || data.ticketType === 'preBooking') {
+                  return;
+                }
+
+                // Only process tickets with valid fare and quantity
                 if (data.totalFare && data.quantity) {
                   totalTickets++;
-                  
-                  // Convert totalFare to number in case it's stored as string (same as daily revenue)
+
+                  // Convert totalFare to number in case it's stored as string
                   const fareValue = parseFloat(data.totalFare);
                   totalFare += fareValue;
                   totalPassengers += data.quantity || 0;
 
                   const routeKey = `${data.from || 'Unknown'} → ${data.to || 'Unknown'}`;
+                  routeFrequency[routeKey] = (routeFrequency[routeKey] || 0) + 1;
+                }
+              });
+
+              // Process prebooking tickets from dedicated path
+              preBookingTickets.forEach(preBooking => {
+                // Only process prebookings with valid fare and quantity
+                if (preBooking.totalFare && preBooking.quantity) {
+                  totalTickets++;
+
+                  // Convert totalFare to number in case it's stored as string
+                  const fareValue = parseFloat(preBooking.totalFare);
+                  totalFare += fareValue;
+                  totalPassengers += preBooking.quantity || 0;
+
+                  const routeKey = `${preBooking.from || 'Unknown'} → ${preBooking.to || 'Unknown'}`;
                   routeFrequency[routeKey] = (routeFrequency[routeKey] || 0) + 1;
                 }
               });
@@ -395,17 +449,36 @@ class DashboardService {
               
               for (const tripName of tripNames) {
                 try {
-                  const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
-                  const ticketsSnapshot = await getDocs(ticketsRef);
-                  
-                  if (ticketsSnapshot.docs.length > 0) {
-                    dayTrips++; // Count each trip that has tickets
+                  // Fetch both regular tickets and prebookings in parallel (like other functions)
+                  const [ticketsSnapshot, preBookingTickets] = await Promise.all([
+                    getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets')),
+                    this.fetchPreBookingTickets(conductorId, dateId, tripName)
+                  ]);
+
+                  // Count trip if it has either regular tickets OR prebookings
+                  if (ticketsSnapshot.docs.length > 0 || preBookingTickets.length > 0) {
+                    dayTrips++;
                   }
-                  
+
+                  // Process regular tickets (skip prebookings from regular path to avoid duplication)
                   ticketsSnapshot.forEach(ticketDoc => {
                     const data = ticketDoc.data();
+
+                    // Skip prebooking tickets from regular path to avoid duplication
+                    if (data.documentType === 'preBooking' || data.ticketType === 'preBooking') {
+                      return;
+                    }
+
                     if (data.totalFare && data.quantity) {
                       const fareValue = parseFloat(data.totalFare);
+                      dayRevenue += fareValue;
+                    }
+                  });
+
+                  // Process prebooking tickets from dedicated path
+                  preBookingTickets.forEach(preBooking => {
+                    if (preBooking.totalFare && preBooking.quantity) {
+                      const fareValue = parseFloat(preBooking.totalFare);
                       dayRevenue += fareValue;
                     }
                   });

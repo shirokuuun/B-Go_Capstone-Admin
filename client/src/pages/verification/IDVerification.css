@@ -158,7 +158,11 @@
   background: #e74c3c;
 }
 
-.id-verification-count-badge:not(.pending):not(.verified):not(.rejected) {
+.id-verification-count-badge.revoked {
+  background: #fd7e14;
+}
+
+.id-verification-count-badge:not(.pending):not(.verified):not(.rejected):not(.revoked) {
   background: #007c91;
 }
 
@@ -257,6 +261,11 @@
 .id-verification-status-indicator.verified {
   background: #d4edda;
   color: #155724;
+}
+
+.id-verification-status-indicator.revoked {
+  background: #fff3cd;
+  color: #856404;
 }
 
 .id-verification-status-indicator.rejected {
@@ -444,6 +453,11 @@
   color: #155724;
 }
 
+.id-verification-status-badge.revoked {
+  background: #fff3cd;
+  color: #856404;
+}
+
 .id-verification-status-badge.rejected {
   background: #f8d7da;
   color: #721c24;
@@ -489,6 +503,16 @@
 
 .id-verification-btn.reject:hover:not(:disabled) {
   background: #c0392b;
+  transform: translateY(-1px);
+}
+
+.id-verification-btn.revoke {
+  background: #fd7e14;
+  color: white;
+}
+
+.id-verification-btn.revoke:hover:not(:disabled) {
+  background: #e8690b;
   transform: translateY(-1px);
 }
 

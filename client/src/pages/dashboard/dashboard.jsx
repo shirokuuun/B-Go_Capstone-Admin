@@ -189,55 +189,57 @@ function Dashboard() {
         </div>
       ) : (
         <>
-          {/* Metric Cards Row */}
-          <div className="metrics-grid">
-            <div className="metric-card earning-card">
-              <div className="metric-icon">
-                <i className="fas fa-dollar-sign"></i>
-              </div>
-              <div className="metric-content">
-                <span className="metric-label">Earning</span>
-                <span className="metric-value">₱ {dashboardData.trips.totalFare.toFixed(0)}</span>
-              </div>
-            </div>
+          {/* Dashboard Metrics Header - Matching Ticketing Design */}
+          <div className="dashboard-header-container">
+            {/* Background Pattern */}
+            <div className="dashboard-header-pattern"></div>
 
-            <div className="metric-card share-card">
-              <div className="metric-icon">
-                <i className="fas fa-route"></i>
-              </div>
-              <div className="metric-content">
-                <span className="metric-label">Trips</span>
-                <span className="metric-value">{dashboardData.trips.totalTrips}</span>
-              </div>
-            </div>
+            <div className="dashboard-header-content">
+              {/* Stats Cards */}
+              <div className="dashboard-stats-container">
+                {/* Total Earnings */}
+                <div className="dashboard-stat-card dashboard-earnings">
+                  <div className="dashboard-stat-icon">
+                    <i className="fas fa-dollar-sign dashboard-stat-icon-fa"></i>
+                  </div>
+                  <div className="dashboard-stat-content">
+                    <div className="dashboard-stat-number">₱ {dashboardData.trips.totalFare.toFixed(0)}</div>
+                    <div className="dashboard-stat-label">Total Earnings</div>
+                  </div>
+                </div>
 
-            <div className="metric-card likes-card">
-              <div className="metric-icon">
-                <i className="fas fa-exclamation-triangle"></i>
-              </div>
-              <div className="metric-content">
-                <span className="metric-label">SOS Requests</span>
-                <span className="metric-value">{dashboardData.sos.totalRequests}</span>
-              </div>
-            </div>
+                {/* Total Trips */}
+                <div className="dashboard-stat-card dashboard-trips">
+                  <div className="dashboard-stat-icon">
+                    <i className="fas fa-route dashboard-stat-icon-fa"></i>
+                  </div>
+                  <div className="dashboard-stat-content">
+                    <div className="dashboard-stat-number">{dashboardData.trips.totalTrips}</div>
+                    <div className="dashboard-stat-label">Total Trips</div>
+                  </div>
+                </div>
 
-            <div className="metric-card rating-card">
-              <div className="metric-icon">
-                <i className="fas fa-users"></i>
-              </div>
-              <div className="metric-content">
-                <span className="metric-label">Avg Passengers</span>
-                <span className="metric-value">{dashboardData.trips.avgPassengers}</span>
-              </div>
-            </div>
+                {/* SOS Requests */}
+                <div className="dashboard-stat-card dashboard-sos">
+                  <div className="dashboard-stat-icon">
+                    <i className="fas fa-exclamation-triangle dashboard-stat-icon-fa"></i>
+                  </div>
+                  <div className="dashboard-stat-content">
+                    <div className="dashboard-stat-number">{dashboardData.sos.totalRequests}</div>
+                    <div className="dashboard-stat-label">SOS Requests</div>
+                  </div>
+                </div>
 
-            <div className="metric-card reservation-card">
-              <div className="metric-icon">
-                <i className="fas fa-bus"></i>
-              </div>
-              <div className="metric-content">
-                <span className="metric-label">Bus Reservations</span>
-                <span className="metric-value">{dashboardData.busReservations.totalReserved}</span>
+                {/* Bus Reservations */}
+                <div className="dashboard-stat-card dashboard-reservations">
+                  <div className="dashboard-stat-icon">
+                    <i className="fas fa-bus dashboard-stat-icon-fa"></i>
+                  </div>
+                  <div className="dashboard-stat-content">
+                    <div className="dashboard-stat-number">{dashboardData.busReservations.totalReserved}</div>
+                    <div className="dashboard-stat-label">Bus Reservations</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

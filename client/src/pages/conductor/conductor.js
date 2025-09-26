@@ -120,14 +120,19 @@ class ConductorService {
         const todayDoc = await getDoc(todayDocRef);
         
         if (todayDoc.exists()) {
-          const tripNames = ['trip1', 'trip2', 'trip3', 'trip4', 'trip5', 'trip6', 'trip7', 'trip8', 'trip9', 'trip10'];
-          
+          // Use dynamic trip detection like daily revenue
+          const tripNames = await this.getAllTripNames(conductorId, today);
+
           for (const tripName of tripNames) {
             try {
-              const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', today, tripName, 'tickets', 'tickets');
-              const ticketsSnapshot = await getDocs(ticketsRef);
-              
-              if (ticketsSnapshot.docs.length > 0) {
+              // Check for both regular tickets and prebookings in parallel
+              const [ticketsSnapshot, preBookingsSnapshot] = await Promise.all([
+                getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', today, tripName, 'tickets', 'tickets')),
+                getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', today, tripName, 'preBookings', 'preBookings'))
+              ]);
+
+              // Count today's trip if it has either regular tickets OR prebookings
+              if (ticketsSnapshot.docs.length > 0 || preBookingsSnapshot.docs.length > 0) {
                 todayTrips++;
               }
             } catch (tripError) {
@@ -219,28 +224,57 @@ class ConductorService {
     }
   }
 
-  // Get trips count for a conductor (using remittance counting logic)
+  // Helper function to get all trip names using the same logic as daily revenue
+  async getAllTripNames(conductorId, dateId) {
+    try {
+      // Get the date document which contains trip maps
+      const dateDocRef = doc(db, `conductors/${conductorId}/dailyTrips/${dateId}`);
+      const dateDocSnapshot = await getDoc(dateDocRef);
+
+      if (!dateDocSnapshot.exists()) {
+        return [];
+      }
+
+      const dateData = dateDocSnapshot.data();
+      const tripNames = [];
+
+      // Look for all fields that start with "trip" and are objects (maps)
+      for (const [key, value] of Object.entries(dateData)) {
+        if (key.startsWith('trip') && typeof value === 'object' && value !== null) {
+          tripNames.push(key);
+        }
+      }
+      return tripNames;
+    } catch (error) {
+      console.error(`Error getting trip names for ${conductorId}/${dateId}:`, error);
+      return [];
+    }
+  }
+
+  // Get trips count for a conductor (using daily revenue logic)
   async getConductorTripsCount(conductorId) {
     try {
       const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
       const datesSnapshot = await getDocs(dailyTripsRef);
-      
+
       let tripCount = 0;
-      
+
       for (const dateDoc of datesSnapshot.docs) {
         const dateId = dateDoc.id;
-        
-        // Process trip subcollections (trip1, trip2, etc.)
-        const tripNames = ['trip1', 'trip2', 'trip3', 'trip4', 'trip5', 'trip6', 'trip7', 'trip8', 'trip9', 'trip10'];
-        
+
+        // Use the same trip detection method as daily revenue
+        const tripNames = await this.getAllTripNames(conductorId, dateId);
+
         for (const tripName of tripNames) {
           try {
-            // Check for tickets in: /conductors/{conductorId}/dailyTrips/{dateId}/{tripName}/tickets/tickets/
-            const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
-            const ticketsSnapshot = await getDocs(ticketsRef);
-            
-            if (ticketsSnapshot.docs.length > 0) {
-              // This trip has tickets, so count it
+            // Check for both regular tickets and prebookings in parallel
+            const [ticketsSnapshot, preBookingsSnapshot] = await Promise.all([
+              getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets')),
+              getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'preBookings', 'preBookings'))
+            ]);
+
+            // Count trip if it has either regular tickets OR prebookings
+            if (ticketsSnapshot.docs.length > 0 || preBookingsSnapshot.docs.length > 0) {
               tripCount++;
             }
           } catch (tripError) {
@@ -249,7 +283,7 @@ class ConductorService {
           }
         }
       }
-      
+
       return tripCount;
     } catch (error) {
       console.error('Error getting trips count:', error);
@@ -571,14 +605,19 @@ class ConductorService {
             const todayDoc = await getDoc(todayDocRef);
 
             if (todayDoc.exists()) {
-              const tripNames = ['trip1', 'trip2', 'trip3', 'trip4', 'trip5', 'trip6', 'trip7', 'trip8', 'trip9', 'trip10'];
+              // Use dynamic trip detection like daily revenue
+              const tripNames = await this.getAllTripNames(conductorId, today);
 
               for (const tripName of tripNames) {
                 try {
-                  const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', today, tripName, 'tickets', 'tickets');
-                  const ticketsSnapshot = await getDocs(ticketsRef);
+                  // Check for both regular tickets and prebookings in parallel
+                  const [ticketsSnapshot, preBookingsSnapshot] = await Promise.all([
+                    getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', today, tripName, 'tickets', 'tickets')),
+                    getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', today, tripName, 'preBookings', 'preBookings'))
+                  ]);
 
-                  if (ticketsSnapshot.docs.length > 0) {
+                  // Count today's trip if it has either regular tickets OR prebookings
+                  if (ticketsSnapshot.docs.length > 0 || preBookingsSnapshot.docs.length > 0) {
                     todayTrips++;
                   }
                 } catch (tripError) {

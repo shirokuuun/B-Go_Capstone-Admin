@@ -317,10 +317,9 @@ class PaymentService {
     }
   }
 
-  // Filter payments based on type, status, and search
-  filterPayments(payments, filterType, filterStatus, searchTerm) {
+  // Filter payments based on status and search
+  filterPayments(payments, filterStatus, searchTerm) {
     return payments.filter(payment => {
-      const matchesType = filterType === 'all' || payment.type === filterType;
       // Filter by original reservation status, not mapped display status
       const matchesStatus = filterStatus === 'all' || payment.originalReservation?.status === filterStatus;
       const matchesSearch = searchTerm === '' ||
@@ -330,7 +329,7 @@ class PaymentService {
         payment.busNumber?.toString().includes(searchTerm.toLowerCase()) ||
         payment.email?.toLowerCase().includes(searchTerm.toLowerCase());
 
-      return matchesType && matchesStatus && matchesSearch;
+      return matchesStatus && matchesSearch;
     });
   }
 

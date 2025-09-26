@@ -39,6 +39,10 @@ const Ticketing = () => {
   const [userData, setUserData] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
 
+  // Bulk selection states
+  const [selectedTickets, setSelectedTickets] = useState(new Set());
+  const [isSelectMode, setIsSelectMode] = useState(false);
+
   // State for managing ticket subscriptions (declare before use)
   const [ticketUnsubscribe, setTicketUnsubscribe] = useState(null);
 
@@ -198,19 +202,85 @@ const Ticketing = () => {
 
     try {
       await deletePreTicket(conductorId, ticketId);
-      
+
       // Refresh the tickets list
       const updatedTickets = conductorTickets.filter(ticket => ticket.id !== ticketId);
       setConductorTickets(updatedTickets);
-      
+
       // Update stats
       const statsData = await getPreTicketingStats();
       setStats(statsData);
-      
+
       alert('Ticket deleted successfully');
     } catch (error) {
       console.error('Error in handleDeleteTicket:', error);
       alert('Failed to delete pre-ticket: ' + error.message);
+    }
+  };
+
+  // Bulk selection handlers
+  const toggleSelectMode = () => {
+    setIsSelectMode(!isSelectMode);
+    setSelectedTickets(new Set());
+  };
+
+  const toggleTicketSelection = (ticketId) => {
+    const newSelection = new Set(selectedTickets);
+    if (newSelection.has(ticketId)) {
+      newSelection.delete(ticketId);
+    } else {
+      newSelection.add(ticketId);
+    }
+    setSelectedTickets(newSelection);
+  };
+
+  const selectAllTickets = () => {
+    const allTicketIds = new Set(filteredTickets.map(ticket => ticket.id));
+    setSelectedTickets(allTicketIds);
+  };
+
+  const deselectAllTickets = () => {
+    setSelectedTickets(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    // Check if user is authorized
+    if (!userData || userData.role !== 'superadmin' || userData.isSuperAdmin !== true) {
+      alert('Access denied: Only superadmin users can delete tickets. You are logged in as a regular admin.');
+      return;
+    }
+
+    if (selectedTickets.size === 0) {
+      alert('Please select tickets to delete.');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete ${selectedTickets.size} selected tickets? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setTicketsLoading(true);
+      const deletePromises = Array.from(selectedTickets).map(ticketId => {
+        return deletePreTicket(selectedConductor.id, ticketId);
+      });
+
+      await Promise.all(deletePromises);
+
+      // Clear selections and exit select mode
+      setSelectedTickets(new Set());
+      setIsSelectMode(false);
+
+      // Update stats
+      const statsData = await getPreTicketingStats();
+      setStats(statsData);
+
+      alert(`${selectedTickets.size} tickets deleted successfully`);
+    } catch (error) {
+      console.error('Error in bulk delete:', error);
+      alert('Failed to delete some tickets: ' + error.message);
+    } finally {
+      setTicketsLoading(false);
     }
   };
 
@@ -224,7 +294,11 @@ const Ticketing = () => {
     setSelectedDate('');
     setSelectedTicketType('');
     setSelectedTripDirection('');
-    
+
+    // Clear selections
+    setSelectedTickets(new Set());
+    setIsSelectMode(false);
+
     // Force component re-render by updating loading state briefly
     setTicketsLoading(false);
   };
@@ -238,13 +312,35 @@ const Ticketing = () => {
     });
   };
 
-  const getStatusBadge = (status) => {
-    return (
-      <span className={`ticketing-status-badge ticketing-status-${status}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
+  const formatTime = (timeString) => {
+    try {
+      // Handle different time formats
+      let date;
+
+      // If timeString contains AM/PM, parse it differently
+      if (timeString.includes('AM') || timeString.includes('PM')) {
+        // Remove seconds if present (10:05:00PM -> 10:05PM)
+        const cleanTime = timeString.replace(/:\d{2}(AM|PM)/, '$1');
+        // Create a date object for today with the given time
+        date = new Date(`1/1/2000 ${cleanTime}`);
+      } else {
+        // Assume it's in 24-hour format or other format
+        date = new Date(`1/1/2000 ${timeString}`);
+      }
+
+      // Format to readable 12-hour format
+      return date.toLocaleString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (error) {
+      // If formatting fails, return original string
+      console.warn('Error formatting time:', timeString, error);
+      return timeString;
+    }
   };
+
 
   const getTicketTypeLabel = (ticket) => {
     // Check documentType first, then fallback to ticketType
@@ -449,10 +545,10 @@ const Ticketing = () => {
         {/* Results Count */}
         <div className="revenue-filter-group">
           <label className="revenue-filter-label">&nbsp;</label>
-          <div className="ticketing-results-count" style={{ 
-            background: '#f8f9fa', 
-            padding: '10px 12px', 
-            borderRadius: '8px', 
+          <div className="ticketing-results-count" style={{
+            background: '#f8f9fa',
+            padding: '10px 12px',
+            borderRadius: '8px',
             border: '2px solid #e1e8ed',
             fontSize: '14px',
             color: '#2c3e50',
@@ -461,7 +557,69 @@ const Ticketing = () => {
             {filteredTickets.length} of {conductorTickets.length} tickets
           </div>
         </div>
+
+        {/* Bulk Selection Controls */}
+        {userData && userData.role === 'superadmin' && userData.isSuperAdmin === true && filteredTickets.length > 0 && (
+          <div className="revenue-filter-group">
+            <label className="revenue-filter-label">&nbsp;</label>
+            <button
+              onClick={toggleSelectMode}
+              className={`ticketing-btn ${isSelectMode ? 'ticketing-btn-secondary' : 'ticketing-btn-primary'}`}
+              style={{ height: '42px' }}
+            >
+              {isSelectMode ? 'Cancel Select' : 'Select Tickets'}
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Bulk Actions Bar */}
+      {isSelectMode && (
+        <div className="ticketing-bulk-actions-bar" style={{
+          background: '#f8f9fa',
+          padding: '15px 20px',
+          borderRadius: '8px',
+          border: '2px solid #e1e8ed',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '10px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <span style={{ fontWeight: '600', color: '#2c3e50' }}>
+              {selectedTickets.size} of {filteredTickets.length} selected
+            </span>
+            <button
+              onClick={selectAllTickets}
+              className="ticketing-btn ticketing-btn-secondary"
+              style={{ padding: '6px 12px', fontSize: '14px' }}
+            >
+              Select All
+            </button>
+            <button
+              onClick={deselectAllTickets}
+              className="ticketing-btn ticketing-btn-secondary"
+              style={{ padding: '6px 12px', fontSize: '14px' }}
+            >
+              Deselect All
+            </button>
+          </div>
+          <button
+            onClick={handleBulkDelete}
+            className="ticketing-btn ticketing-btn-danger"
+            disabled={selectedTickets.size === 0}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              opacity: selectedTickets.size === 0 ? 0.6 : 1,
+              cursor: selectedTickets.size === 0 ? 'not-allowed' : 'pointer'
+            }}
+          >
+            Delete Selected ({selectedTickets.size})
+          </button>
+        </div>
+      )}
 
       {ticketsLoading ? (
         <div className="ticketing-loading-state">Loading tickets...</div>
@@ -473,12 +631,39 @@ const Ticketing = () => {
             </div>
           ) : (
             filteredTickets.map((ticket) => (
-              <div key={`${ticket.conductorId}-${ticket.date}-${ticket.tripId}-${ticket.id}`} className="ticketing-ticket-card">
+              <div
+                key={`${ticket.conductorId}-${ticket.date}-${ticket.tripId}-${ticket.id}`}
+                className={`ticketing-ticket-card ${isSelectMode ? 'selectable' : ''} ${selectedTickets.has(ticket.id) ? 'selected' : ''}`}
+                style={{
+                  border: selectedTickets.has(ticket.id) ? '2px solid #007bff' : '',
+                  backgroundColor: selectedTickets.has(ticket.id) ? '#f8f9ff' : ''
+                }}
+              >
+                {/* Checkbox for selection mode */}
+                {isSelectMode && (
+                  <div className="ticketing-ticket-checkbox" style={{
+                    position: 'absolute',
+                    top: '15px',
+                    right: '15px',
+                    zIndex: 10
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedTickets.has(ticket.id)}
+                      onChange={() => toggleTicketSelection(ticket.id)}
+                      style={{
+                        width: '18px',
+                        height: '18px',
+                        cursor: 'pointer'
+                      }}
+                    />
+                  </div>
+                )}
+
                 <div className="ticketing-ticket-header">
                   <div className="ticketing-ticket-info">
                     <div className="ticketing-route-info">
                       <h4>{ticket.from} → {ticket.to}</h4>
-                      {getStatusBadge(ticket.status)}
                     </div>
                     <p className="ticketing-ticket-meta">
                       <strong>Type:</strong> <span className={`ticketing-ticket-type ticketing-type-${getEffectiveTicketType(ticket)}`}>
@@ -488,14 +673,8 @@ const Ticketing = () => {
                     <p className="ticketing-ticket-meta">Direction: {ticket.direction}</p>
                     <p className="ticketing-ticket-meta">Distance: {ticket.fromKm} km → {ticket.toKm} km</p>
                     <p className="ticketing-ticket-meta">
-                      Date: {ticket.date} at {ticket.time}
-                      {(getEffectiveTicketType(ticket) === 'preTicket' || getEffectiveTicketType(ticket) === 'preBooking') && ticket.scannedAt && 
-                        ` • Scanned: ${formatDate(ticket.scannedAt)}`
-                      }
+                      Date: {ticket.date} at {formatTime(ticket.time)}
                     </p>
-                    {(getEffectiveTicketType(ticket) === 'preTicket' || getEffectiveTicketType(ticket) === 'preBooking') && ticket.scannedBy && (
-                      <p className="ticketing-ticket-meta">Scanned by: {ticket.scannedBy}</p>
-                    )}
                   </div>
                   <div className="ticketing-ticket-summary">
                     <p className="ticketing-fare-amount">₱{ticket.amount}</p>
@@ -513,20 +692,35 @@ const Ticketing = () => {
                 </div>
 
                 <div className="ticketing-ticket-actions">
-                  <button 
-                    className={`ticketing-btn ticketing-btn-danger ${userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? 'disabled' : ''}`}
-                    onClick={userData && userData.role === 'superadmin' && userData.isSuperAdmin === true ? () => handleDeleteTicket(selectedConductor.id, ticket.id) : undefined}
-                    disabled={!userData || (userData.role === 'admin' && userData.isSuperAdmin !== true)}
-                    title={userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? "Delete not allowed for admin users" : "Delete ticket"}
-                    style={{
-                      color: userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? '#999' : '',
-                      backgroundColor: userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? '#f5f5f5' : '',
-                      borderColor: userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? '#ccc' : '',
-                      cursor: userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? 'not-allowed' : 'pointer'
-                    }}
-                  >
-                    Delete
-                  </button>
+                  {!isSelectMode && (
+                    <button
+                      className={`ticketing-btn ticketing-btn-danger ${userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? 'disabled' : ''}`}
+                      onClick={userData && userData.role === 'superadmin' && userData.isSuperAdmin === true ? () => handleDeleteTicket(selectedConductor.id, ticket.id) : undefined}
+                      disabled={!userData || (userData.role === 'admin' && userData.isSuperAdmin !== true)}
+                      title={userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? "Delete not allowed for admin users" : "Delete ticket"}
+                      style={{
+                        color: userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? '#999' : '',
+                        backgroundColor: userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? '#f5f5f5' : '',
+                        borderColor: userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? '#ccc' : '',
+                        cursor: userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      Delete
+                    </button>
+                  )}
+                  {isSelectMode && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '8px 16px',
+                      color: '#6c757d',
+                      fontStyle: 'italic',
+                      fontSize: '14px'
+                    }}>
+                      Use checkboxes to select tickets
+                    </div>
+                  )}
                 </div>
               </div>
             ))

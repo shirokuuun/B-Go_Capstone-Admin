@@ -2,11 +2,12 @@ import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '/src/firebase/firebase.js';
 
 // Import useful functions from DailyRevenue.js
-import { 
+import {
   calculateRevenueMetrics,
   preparePieChartData,
   prepareRouteRevenueData,
   fetchConductorTripsAndPreBooking,
+  fetchPreBookingFromNewPath,
   fetchPreTicketing
 } from '../DailyRevenue/DailyRevenue.js';
 
@@ -156,8 +157,9 @@ export const getTicketAnalyticsData = async (timeRange, route, ticketType = '') 
       try {
         const routeFilter = route === 'all' ? null : route;
         
-        const [{ conductorTrips, preBookingTrips }, preTicketing] = await Promise.all([
+        const [{ conductorTrips }, preBookingTrips, preTicketing] = await Promise.all([
           fetchConductorTripsAndPreBooking(dateId, routeFilter),
+          fetchPreBookingFromNewPath(dateId, routeFilter),
           fetchPreTicketing(dateId, routeFilter)
         ]);
 
@@ -723,8 +725,9 @@ const getPreviousPeriodData = async (timeRange, route, ticketType = '') => {
       try {
         const routeFilter = route === 'all' ? null : route;
         
-        const [{ conductorTrips, preBookingTrips }, preTicketing] = await Promise.all([
+        const [{ conductorTrips }, preBookingTrips, preTicketing] = await Promise.all([
           fetchConductorTripsAndPreBooking(dateId, routeFilter),
+          fetchPreBookingFromNewPath(dateId, routeFilter),
           fetchPreTicketing(dateId, routeFilter)
         ]);
 

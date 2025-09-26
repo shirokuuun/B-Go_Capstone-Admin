@@ -137,38 +137,43 @@ export const updateIDVerificationStatus = async (userId, status, adminInfo = nul
     const userName = userData?.name || userData?.displayName || 'Unknown User';
     const userEmail = userData?.email || 'Unknown Email';
 
-    if (status === 'rejected') {
+    if (status === 'rejected' || status === 'revoked') {
       const idDocRef = doc(db, 'users', userId, 'VerifyID', 'id');
 
-      // Remove verification fields from subcollection doc before deleting
+      // Soft revocation - mark as revoked instead of deleting
       await updateDoc(idDocRef, {
-        verifiedAt: deleteField(),
-        verifiedBy: deleteField()
+        status: status === 'rejected' ? 'rejected' : 'revoked',
+        revokedAt: new Date(),
+        revokedBy: adminInfo?.name || adminInfo?.email || 'admin',
+        previousStatus: userData?.idVerificationStatus || 'verified',
+        // Keep original verification data for audit trail
+        originalVerifiedAt: userData?.idVerifiedAt || userData?.verifiedAt,
+        originalVerifiedBy: userData?.verifiedBy
       });
 
-      // Delete the ID document completely
-      await deleteDoc(idDocRef);
-
-      // Reset main user doc fields
+      // Update main user doc fields - use 'revoked' status instead of 'pending'
       await updateDoc(userDocRef, {
-        idVerificationStatus: 'pending',
-        idVerifiedAt: null,
-        verifiedAt: deleteField(),
-        verifiedBy: deleteField()
+        idVerificationStatus: status === 'rejected' ? 'rejected' : 'revoked',
+        idRevokedAt: new Date(),
+        // Keep original verification timestamps for reference
+        originalIdVerifiedAt: userData?.idVerifiedAt
       });
 
-      // Log the rejection activity
+      // Log the revocation activity
+      const actionLabel = status === 'rejected' ? 'Rejected' : 'Revoked';
       await logActivity(
         ACTIVITY_TYPES.ID_VERIFICATION_REJECT,
-        `Rejected ID verification for ${userName} (${userEmail})`,
+        `${actionLabel} ID verification for ${userName} (${userEmail})`,
         {
           userId: userId,
           userName: userName,
           userEmail: userEmail,
           adminName: adminInfo?.name || 'Unknown Admin',
           adminEmail: adminInfo?.email || 'Unknown Email',
-          action: 'rejected',
-          previousStatus: userData?.idVerificationStatus || 'pending'
+          action: status === 'rejected' ? 'rejected' : 'revoked',
+          previousStatus: userData?.idVerificationStatus || 'verified',
+          revokedAt: new Date().toISOString(),
+          revokedBy: adminInfo?.name || adminInfo?.email || 'admin'
         }
       );
     } else {
@@ -264,13 +269,43 @@ export const fetchRejectedVerifications = async () => {
     const usersCollection = collection(db, 'users');
     const q = query(usersCollection, where('idVerificationStatus', '==', 'rejected'));
     const snapshot = await getDocs(q);
-    
+
     return snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
   } catch (error) {
     console.error("Error fetching rejected verifications:", error);
+    throw error;
+  }
+};
+
+// Fetch all revoked ID verifications
+export const fetchRevokedVerifications = async () => {
+  try {
+    const usersCollection = collection(db, 'users');
+    const q = query(usersCollection, where('idVerificationStatus', '==', 'revoked'));
+    const snapshot = await getDocs(q);
+
+    const revokedUsers = [];
+    for (const userDoc of snapshot.docs) {
+      const userData = { id: userDoc.id, ...userDoc.data() };
+
+      try {
+        const idData = await fetchUserIDData(userDoc.id);
+        revokedUsers.push({
+          ...userData,
+          idData: idData
+        });
+      } catch (error) {
+        console.warn(`No ID data found for revoked user ${userDoc.id}`);
+        revokedUsers.push(userData);
+      }
+    }
+
+    return revokedUsers;
+  } catch (error) {
+    console.error("Error fetching revoked verifications:", error);
     throw error;
   }
 };

@@ -173,6 +173,10 @@ const formatLogDescription = (description) => {
   
   // Store unsubscribe function for cleanup
   const [activityLogsUnsubscribe, setActivityLogsUnsubscribe] = useState(null);
+
+  // Bulk selection states for activity logs
+  const [selectedLogs, setSelectedLogs] = useState(new Set());
+  const [isLogSelectMode, setIsLogSelectMode] = useState(false);
   
   // Admin users management state (superadmin only)
   const [adminUsers, setAdminUsers] = useState([]);
@@ -325,26 +329,98 @@ const formatLogDescription = (description) => {
       <IoWarning size={20}/> +
       ' Are you sure you want to delete this log entry? This action cannot be undone.'
     );
-    
+
     if (!confirmed) {
       return;
     }
 
     setLoading(true);
     setError('');
-    
+
     try {
       // Import the delete function
       const { deleteDoc, doc } = await import('firebase/firestore');
       const { db } = await import('/src/firebase/firebase.js');
-      
+
       await deleteDoc(doc(db, 'AuditLogs', logId));
-      
+
       // Note: No need to update local state since real-time listeners will handle this automatically
-      
+
       setMessage('Activity log deleted successfully');
     } catch (err) {
       setError('Failed to delete log: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Bulk selection handlers for activity logs
+  const toggleLogSelectMode = () => {
+    setIsLogSelectMode(!isLogSelectMode);
+    setSelectedLogs(new Set());
+  };
+
+  const toggleLogSelection = (logId) => {
+    const newSelection = new Set(selectedLogs);
+    if (newSelection.has(logId)) {
+      newSelection.delete(logId);
+    } else {
+      newSelection.add(logId);
+    }
+    setSelectedLogs(newSelection);
+  };
+
+  const selectAllLogs = () => {
+    const allLogIds = new Set(activityLogs.map(log => log.id));
+    setSelectedLogs(allLogIds);
+  };
+
+  const deselectAllLogs = () => {
+    setSelectedLogs(new Set());
+  };
+
+  const handleBulkDeleteLogs = async () => {
+    // Check if user is authorized
+    if (userData.role === 'admin' && userData.isSuperAdmin !== true) {
+      setError('❌ Only superadmin users can delete activity logs.');
+      return;
+    }
+
+    if (selectedLogs.size === 0) {
+      alert('Please select logs to delete.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${selectedLogs.size} selected log entries? This action cannot be undone.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+
+      // Import the delete function
+      const { deleteDoc, doc } = await import('firebase/firestore');
+      const { db } = await import('/src/firebase/firebase.js');
+
+      const deletePromises = Array.from(selectedLogs).map(logId => {
+        return deleteDoc(doc(db, 'AuditLogs', logId));
+      });
+
+      await Promise.all(deletePromises);
+
+      // Clear selections
+      setSelectedLogs(new Set());
+      setIsLogSelectMode(false);
+
+      setMessage(`✅ Successfully deleted ${selectedLogs.size} activity log entries`);
+    } catch (error) {
+      console.error('Error in bulk delete logs:', error);
+      setError('❌ Failed to delete some log entries: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -1279,14 +1355,75 @@ const formatLogDescription = (description) => {
                 )}
 
                 <div className="audit-logs-header-actions">
-                  <button 
-                    onClick={handleExportLogs} 
+                  <button
+                    onClick={handleExportLogs}
                     className="audit-export-btn"
                     disabled={logsLoading || activityLogs.length === 0}
                   >
                     <PiMicrosoftExcelLogoFill size={24} /> Export to Excel
                   </button>
+
+                  {/* Bulk Select Button - Only for superadmin */}
+                  {userData.role === 'superadmin' && userData.isSuperAdmin === true && activityLogs.length > 0 && (
+                    <button
+                      onClick={toggleLogSelectMode}
+                      className={`settings-btn ${isLogSelectMode ? 'settings-btn-secondary' : 'settings-btn-primary'}`}
+                      disabled={logsLoading}
+                    >
+                      {isLogSelectMode ? 'Cancel Select' : 'Select Logs'}
+                    </button>
+                  )}
                 </div>
+
+                {/* Bulk Actions Bar */}
+                {isLogSelectMode && (
+                  <div className="settings-bulk-actions-bar" style={{
+                    background: '#f8f9fa',
+                    padding: '15px 20px',
+                    margin: '10px 0',
+                    borderRadius: '8px',
+                    border: '1px solid #e9ecef',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                      <span style={{ fontWeight: '600', color: '#2c3e50' }}>
+                        {selectedLogs.size} of {activityLogs.length} selected
+                      </span>
+                      <button
+                        onClick={selectAllLogs}
+                        className="settings-btn settings-btn-secondary"
+                        style={{ padding: '6px 12px', fontSize: '14px' }}
+                      >
+                        Select All
+                      </button>
+                      <button
+                        onClick={deselectAllLogs}
+                        className="settings-btn settings-btn-secondary"
+                        style={{ padding: '6px 12px', fontSize: '14px' }}
+                      >
+                        Deselect All
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={handleBulkDeleteLogs}
+                      className="settings-btn settings-btn-danger"
+                      disabled={selectedLogs.size === 0}
+                      style={{
+                        padding: '8px 16px',
+                        fontSize: '14px',
+                        opacity: selectedLogs.size === 0 ? 0.6 : 1,
+                        cursor: selectedLogs.size === 0 ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      <MdDeleteForever size={16} style={{ marginRight: '4px' }} />
+                      Delete Selected ({selectedLogs.size})
+                    </button>
+                  </div>
+                )}
 
                 {/* Filter Controls */}
                 <div className="settings-log-filters">
@@ -1355,8 +1492,40 @@ const formatLogDescription = (description) => {
                             <span>Actions</span>
                           </div>
                           {activityLogs.map(log => (
-                            <div key={log.id} className={`settings-log-row ${log.severity}`}>
-                              <span className="settings-log-date">
+                            <div
+                              key={log.id}
+                              className={`settings-log-row ${log.severity} ${isLogSelectMode ? 'selectable' : ''} ${selectedLogs.has(log.id) ? 'selected' : ''}`}
+                              style={{
+                                border: selectedLogs.has(log.id) ? '2px solid #007bff' : '',
+                                backgroundColor: selectedLogs.has(log.id) ? '#f8f9ff' : '',
+                                position: 'relative'
+                              }}
+                            >
+                              {/* Checkbox for selection mode */}
+                              {isLogSelectMode && (
+                                <span className="settings-log-checkbox" style={{
+                                  position: 'absolute',
+                                  left: '10px',
+                                  top: '50%',
+                                  transform: 'translateY(-50%)',
+                                  zIndex: 10
+                                }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedLogs.has(log.id)}
+                                    onChange={() => toggleLogSelection(log.id)}
+                                    style={{
+                                      width: '16px',
+                                      height: '16px',
+                                      cursor: 'pointer'
+                                    }}
+                                  />
+                                </span>
+                              )}
+                              <span
+                                className="settings-log-date"
+                                style={{ paddingLeft: isLogSelectMode ? '35px' : '12px' }}
+                              >
                                 {log.timestamp.toLocaleString()}
                               </span>
                               <span className="settings-log-user">
@@ -1372,18 +1541,32 @@ const formatLogDescription = (description) => {
                                 {log.severity}
                               </span>
                               <span className="settings-log-actions">
-                                <button
-                                  onClick={userData.role === 'superadmin' && userData.isSuperAdmin === true ? () => handleDeleteLog(log.id) : undefined}
-                                  className={`settings-log-delete-btn ${userData.role === 'admin' && userData.isSuperAdmin !== true ? 'disabled' : ''}`}
-                                  disabled={loading || (userData.role === 'admin' && userData.isSuperAdmin !== true)}
-                                  title={userData.role === 'admin' && userData.isSuperAdmin !== true ? "Delete not allowed for admin users" : "Delete log entry"}
-                                  style={{
-                                    color: userData.role === 'admin' && userData.isSuperAdmin !== true ? '#999' : '',
-                                    cursor: userData.role === 'admin' && userData.isSuperAdmin !== true ? 'not-allowed' : 'pointer'
-                                  }}
-                                >
-                                  <MdDeleteForever />
-                                </button>
+                                {!isLogSelectMode && (
+                                  <button
+                                    onClick={userData.role === 'superadmin' && userData.isSuperAdmin === true ? () => handleDeleteLog(log.id) : undefined}
+                                    className={`settings-log-delete-btn ${userData.role === 'admin' && userData.isSuperAdmin !== true ? 'disabled' : ''}`}
+                                    disabled={loading || (userData.role === 'admin' && userData.isSuperAdmin !== true)}
+                                    title={userData.role === 'admin' && userData.isSuperAdmin !== true ? "Delete not allowed for admin users" : "Delete log entry"}
+                                    style={{
+                                      color: userData.role === 'admin' && userData.isSuperAdmin !== true ? '#999' : '',
+                                      cursor: userData.role === 'admin' && userData.isSuperAdmin !== true ? 'not-allowed' : 'pointer'
+                                    }}
+                                  >
+                                    <MdDeleteForever />
+                                  </button>
+                                )}
+                                {isLogSelectMode && (
+                                  <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#6c757d',
+                                    fontStyle: 'italic',
+                                    fontSize: '12px'
+                                  }}>
+                                    Use checkboxes
+                                  </div>
+                                )}
                               </span>
                             </div>
                           ))}

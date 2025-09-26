@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '/src/firebase/firebase.js';
 import { fetchCurrentUserData } from '/src/pages/settings/settings.js';
-import { fetchUsers, fetchUserIDData, updateIDVerificationStatus, subscribeToUsers, subscribeToUserIDData } from '/src/pages/verification/IDVerification.js';
+import { fetchUsers, fetchUserIDData, updateIDVerificationStatus, subscribeToUsers, subscribeToUserIDData, fetchRevokedVerifications } from '/src/pages/verification/IDVerification.js';
 
 
 function IDVerification() {
@@ -13,7 +13,7 @@ function IDVerification() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedUserID, setSelectedUserID] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'verified'
+  const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'verified', 'revoked'
   
   // Authentication and role checking states
   const [currentUser, setCurrentUser] = useState(null);
@@ -98,10 +98,10 @@ function IDVerification() {
 
   const handleVerificationAction = async (action) => {
     if (!selectedUser || !selectedUserID) return;
-    
-    // Check if user is superadmin
-    if (userRole !== 'superadmin') {
-      alert('Access denied: Only superadmin users can verify or revoke ID verifications. You are logged in as a regular admin.');
+
+    // Check if user has admin or superadmin role
+    if (!canPerformVerification()) {
+      alert('Access denied: Only admin and superadmin users can verify or revoke ID verifications.');
       return;
     }
     
@@ -117,6 +117,8 @@ function IDVerification() {
         setActiveTab('verified');
       } else if (action === 'rejected') {
         setActiveTab('pending'); // Switch to pending tab since user goes back to pending
+      } else if (action === 'revoked') {
+        setActiveTab('revoked'); // Switch to revoked tab for revoked users
       }
       
       alert(`ID ${action} successfully!`);
@@ -126,6 +128,11 @@ function IDVerification() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper function to check if user can perform ID verification actions
+  const canPerformVerification = () => {
+    return userRole === 'admin' || userRole === 'superadmin';
   };
 
   const getFilteredUsers = () => {
@@ -138,6 +145,7 @@ function IDVerification() {
   const filteredData = getFilteredUsers();
   const pendingCount = users.filter(user => (user.idVerificationStatus || 'pending') === 'pending').length;
   const verifiedCount = users.filter(user => user.idVerificationStatus === 'verified').length;
+  const revokedCount = users.filter(user => user.idVerificationStatus === 'revoked').length;
 
   // Show loading screen while checking authentication
   if (authLoading) {
@@ -194,21 +202,32 @@ function IDVerification() {
                 {verifiedCount} verified
               </span>
             </div>
+            <div className="id-verification-stat-item">
+              <span className="id-verification-count-badge revoked">
+                {revokedCount} revoked
+              </span>
+            </div>
           </div>
         </div>
         
         <div className="id-verification-tabs">
-          <button 
+          <button
             className={`id-verification-tab ${activeTab === 'pending' ? 'active' : ''}`}
             onClick={() => setActiveTab('pending')}
           >
             Pending ({pendingCount})
           </button>
-          <button 
+          <button
             className={`id-verification-tab ${activeTab === 'verified' ? 'active' : ''}`}
             onClick={() => setActiveTab('verified')}
           >
             Verified ({verifiedCount})
+          </button>
+          <button
+            className={`id-verification-tab revoked ${activeTab === 'revoked' ? 'active' : ''}`}
+            onClick={() => setActiveTab('revoked')}
+          >
+            Revoked ({revokedCount})
           </button>
         </div>
 
@@ -305,30 +324,30 @@ function IDVerification() {
                     
                     {(selectedUserID.status || 'pending') === 'pending' && (
                       <div className="id-verification-buttons">
-                        <button 
-                          className={`id-verification-btn verify ${userRole !== 'superadmin' ? 'disabled' : ''}`}
-                          onClick={userRole === 'superadmin' ? () => handleVerificationAction('verified') : undefined}
-                          disabled={loading || userRole !== 'superadmin'}
-                          title={userRole !== 'superadmin' ? "Verify not allowed for admin users" : "Verify ID"}
+                        <button
+                          className={`id-verification-btn verify ${!canPerformVerification() ? 'disabled' : ''}`}
+                          onClick={canPerformVerification() ? () => handleVerificationAction('verified') : undefined}
+                          disabled={loading || !canPerformVerification()}
+                          title={!canPerformVerification() ? "Verify not allowed for your role" : "Verify ID"}
                           style={{
-                            color: userRole !== 'superadmin' ? '#999' : '',
-                            backgroundColor: userRole !== 'superadmin' ? '#f5f5f5' : '',
-                            borderColor: userRole !== 'superadmin' ? '#ccc' : '',
-                            cursor: userRole !== 'superadmin' ? 'not-allowed' : 'pointer'
+                            color: !canPerformVerification() ? '#999' : '',
+                            backgroundColor: !canPerformVerification() ? '#f5f5f5' : '',
+                            borderColor: !canPerformVerification() ? '#ccc' : '',
+                            cursor: !canPerformVerification() ? 'not-allowed' : 'pointer'
                           }}
                         >
                           {loading ? 'Processing...' : 'Verify ID'}
                         </button>
-                        <button 
-                          className={`id-verification-btn reject ${userRole !== 'superadmin' ? 'disabled' : ''}`}
-                          onClick={userRole === 'superadmin' ? () => handleVerificationAction('rejected') : undefined}
-                          disabled={loading || userRole !== 'superadmin'}
-                          title={userRole !== 'superadmin' ? "Reject not allowed for admin users" : "Reject ID"}
+                        <button
+                          className={`id-verification-btn reject ${!canPerformVerification() ? 'disabled' : ''}`}
+                          onClick={canPerformVerification() ? () => handleVerificationAction('rejected') : undefined}
+                          disabled={loading || !canPerformVerification()}
+                          title={!canPerformVerification() ? "Reject not allowed for your role" : "Reject ID"}
                           style={{
-                            color: userRole !== 'superadmin' ? '#999' : '',
-                            backgroundColor: userRole !== 'superadmin' ? '#f5f5f5' : '',
-                            borderColor: userRole !== 'superadmin' ? '#ccc' : '',
-                            cursor: userRole !== 'superadmin' ? 'not-allowed' : 'pointer'
+                            color: !canPerformVerification() ? '#999' : '',
+                            backgroundColor: !canPerformVerification() ? '#f5f5f5' : '',
+                            borderColor: !canPerformVerification() ? '#ccc' : '',
+                            cursor: !canPerformVerification() ? 'not-allowed' : 'pointer'
                           }}
                         >
                           {loading ? 'Processing...' : 'Reject ID'}
@@ -338,19 +357,52 @@ function IDVerification() {
                     
                     {selectedUserID.status === 'verified' && (
                       <div className="id-verification-buttons">
-                        <button 
-                          className={`id-verification-btn reject ${userRole !== 'superadmin' ? 'disabled' : ''}`}
-                          onClick={userRole === 'superadmin' ? () => handleVerificationAction('rejected') : undefined}
-                          disabled={loading || userRole !== 'superadmin'}
-                          title={userRole !== 'superadmin' ? "Revoke not allowed for admin users" : "Revoke Verification"}
+                        <button
+                          className={`id-verification-btn revoke ${!canPerformVerification() ? 'disabled' : ''}`}
+                          onClick={canPerformVerification() ? () => handleVerificationAction('revoked') : undefined}
+                          disabled={loading || !canPerformVerification()}
+                          title={!canPerformVerification() ? "Revoke not allowed for your role" : "Revoke Verification"}
                           style={{
-                            color: userRole !== 'superadmin' ? '#999' : '',
-                            backgroundColor: userRole !== 'superadmin' ? '#f5f5f5' : '',
-                            borderColor: userRole !== 'superadmin' ? '#ccc' : '',
-                            cursor: userRole !== 'superadmin' ? 'not-allowed' : 'pointer'
+                            color: !canPerformVerification() ? '#999' : '',
+                            backgroundColor: !canPerformVerification() ? '#f5f5f5' : '',
+                            borderColor: !canPerformVerification() ? '#ccc' : '',
+                            cursor: !canPerformVerification() ? 'not-allowed' : 'pointer'
                           }}
                         >
                           {loading ? 'Processing...' : 'Revoke Verification'}
+                        </button>
+                      </div>
+                    )}
+
+                    {selectedUserID.status === 'revoked' && (
+                      <div className="id-verification-buttons">
+                        <button
+                          className={`id-verification-btn verify ${!canPerformVerification() ? 'disabled' : ''}`}
+                          onClick={canPerformVerification() ? () => handleVerificationAction('verified') : undefined}
+                          disabled={loading || !canPerformVerification()}
+                          title={!canPerformVerification() ? "Re-verify not allowed for your role" : "Re-verify ID"}
+                          style={{
+                            color: !canPerformVerification() ? '#999' : '',
+                            backgroundColor: !canPerformVerification() ? '#f5f5f5' : '',
+                            borderColor: !canPerformVerification() ? '#ccc' : '',
+                            cursor: !canPerformVerification() ? 'not-allowed' : 'pointer'
+                          }}
+                        >
+                          {loading ? 'Processing...' : 'Re-verify ID'}
+                        </button>
+                        <button
+                          className={`id-verification-btn reject ${!canPerformVerification() ? 'disabled' : ''}`}
+                          onClick={canPerformVerification() ? () => handleVerificationAction('rejected') : undefined}
+                          disabled={loading || !canPerformVerification()}
+                          title={!canPerformVerification() ? "Reject not allowed for your role" : "Reject ID"}
+                          style={{
+                            color: !canPerformVerification() ? '#999' : '',
+                            backgroundColor: !canPerformVerification() ? '#f5f5f5' : '',
+                            borderColor: !canPerformVerification() ? '#ccc' : '',
+                            cursor: !canPerformVerification() ? 'not-allowed' : 'pointer'
+                          }}
+                        >
+                          {loading ? 'Processing...' : 'Reject ID'}
                         </button>
                       </div>
                     )}
