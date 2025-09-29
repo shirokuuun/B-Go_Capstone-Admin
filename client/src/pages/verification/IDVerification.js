@@ -4,39 +4,38 @@ import {
 } from 'firebase/firestore';
 import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 
-// Real-time subscription to all users with their ID verification status
+// Real-time subscription to users with their ID verification status (only includes users with uploaded IDs)
 export const subscribeToUsers = (callback) => {
   const usersCollection = collection(db, 'users');
-  
+
   return onSnapshot(usersCollection, async (snapshot) => {
     const users = [];
-    
+
     for (const userDoc of snapshot.docs) {
       const userData = {
         id: userDoc.id,
         ...userDoc.data()
       };
-      
+
       try {
         const idDocRef = doc(db, 'users', userDoc.id, 'VerifyID', 'id');
         const idSnapshot = await getDoc(idDocRef);
-        
+
         if (idSnapshot.exists()) {
           const idData = idSnapshot.data();
           userData.idVerificationStatus = idData.status || 'pending';
           userData.verifiedAt = idData.verifiedAt;
           userData.verifiedBy = idData.verifiedBy;
-        } else {
-          userData.idVerificationStatus = 'pending';
+          // Only include users who have uploaded ID data
+          users.push(userData);
         }
+        // Skip users who don't have ID data (haven't uploaded ID yet)
       } catch (error) {
         console.warn(`No ID verification data for user ${userDoc.id}`);
-        userData.idVerificationStatus = 'pending';
+        // Skip users without ID data
       }
-      
-      users.push(userData);
     }
-    
+
     console.log('Real-time users update:', users);
     callback(users);
   }, (error) => {
@@ -216,29 +215,30 @@ export const updateIDVerificationStatus = async (userId, status, adminInfo = nul
   }
 };
 
-// Fetch all pending ID verifications
+// Fetch all pending ID verifications (only users who have uploaded ID documents)
 export const fetchPendingVerifications = async () => {
   try {
     const usersCollection = collection(db, 'users');
     const q = query(usersCollection, where('idVerificationStatus', '==', 'pending'));
     const snapshot = await getDocs(q);
-    
+
     const pendingUsers = [];
     for (const userDoc of snapshot.docs) {
       const userData = { id: userDoc.id, ...userDoc.data() };
-      
+
       try {
         const idData = await fetchUserIDData(userDoc.id);
+        // Only include users who have actually uploaded ID data
         pendingUsers.push({
           ...userData,
           idData: idData
         });
       } catch (error) {
-        console.warn(`No ID data found for user ${userDoc.id}`);
-        pendingUsers.push(userData);
+        // Skip users who don't have ID data (haven't uploaded ID yet)
+        console.warn(`No ID data found for user ${userDoc.id}, skipping from pending list`);
       }
     }
-    
+
     return pendingUsers;
   } catch (error) {
     console.error("Error fetching pending verifications:", error);

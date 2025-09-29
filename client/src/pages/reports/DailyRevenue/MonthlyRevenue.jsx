@@ -498,12 +498,12 @@ const MonthlyRevenue = ({
       </div>
 
       {/* Daily Breakdown Table */}
-      <div className="revenue-breakdown-section">
+      <div className="revenue-breakdown-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%' }}>
         <h3 className="revenue-breakdown-title">Daily Revenue Breakdown</h3>
-        
+
         {hasData ? (
-          <div className="revenue-monthly-table-container">
-            <table className="revenue-monthly-table">
+          <div className="revenue-table-container" style={{ width: '100%', display: 'flex', justifyContent: 'flex-start' }}>
+            <table className="revenue-revenue-table revenue-detailed-breakdown-table daily-revenue-table" style={{ width: '100%', margin: '0' }}>
               <thead>
                 <tr>
                   <th>Date</th>

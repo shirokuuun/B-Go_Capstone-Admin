@@ -25,10 +25,15 @@ const Conductor = () => {
   useEffect(() => {
     // Clean up any existing listeners first
     conductorService.removeAllListeners();
-    
+
     // Set up real-time listener for conductors
     const unsubscribe = conductorService.setupConductorsListener((conductorsList) => {
-      setConductors(conductorsList);
+      // Ensure we have unique conductors by ID to prevent duplicates
+      const uniqueConductors = conductorsList.filter((conductor, index, arr) =>
+        arr.findIndex(c => c.id === conductor.id) === index
+      );
+
+      setConductors(uniqueConductors);
       setLoading(false);
     });
 

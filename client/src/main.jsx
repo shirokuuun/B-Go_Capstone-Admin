@@ -92,21 +92,9 @@ createRoot(document.getElementById("root")).render(
             }
           />
 
-          {/* Ticketing routes */}
+          {/* Ticketing route */}
           <Route
             path="ticketing"
-            element={<Navigate to="/admin/ticketing/pre-booking" replace />}
-          />
-          <Route
-            path="ticketing/pre-booking"
-            element={
-              <PageTransitionWrapper>
-                <Ticketing />
-              </PageTransitionWrapper>
-            }
-          />
-          <Route
-            path="ticketing/pre-ticketing"
             element={
               <PageTransitionWrapper>
                 <Ticketing />
@@ -114,10 +102,20 @@ createRoot(document.getElementById("root")).render(
             }
           />
 
+          {/* Handle legacy ticketing routes */}
+          <Route
+            path="ticketing/pre-booking"
+            element={<Navigate to="/admin/ticketing" replace />}
+          />
+          <Route
+            path="ticketing/pre-ticketing"
+            element={<Navigate to="/admin/ticketing" replace />}
+          />
+
           {/* Handle legacy bookings route */}
           <Route
             path="bookings"
-            element={<Navigate to="/admin/ticketing/pre-booking" replace />}
+            element={<Navigate to="/admin/ticketing" replace />}
           />
 
           <Route

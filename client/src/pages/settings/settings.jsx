@@ -31,6 +31,7 @@ import {
   getActivityLogs,
   exportLogsToCSV,
   getLogStatistics,
+  getTotalLogCounts,
   ACTIVITY_TYPES
 } from './auditService.js';
 import { backupService, BACKUP_COLLECTIONS } from './backupService.js';
@@ -163,6 +164,7 @@ const formatLogDescription = (description) => {
   // System logs state
   const [activityLogs, setActivityLogs] = useState([]);
   const [logStatistics, setLogStatistics] = useState(null);
+  const [totalLogCounts, setTotalLogCounts] = useState(null);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logFilters, setLogFilters] = useState({
     activityType: '',
@@ -346,6 +348,9 @@ const formatLogDescription = (description) => {
 
       // Note: No need to update local state since real-time listeners will handle this automatically
 
+      // Refresh total counts after deletion
+      fetchTotalLogCounts();
+
       setMessage('Activity log deleted successfully');
     } catch (err) {
       setError('Failed to delete log: ' + err.message);
@@ -417,6 +422,9 @@ const formatLogDescription = (description) => {
       setSelectedLogs(new Set());
       setIsLogSelectMode(false);
 
+      // Refresh total counts after bulk deletion
+      fetchTotalLogCounts();
+
       setMessage(`✅ Successfully deleted ${selectedLogs.size} activity log entries`);
     } catch (error) {
       console.error('Error in bulk delete logs:', error);
@@ -435,43 +443,73 @@ const formatLogDescription = (description) => {
     }
 
     setLogsLoading(true);
-    
+
     try {
       let q = collection(db, 'AuditLogs');
-      const constraints = [orderBy('timestamp', 'desc')];
+      let constraints = [];
 
-      // Apply filters
-      if (logFilters.activityType) {
-        constraints.push(where('activityType', '==', logFilters.activityType));
-      }
-      if (logFilters.severity) {
-        constraints.push(where('severity', '==', logFilters.severity));
-      }
+      // Simplify query to avoid complex index requirements
+      // Use only timestamp ordering for now, apply filters client-side
       if (logFilters.date) {
-        // Filter for logs on the specific date (start of day to end of day)
+        // If date filter is applied, use it as the primary filter
         const selectedDate = new Date(logFilters.date);
         const startOfDay = new Date(selectedDate.setHours(0, 0, 0, 0));
         const endOfDay = new Date(selectedDate.setHours(23, 59, 59, 999));
-        constraints.push(where('timestamp', '>=', startOfDay));
-        constraints.push(where('timestamp', '<=', endOfDay));
+        constraints = [
+          where('timestamp', '>=', startOfDay),
+          where('timestamp', '<=', endOfDay),
+          orderBy('timestamp', 'desc')
+        ];
+      } else if (logFilters.activityType && !logFilters.date) {
+        // If only activity type filter (no date), use activityType + timestamp
+        constraints = [
+          where('activityType', '==', logFilters.activityType),
+          orderBy('timestamp', 'desc')
+        ];
+      } else {
+        // Default: just order by timestamp
+        constraints = [orderBy('timestamp', 'desc')];
       }
 
-      constraints.push(limit(logFilters.limit || 50));
+      // Use user-selected limit, with a reasonable maximum for performance
+      const queryLimit = Math.min(logFilters.limit || 50, 1000);
+      constraints.push(limit(queryLimit));
       q = query(q, ...constraints);
 
       const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const logs = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          timestamp: doc.data().timestamp?.toDate() || new Date()
-        }));
-        
+        let logs = querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            // Ensure severity field exists with fallback to 'info'
+            severity: data.severity || 'info',
+            timestamp: data.timestamp?.toDate() || new Date()
+          };
+        });
+
+        // Apply client-side filters for reliability and to avoid complex index requirements
+
+        // Filter by activity type (if not already filtered by Firestore)
+        if (logFilters.activityType && logFilters.date) {
+          // When both date and activity type filters are active, activityType is filtered client-side
+          logs = logs.filter(log => log.activityType === logFilters.activityType);
+        }
+
+        // Filter by severity
+        if (logFilters.severity) {
+          logs = logs.filter(log => {
+            const logSeverity = log.severity || 'info';
+            return logSeverity === logFilters.severity;
+          });
+        }
+
         setActivityLogs(logs);
-        
+
         // Calculate real-time statistics from current logs
         const stats = calculateLogStatistics(logs);
         setLogStatistics(stats);
-        
+
         setLogsLoading(false);
       }, (err) => {
         setError('Failed to load activity logs: ' + err.message);
@@ -486,6 +524,16 @@ const formatLogDescription = (description) => {
   };
 
 
+  // Fetch total log counts (no filters)
+  const fetchTotalLogCounts = async () => {
+    try {
+      const counts = await getTotalLogCounts();
+      setTotalLogCounts(counts);
+    } catch (error) {
+      console.error('Error fetching total log counts:', error);
+    }
+  };
+
   // Real-time statistics calculation from current logs
   const calculateLogStatistics = (logs) => {
     const activityByType = {};
@@ -495,11 +543,11 @@ const formatLogDescription = (description) => {
     logs.forEach(log => {
       // Count by activity type
       activityByType[log.activityType] = (activityByType[log.activityType] || 0) + 1;
-      
+
       // Count by user
       const userName = log.userName || 'Unknown';
       activityByUser[userName] = (activityByUser[userName] || 0) + 1;
-      
+
       // Count errors
       if (log.severity === 'error') {
         totalErrors++;
@@ -533,6 +581,10 @@ const formatLogDescription = (description) => {
 
   const applyFilters = () => {
     setupActivityLogsListener();
+    // Refresh total counts when filters change to ensure accuracy
+    if (userData && (userData.role === 'admin' || userData.role === 'superadmin')) {
+      fetchTotalLogCounts();
+    }
   };
 
   // Setup admin users subscription (superadmin only)
@@ -656,6 +708,7 @@ const formatLogDescription = (description) => {
   useEffect(() => {
     if (userData && (userData.role === 'admin' || userData.role === 'superadmin')) {
       applyFilters();
+      fetchTotalLogCounts();
     }
   }, [userData]);
 
@@ -1337,22 +1390,35 @@ const formatLogDescription = (description) => {
             {adminTab === 'logs' && (
               <div className="system-logs-tab">
                 {/* Log Statistics */}
-                {logStatistics && (
-                  <div className="settings-log-stats">
-                    <div className="settings-stat-item">
-                      <span className="settings-stat-number">{logStatistics.totalActivities}</span>
-                      <span className="settings-stat-label">Total Activities</span>
-                    </div>
-                    <div className="settings-stat-item">
-                      <span className="settings-stat-number">{logStatistics.totalErrors}</span>
-                      <span className="settings-stat-label">System Errors</span>
-                    </div>
-                    <div className="settings-stat-item">
-                      <span className="settings-stat-number">{Object.keys(logStatistics.activityByUser || {}).length}</span>
-                      <span className="settings-stat-label">Active Users</span>
-                    </div>
+                <div className="settings-log-stats">
+                  <div className="settings-stat-item">
+                    <span className="settings-stat-number">
+                      {totalLogCounts ? totalLogCounts.totalActivities : (logStatistics?.totalActivities || 0)}
+                    </span>
+                    <span className="settings-stat-label">Total Activities</span>
+                    {logStatistics && logFilters && (logFilters.activityType || logFilters.severity || logFilters.date) && (
+                      <span className="settings-stat-sublabel">({logStatistics.totalActivities} filtered)</span>
+                    )}
                   </div>
-                )}
+                  <div className="settings-stat-item">
+                    <span className="settings-stat-number">
+                      {totalLogCounts ? totalLogCounts.totalActivityErrors : (logStatistics?.totalErrors || 0)}
+                    </span>
+                    <span className="settings-stat-label">System Errors</span>
+                    {logStatistics && logFilters && (logFilters.activityType || logFilters.severity || logFilters.date) && (
+                      <span className="settings-stat-sublabel">({logStatistics.totalErrors} filtered)</span>
+                    )}
+                  </div>
+                  <div className="settings-stat-item">
+                    <span className="settings-stat-number">
+                      {logStatistics ? Object.keys(logStatistics.activityByUser || {}).length : 0}
+                    </span>
+                    <span className="settings-stat-label">Active Users</span>
+                    {logStatistics && logFilters && (logFilters.activityType || logFilters.severity || logFilters.date) && (
+                      <span className="settings-stat-sublabel">(filtered view)</span>
+                    )}
+                  </div>
+                </div>
 
                 <div className="audit-logs-header-actions">
                   <button
@@ -1454,11 +1520,24 @@ const formatLogDescription = (description) => {
                     </div>
                     <div className="settings-filter-field">
                       <label>Filter by Date</label>
-                      <input 
-                        type="date" 
-                        value={logFilters.date} 
+                      <input
+                        type="date"
+                        value={logFilters.date}
                         onChange={(e) => handleFilterChange('date', e.target.value)}
                       />
+                    </div>
+                    <div className="settings-filter-field">
+                      <label>Show</label>
+                      <select
+                        value={logFilters.limit}
+                        onChange={(e) => handleFilterChange('limit', parseInt(e.target.value))}
+                      >
+                        <option value={25}>25 logs</option>
+                        <option value={50}>50 logs</option>
+                        <option value={100}>100 logs</option>
+                        <option value={200}>200 logs</option>
+                        <option value={500}>500 logs</option>
+                      </select>
                     </div>
                   </div>
                   <div className="audit-filter-actions">

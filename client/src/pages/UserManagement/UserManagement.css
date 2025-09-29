@@ -322,6 +322,14 @@
   border: 2px solid #e2e8f0;
 }
 
+.usermgmt-clickable-profile-image .usermgmt-profile-image-details {
+  transition: border-color 0.2s ease;
+}
+
+.usermgmt-clickable-profile-image:hover .usermgmt-profile-image-details {
+  border-color: #3b82f6;
+}
+
 .usermgmt-profile-image-fallback {
   color: #9ca3af;
   font-style: italic;
@@ -509,4 +517,110 @@
   font-size: 0.9rem;
   margin: 0;
   opacity: 0.8;
+}
+
+/* Clickable Profile Image in Details Panel */
+.usermgmt-clickable-profile-image {
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+.usermgmt-clickable-profile-image:hover {
+  transform: scale(1.05);
+}
+
+.usermgmt-profile-image-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  border-radius: 8px;
+}
+
+.usermgmt-clickable-profile-image:hover .usermgmt-profile-image-overlay {
+  opacity: 1;
+}
+
+.usermgmt-profile-image-overlay span {
+  font-size: 20px;
+  color: white;
+}
+
+/* Image Modal Styles */
+.usermgmt-image-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.usermgmt-image-modal-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  background: transparent;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.usermgmt-image-modal-close-btn {
+  position: fixed;
+  top: 30px;
+  right: 30px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  z-index: 1001;
+  border-radius: 50%;
+  width: 45px;
+  height: 45px;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s ease;
+}
+
+.usermgmt-image-modal-close-btn:hover {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.usermgmt-full-size-image {
+  max-width: 70%;
+  max-height: 70vh;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+
+/* Responsive Design for Image Modal */
+@media (max-width: 768px) {
+  .usermgmt-full-size-image {
+    max-width: 95%;
+    max-height: 85vh;
+  }
+
+  .usermgmt-image-modal-close-btn {
+    width: 35px;
+    height: 35px;
+    font-size: 16px;
+  }
 }

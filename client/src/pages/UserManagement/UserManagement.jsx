@@ -14,6 +14,10 @@ const UserManagement = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
+
+  // Image modal states
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState('');
   
   // Authentication and role states
   const [currentUser, setCurrentUser] = useState(null);
@@ -347,9 +351,9 @@ const UserManagement = () => {
                       
                       return profileImageUrl ? (
                         <div className="usermgmt-user-avatar">
-                          <img 
-                            src={profileImageUrl} 
-                            alt="Profile" 
+                          <img
+                            src={profileImageUrl}
+                            alt="Profile"
                             className="usermgmt-user-avatar-img"
                             onError={(e) => {
                               e.target.style.display = 'none';
@@ -357,7 +361,7 @@ const UserManagement = () => {
                             }}
                           />
                           <div className="usermgmt-user-avatar-fallback" style={{ display: 'none' }}>
-                            {((user.firstName && user.lastName) 
+                            {((user.firstName && user.lastName)
                               ? (user.firstName.charAt(0) + user.lastName.charAt(0))
                               : (user.name || user.displayName || user.email || 'U').charAt(0)
                             ).toUpperCase()}
@@ -447,10 +451,17 @@ const UserManagement = () => {
                       </span>
                       <span className="usermgmt-detail-value">
                         {isProfileImage && value && value !== 'N/A' ? (
-                          <div className="usermgmt-profile-image-container">
-                            <img 
-                              src={value} 
-                              alt="Profile" 
+                          <div
+                            className="usermgmt-profile-image-container usermgmt-clickable-profile-image"
+                            onClick={() => {
+                              setSelectedImage(value);
+                              setShowImageModal(true);
+                            }}
+                            title="Click to view full size"
+                          >
+                            <img
+                              src={value}
+                              alt="Profile"
                               className="usermgmt-profile-image-details"
                               onError={(e) => {
                                 e.target.style.display = 'none';
@@ -460,6 +471,8 @@ const UserManagement = () => {
                             <span className="usermgmt-profile-image-fallback" style={{ display: 'none' }}>
                               Image not available
                             </span>
+                            <div className="usermgmt-profile-image-overlay">
+                            </div>
                           </div>
                         ) : (
                           String(displayValue)
@@ -482,7 +495,29 @@ const UserManagement = () => {
         </div>
       </div>
 
+      {/* Image Modal */}
+      {showImageModal && (
+        <ImageModal
+          imageUrl={selectedImage}
+          onClose={() => {
+            setShowImageModal(false);
+            setSelectedImage('');
+          }}
+        />
+      )}
 
+    </div>
+  );
+};
+
+// Image Modal Component
+const ImageModal = ({ imageUrl, onClose }) => {
+  return (
+    <div className="usermgmt-image-modal-overlay" onClick={onClose}>
+      <div className="usermgmt-image-modal-content" onClick={(e) => e.stopPropagation()}>
+        <button className="usermgmt-image-modal-close-btn" onClick={onClose}>×</button>
+        <img src={imageUrl} alt="Profile picture full size" className="usermgmt-full-size-image" />
+      </div>
     </div>
   );
 };

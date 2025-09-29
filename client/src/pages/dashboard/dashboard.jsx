@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '/src/firebase/firebase.js';
 import { fetchCurrentUserData } from '/src/pages/settings/settings.js';
-import DashboardService from './dashboard.js';
+import dashboardService from './dashboard.js';
 import './dashboard.css';
 
 function Dashboard() {
@@ -11,6 +11,8 @@ function Dashboard() {
   const [customDate, setCustomDate] = useState('');
   const [userData, setUserData] = useState(null);
   const [isScrolling, setIsScrolling] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isFilterLoading, setIsFilterLoading] = useState(false);
 
   // Authentication useEffect
   useEffect(() => {
@@ -33,15 +35,44 @@ function Dashboard() {
     
     const setupRealTimeData = async () => {
       try {
-        setDashboardData(null); // Reset data while loading
-        
-        const service = new DashboardService();
-        const data = await service.getDashboardData(filter, customDate);
-        
-        // Only update state if component is still mounted
-        if (isSubscribed) {
-          setDashboardData(data);
+        // Always show filter loading when filters change (except initial load)
+        if (dashboardData) {
+          // We have existing data, so this is a filter change
+          setIsFilterLoading(true);
+        } else {
+          // Initial load
+          setIsLoading(true);
         }
+
+        // Setup dashboard listener with caching
+        const unsubscribe = dashboardService.setupDashboardListener(
+          (data, isReady) => {
+            // Only update state if component is still mounted
+            if (isSubscribed) {
+              if (data) {
+                // Add minimum loading time to ensure loading state is visible
+                const minLoadingTime = isFilterLoading ? 300 : 0; // 300ms for filter changes
+                setTimeout(() => {
+                  if (isSubscribed) {
+                    setDashboardData(data);
+                    setIsLoading(false);
+                    setIsFilterLoading(false);
+                  }
+                }, minLoadingTime);
+              } else if (!isReady) {
+                // Only show loading if data fetch failed
+                setDashboardData(null);
+                setIsLoading(false);
+                setIsFilterLoading(false);
+              }
+            }
+          },
+          filter,
+          customDate
+        );
+
+        // Store cleanup function
+        return unsubscribe;
         
       } catch (error) {
         console.error('Error setting up dashboard data:', error);
@@ -88,11 +119,17 @@ function Dashboard() {
       }
     };
 
-    setupRealTimeData();
-    
+    let cleanup = null;
+    setupRealTimeData().then(unsubscribe => {
+      cleanup = unsubscribe;
+    });
+
     // Cleanup function
     return () => {
       isSubscribed = false;
+      if (cleanup) {
+        cleanup();
+      }
     };
   }, [filter, customDate]);
 
@@ -182,28 +219,39 @@ function Dashboard() {
         </div>
       </div>
 
-      {!dashboardData ? (
+      {/* Loading States */}
+      {isLoading ? (
         <div className="loading-container">
           <div className="loading-spinner"></div>
           <p className="loading-text">Loading dashboard data...</p>
         </div>
       ) : (
         <>
-          {/* Dashboard Metrics Header - Matching Ticketing Design */}
-          <div className="dashboard-header-container">
-            {/* Background Pattern */}
-            <div className="dashboard-header-pattern"></div>
+          {/* Filter Loading - Same style as main loading */}
+          {isFilterLoading && (
+            <div className="loading-container">
+              <div className="loading-spinner"></div>
+              <p className="loading-text">Updating data for {filter === 'custom' ? customDate : filter}...</p>
+            </div>
+          )}
 
-            <div className="dashboard-header-content">
-              {/* Stats Cards */}
-              <div className="dashboard-stats-container">
+          {/* Dashboard Content with Filter Loading State */}
+          <div className={`dashboard-main-content ${isFilterLoading ? 'filter-loading' : ''}`}>
+            {/* Dashboard Metrics Header - Matching Ticketing Design */}
+            <div className="dashboard-header-container">
+              {/* Background Pattern */}
+              <div className="dashboard-header-pattern"></div>
+
+              <div className="dashboard-header-content">
+                {/* Stats Cards */}
+                <div className="dashboard-stats-container">
                 {/* Total Earnings */}
                 <div className="dashboard-stat-card dashboard-earnings">
                   <div className="dashboard-stat-icon">
                     <i className="fas fa-dollar-sign dashboard-stat-icon-fa"></i>
                   </div>
                   <div className="dashboard-stat-content">
-                    <div className="dashboard-stat-number">₱ {dashboardData.trips.totalFare.toFixed(0)}</div>
+                    <div className="dashboard-stat-number">₱ {dashboardData.trips.totalFare.toFixed(2)}</div>
                     <div className="dashboard-stat-label">Total Earnings</div>
                   </div>
                 </div>
@@ -498,6 +546,7 @@ function Dashboard() {
                 </div>
               </div>
 
+              </div>
             </div>
           </div>
         </>

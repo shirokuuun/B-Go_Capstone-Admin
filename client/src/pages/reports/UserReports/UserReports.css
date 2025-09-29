@@ -465,13 +465,23 @@
 }
 
 .user-reports-status-verified {
-  color: #28a745;
-  font-weight: 600;
+  background-color: #d4edda;
+  color: #155724;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  text-transform: uppercase;
 }
 
 .user-reports-status-not-verified {
-  color: #dc3545;
-  font-weight: 600;
+  background-color: #f8d7da;
+  color: #721c24;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  text-transform: uppercase;
 }
 
 .user-reports-verification-status {
@@ -495,6 +505,17 @@
 .user-reports-verification-pending {
   background-color: #fff3cd;
   color: #856404;
+}
+
+.user-reports-verification-rejected {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.user-reports-verification-no-id {
+  background-color: #e2e3e5;
+  color: #495057;
+  border: 1px dashed #6c757d;
 }
 
 /* Empty State */

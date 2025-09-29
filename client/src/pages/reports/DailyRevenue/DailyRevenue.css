@@ -2284,6 +2284,31 @@ html, body {
   width: 100%;
   background: white;
   min-height: auto;
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+/* Force monthly breakdown section to align left */
+.revenue-monthly-container .revenue-breakdown-section {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+}
+
+/* Force monthly breakdown title to align left */
+.revenue-monthly-container .revenue-breakdown-title {
+  text-align: left !important;
+}
+
+/* Force monthly table container to align left */
+.revenue-monthly-container .revenue-table-container {
+  display: flex !important;
+  justify-content: flex-start !important;
+  align-items: flex-start !important;
+  width: 100% !important;
 }
 
 /* Monthly revenue table - unique styles for MonthlyRevenue component */
@@ -2291,7 +2316,7 @@ html, body {
   width: 100%;
   border-collapse: collapse;
   background: white;
-  margin: 0 auto;
+  margin: 0;
   table-layout: auto;
   border: 1px solid #dee2e6;
 }

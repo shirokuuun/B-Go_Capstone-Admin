@@ -349,10 +349,12 @@ const UserReports = () => {
                       {formattedUser.emailVerified}
                     </td>
                     <td className={`user-reports-verification-status ${
-                      formattedUser.idVerificationStatus === 'verified' 
+                      formattedUser.idVerificationStatus === 'verified'
                         ? 'user-reports-verification-verified'
-                        : formattedUser.idVerificationStatus === 'rejected'
-                        ? 'user-reports-verification-rejected'  
+                        : formattedUser.idVerificationStatus === 'rejected' || formattedUser.idVerificationStatus === 'revoked'
+                        ? 'user-reports-verification-rejected'
+                        : formattedUser.idVerificationStatus === 'No ID Uploaded'
+                        ? 'user-reports-verification-no-id'
                         : 'user-reports-verification-pending'
                     }`}>
                       {formattedUser.idVerificationStatus}

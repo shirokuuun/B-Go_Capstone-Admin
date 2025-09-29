@@ -14,7 +14,7 @@ function IDVerification() {
   const [selectedUserID, setSelectedUserID] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'verified', 'revoked'
-  
+
   // Authentication and role checking states
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(null);

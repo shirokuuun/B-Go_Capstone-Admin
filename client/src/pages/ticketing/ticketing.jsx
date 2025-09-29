@@ -72,7 +72,7 @@ const Ticketing = () => {
     const setupRealTimeData = async () => {
       try {
         setLoading(true);
-        
+
         // Get initial stats (still using static call for now)
         const statsData = await getPreTicketingStats();
         setStats(statsData);
@@ -338,6 +338,28 @@ const Ticketing = () => {
       // If formatting fails, return original string
       console.warn('Error formatting time:', timeString, error);
       return timeString;
+    }
+  };
+
+  // Format the scannedAt timestamp
+  const formatScannedAt = (scannedAt) => {
+    if (!scannedAt) return 'Not scanned';
+
+    try {
+      // Handle Firestore timestamp
+      const timestamp = scannedAt.seconds ? new Date(scannedAt.seconds * 1000) : new Date(scannedAt);
+
+      return timestamp.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (error) {
+      console.error('Error formatting scannedAt:', error, scannedAt);
+      return 'Invalid date';
     }
   };
 
@@ -675,6 +697,11 @@ const Ticketing = () => {
                     <p className="ticketing-ticket-meta">
                       Date: {ticket.date} at {formatTime(ticket.time)}
                     </p>
+                    {ticket.scannedAt && getEffectiveTicketType(ticket) === 'preBooking' && (
+                      <p className="ticketing-ticket-meta">
+                        <strong>Scanned at:</strong> {formatScannedAt(ticket.scannedAt)}
+                      </p>
+                    )}
                   </div>
                   <div className="ticketing-ticket-summary">
                     <p className="ticketing-fare-amount">₱{ticket.amount}</p>

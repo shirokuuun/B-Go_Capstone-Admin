@@ -424,6 +424,40 @@ const exportLogsToCSVFallback = (logs, filename, type) => {
 };
 
 /**
+ * Get total counts for all logs in the system (no filters)
+ * @returns {Promise<Object>} Total counts object
+ */
+export const getTotalLogCounts = async () => {
+  try {
+    // Get total activity logs count
+    const activityQuery = query(collection(db, 'AuditLogs'));
+    const activitySnapshot = await getDocs(activityQuery);
+
+    // Get total error logs count
+    const errorQuery = query(collection(db, 'ErrorLogs'));
+    const errorSnapshot = await getDocs(errorQuery);
+
+    // Count activities by severity from all logs
+    let totalErrors = 0;
+    activitySnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      if (data.severity === 'error') {
+        totalErrors++;
+      }
+    });
+
+    return {
+      totalActivities: activitySnapshot.size,
+      totalErrorLogs: errorSnapshot.size,
+      totalActivityErrors: totalErrors
+    };
+  } catch (error) {
+    console.error('Error getting total log counts:', error);
+    throw error;
+  }
+};
+
+/**
  * Get summary statistics for logs
  * @param {Date} startDate - Start date for statistics
  * @param {Date} endDate - End date for statistics

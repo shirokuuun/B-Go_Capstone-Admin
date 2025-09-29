@@ -10,11 +10,23 @@
 
 /* Dashboard Container */
 .dashboard-container {
-  padding: 1.5rem;
+  padding: 1rem;
   min-height: 100vh;
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
   background: #f8f9fa;
+  overflow-x: auto;
+}
+
+@media (min-width: 768px) {
+  .dashboard-container {
+    padding: 1.5rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  .dashboard-container {
+    padding: 1.5rem 2rem;
+  }
 }
 
 /* Performance optimization - Reduce animations during scroll */
@@ -473,10 +485,28 @@
 /* Dashboard Content */
 .dashboard-content {
   display: grid;
-  grid-template-columns: 1fr 400px;
+  grid-template-columns: 1fr;
   gap: 2rem;
   margin-bottom: 2rem;
   align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .dashboard-content {
+    grid-template-columns: 1fr 350px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .dashboard-content {
+    grid-template-columns: 1fr 380px;
+  }
+}
+
+@media (min-width: 1400px) {
+  .dashboard-content {
+    grid-template-columns: 1fr 400px;
+  }
 }
 
 /* Charts Column */
@@ -1366,6 +1396,12 @@
     height: 40px;
     font-size: 1rem;
   }
+}
+
+/* Filter loading uses the same style as main loading - no additional styles needed */
+
+.dashboard-main-content.filter-loading {
+  display: none; /* Hide dashboard content when filter loading is active */
 }
 
 /* Prefers reduced motion - Accessibility */

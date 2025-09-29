@@ -26,6 +26,13 @@ class ConductorService {
     this.maxListeners = 10; // Allow multiple listeners for list + details + reservations
     this.cleanupOnError = true;
 
+    // 🚀 IN-MEMORY CACHE SYSTEM
+    this.conductorsCache = null;        // Stores conductor list
+    this.lastFetchTime = null;         // When we last fetched
+    this.tripCountsCache = new Map();  // Stores trip counts by conductor ID
+    this.isCacheListenerActive = false; // Tracks if cache snapshot is running
+    this.cacheVersion = 1;             // Cache versioning for invalidation
+
     // Force cleanup on page load/refresh
     this.forceCleanup();
   }
@@ -48,49 +55,278 @@ class ConductorService {
     }
   }
 
-  // Get all conductors with basic info (excluding deleted ones)
+  // 🚀 CACHED: Get all conductors with basic info (cache-first approach)
   async getAllConductors() {
     try {
-      const conductorsRef = collection(db, 'conductors');
-      // Get all conductors and filter out deleted ones in code (handles missing status field)
-      const snapshot = await getDocs(conductorsRef);
-      
-      const conductors = [];
-      for (const doc of snapshot.docs) {
-        const conductorData = doc.data();
-        
-        // Skip deleted conductors (handles missing status field)
-        if (conductorData.status === 'deleted') {
-          continue;
-        }
-        
-        // Use remittance-based counting logic for accurate trip counts
-        let tripsCount;
-        
-        // Always calculate using the new remittance logic for accuracy
-        tripsCount = await this.getConductorTripsCount(doc.id);
-        
-        // Update the cache in the background for consistency
-        if (conductorData.totalTrips !== tripsCount) {
-          try {
-            await this.updateConductorTripsCount(doc.id);
-          } catch (updateError) {
-            console.warn(`⚠️ Failed to update cache for ${doc.id}:`, updateError);
-          }
-        }
-        
-        conductors.push({
-          id: doc.id,
-          ...conductorData,
-          tripsCount: tripsCount
-        });
+      // ⚡ FAST PATH: Return cached data immediately if available
+      if (this.conductorsCache && this.isCacheListenerActive) {
+        // Return a copy to prevent external modifications
+        return [...this.conductorsCache];
       }
-      
+
+      // 🔄 SLOW PATH: First time or cache invalidated - fetch everything
+      const conductors = await this.fetchAllConductorsFromFirestore();
+
+      // 💾 Save to cache (in-memory)
+      this.conductorsCache = conductors;
+      this.lastFetchTime = Date.now();
+
+      // 👂 Start listening for real-time changes
+      this.startConductorsCacheListener();
+
       return conductors;
     } catch (error) {
       console.error('Error fetching conductors:', error);
       throw error;
     }
+  }
+
+  // 📥 Fetch all conductors from Firestore (original logic)
+  async fetchAllConductorsFromFirestore() {
+    const conductorsRef = collection(db, 'conductors');
+    const snapshot = await getDocs(conductorsRef);
+
+    const conductors = [];
+    for (const doc of snapshot.docs) {
+      const conductorData = doc.data();
+
+      // Skip deleted conductors (handles missing status field)
+      if (conductorData.status === 'deleted') {
+        continue;
+      }
+
+      // Use remittance-based counting logic for accurate trip counts
+      let tripsCount;
+
+      // Always calculate using the new remittance logic for accuracy
+      tripsCount = await this.getConductorTripsCount(doc.id);
+
+      // Update the cache in the background for consistency
+      if (conductorData.totalTrips !== tripsCount) {
+        try {
+          await this.updateConductorTripsCount(doc.id);
+        } catch (updateError) {
+          console.warn(`⚠️ Failed to update cache for ${doc.id}:`, updateError);
+        }
+      }
+
+      conductors.push({
+        id: doc.id,
+        ...conductorData,
+        tripsCount: tripsCount
+      });
+    }
+
+    return conductors;
+  }
+
+  // 👂 Start real-time cache updates listener
+  startConductorsCacheListener() {
+    if (this.isCacheListenerActive) {
+      return; // Don't create duplicate listeners
+    }
+
+    // Clean up any existing cache listener first
+    if (this.listeners.has('cache_listener')) {
+      const existingListener = this.listeners.get('cache_listener');
+      if (typeof existingListener === 'function') {
+        existingListener();
+      }
+      this.listeners.delete('cache_listener');
+    }
+
+    const conductorsRef = collection(db, 'conductors');
+
+    const unsubscribe = onSnapshot(conductorsRef, async (snapshot) => {
+      if (!this.conductorsCache) {
+        return; // No cache to update
+      }
+
+      let hasChanges = false;
+
+      // Only process actual changes, not entire dataset
+      const changes = snapshot.docChanges();
+
+      if (changes.length === 0) {
+        return;
+      }
+
+      for (const change of changes) {
+        const docData = change.doc.data();
+
+        // Skip deleted conductors
+        if (docData.status === 'deleted') {
+          if (change.type !== 'removed') {
+            await this.removeFromConductorsCache(change.doc.id);
+            hasChanges = true;
+          }
+          continue;
+        }
+
+        if (change.type === 'added') {
+          await this.addToConductorsCache(change.doc);
+          hasChanges = true;
+        }
+        if (change.type === 'modified') {
+          await this.updateConductorsCache(change.doc);
+          hasChanges = true;
+        }
+        if (change.type === 'removed') {
+          await this.removeFromConductorsCache(change.doc.id);
+          hasChanges = true;
+        }
+      }
+
+      if (hasChanges) {
+        // Trigger UI update by calling the active listener if it exists
+        this.notifyListenersOfCacheUpdate();
+      }
+    }, (error) => {
+      console.error('❌ Error in cache listener:', error);
+      this.isCacheListenerActive = false;
+      this.listeners.delete('cache_listener');
+    });
+
+    // Store the unsubscribe function
+    this.listeners.set('cache_listener', unsubscribe);
+    this.isCacheListenerActive = true;
+  }
+
+  // 🔧 Cache Helper Methods
+  async addToConductorsCache(doc) {
+    if (!this.conductorsCache) return;
+
+    const conductorData = doc.data();
+    const tripsCount = await this.getConductorTripsCount(doc.id);
+
+    const newConductor = {
+      id: doc.id,
+      ...conductorData,
+      tripsCount: tripsCount
+    };
+
+    this.conductorsCache.push(newConductor);
+  }
+
+  async updateConductorsCache(doc) {
+    if (!this.conductorsCache) return;
+
+    const conductorData = doc.data();
+    const index = this.conductorsCache.findIndex(c => c.id === doc.id);
+
+    if (index !== -1) {
+      // Update trip count if needed
+      let tripsCount = this.conductorsCache[index].tripsCount;
+
+      // Only recalculate trip count if it might have changed
+      if (conductorData.totalTrips !== tripsCount) {
+        tripsCount = await this.getConductorTripsCount(doc.id);
+      }
+
+      this.conductorsCache[index] = {
+        id: doc.id,
+        ...conductorData,
+        tripsCount: tripsCount
+      };
+    }
+  }
+
+  async removeFromConductorsCache(docId) {
+    if (!this.conductorsCache) return;
+
+    const initialLength = this.conductorsCache.length;
+    this.conductorsCache = this.conductorsCache.filter(c => c.id !== docId);
+  }
+
+  // Notify active listeners about cache updates
+  notifyListenersOfCacheUpdate() {
+    // If there's an active conductors listener, trigger it with cached data
+    if (this.currentConductorsCallback && this.conductorsCache) {
+      // Debounce multiple rapid updates
+      if (this.updateTimeout) {
+        clearTimeout(this.updateTimeout);
+      }
+
+      this.updateTimeout = setTimeout(() => {
+        if (this.currentConductorsCallback && this.conductorsCache) {
+          // Return a copy to prevent external modifications
+          this.currentConductorsCallback([...this.conductorsCache]);
+        }
+        this.updateTimeout = null;
+      }, 50); // Small debounce delay
+    }
+  }
+
+  // 🧹 Cache management methods
+  invalidateCache() {
+    this.conductorsCache = null;
+    this.lastFetchTime = null;
+    this.tripCountsCache.clear();
+
+    // Stop the cache listener to force fresh setup
+    if (this.listeners.has('cache_listener')) {
+      this.listeners.get('cache_listener')();
+      this.listeners.delete('cache_listener');
+    }
+    this.isCacheListenerActive = false;
+  }
+
+  // 🔄 Force refresh cache with updated trip counts
+  async forceRefreshCache() {
+    this.invalidateCache();
+
+    // This will fetch fresh data and rebuild cache
+    const freshData = await this.getAllConductors();
+
+    return freshData;
+  }
+
+  getCacheInfo() {
+    return {
+      hasConductorsCache: !!this.conductorsCache,
+      cacheSize: this.conductorsCache?.length || 0,
+      lastFetchTime: this.lastFetchTime,
+      isListenerActive: this.isCacheListenerActive,
+      cacheAge: this.lastFetchTime ? Date.now() - this.lastFetchTime : null
+    };
+  }
+
+  // 🧪 Debug method - Test cache performance
+  async testCachePerformance() {
+    console.log('🧪 Testing cache performance...');
+
+    // Test 1: First load (should be slow)
+    this.invalidateCache();
+    const start1 = Date.now();
+    await this.getAllConductors();
+    const end1 = Date.now();
+    console.log(`📊 First load: ${end1 - start1}ms`);
+
+    // Test 2: Cached load (should be fast)
+    const start2 = Date.now();
+    await this.getAllConductors();
+    const end2 = Date.now();
+    console.log(`📊 Cached load: ${end2 - start2}ms`);
+
+    // Test 3: Multiple cached loads
+    const times = [];
+    for (let i = 0; i < 5; i++) {
+      const start = Date.now();
+      await this.getAllConductors();
+      const end = Date.now();
+      times.push(end - start);
+    }
+
+    const avgTime = times.reduce((a, b) => a + b, 0) / times.length;
+    console.log(`📊 Average cached load time (5 tests): ${avgTime.toFixed(2)}ms`);
+    console.log('🎯 Cache performance test complete!');
+
+    return {
+      firstLoad: end1 - start1,
+      cachedLoad: end2 - start2,
+      averageCachedLoad: avgTime,
+      cacheInfo: this.getCacheInfo()
+    };
   }
 
   // Get detailed conductor information (using remittance counting logic)
@@ -251,40 +487,87 @@ class ConductorService {
     }
   }
 
-  // Get trips count for a conductor (using daily revenue logic)
+  // FIXED: Get trips count for a conductor (matching daily revenue logic exactly)
   async getConductorTripsCount(conductorId) {
     try {
       const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
       const datesSnapshot = await getDocs(dailyTripsRef);
 
-      let tripCount = 0;
-
-      for (const dateDoc of datesSnapshot.docs) {
-        const dateId = dateDoc.id;
-
-        // Use the same trip detection method as daily revenue
-        const tripNames = await this.getAllTripNames(conductorId, dateId);
-
-        for (const tripName of tripNames) {
-          try {
-            // Check for both regular tickets and prebookings in parallel
-            const [ticketsSnapshot, preBookingsSnapshot] = await Promise.all([
-              getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets')),
-              getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'preBookings', 'preBookings'))
-            ]);
-
-            // Count trip if it has either regular tickets OR prebookings
-            if (ticketsSnapshot.docs.length > 0 || preBookingsSnapshot.docs.length > 0) {
-              tripCount++;
-            }
-          } catch (tripError) {
-            // Normal - not all trip numbers will exist
-            continue;
-          }
-        }
+      if (datesSnapshot.empty) {
+        return 0;
       }
 
-      return tripCount;
+      // Simulate daily revenue logic: create trip objects then count unique trips
+      const allTrips = [];
+
+      // Process dates in parallel for better performance
+      const datePromises = datesSnapshot.docs.map(async (dateDoc) => {
+        const dateId = dateDoc.id;
+
+        try {
+          // Use the same trip detection method as daily revenue
+          const tripNames = await this.getAllTripNames(conductorId, dateId);
+
+          // Process trips in parallel for this date
+          const tripPromises = tripNames.map(async (tripName) => {
+            try {
+              // Check for tickets and prebookings (like daily revenue does)
+              const [ticketsSnapshot, preBookingsSnapshot] = await Promise.all([
+                getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets')),
+                getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'preBookings', 'preBookings'))
+              ]);
+
+              const trips = [];
+
+              // Add each ticket as a trip object (like daily revenue)
+              ticketsSnapshot.docs.forEach(ticketDoc => {
+                trips.push({
+                  conductorId: conductorId,
+                  tripId: tripName,
+                  date: dateId,
+                  type: 'ticket'
+                });
+              });
+
+              // Add each prebooking as a trip object (like daily revenue)
+              preBookingsSnapshot.docs.forEach(preBookingDoc => {
+                trips.push({
+                  conductorId: conductorId,
+                  tripId: tripName,
+                  date: dateId,
+                  type: 'prebooking'
+                });
+              });
+
+              return trips;
+            } catch (tripError) {
+              return [];
+            }
+          });
+
+          const tripResults = await Promise.all(tripPromises);
+          return tripResults.flat();
+        } catch (dateError) {
+          console.warn(`Error processing date ${dateId}:`, dateError);
+          return [];
+        }
+      });
+
+      // Wait for all dates to be processed
+      const dateResults = await Promise.all(datePromises);
+      allTrips.push(...dateResults.flat());
+
+      // Now count unique trips exactly like daily revenue does
+      const uniqueTrips = new Set();
+      allTrips.forEach(trip => {
+        if (trip.conductorId && trip.tripId) {
+          const tripDate = trip.date || 'unknown-date';
+          const uniqueKey = `${trip.conductorId}_${tripDate}_${trip.tripId}`;
+          uniqueTrips.add(uniqueKey);
+        }
+      });
+
+      return uniqueTrips.size;
     } catch (error) {
       console.error('Error getting trips count:', error);
       return 0;
@@ -426,44 +709,16 @@ class ConductorService {
     }
   }
 
-  // NEW: Update conductor's total trips count after deletion (using remittance counting logic)
+  // FIXED: Update conductor's total trips count (matching daily revenue logic exactly)
   async updateConductorTripsCount(conductorId) {
     try {
-      const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
-      const datesSnapshot = await getDocs(dailyTripsRef);
-      
-      let totalTrips = 0;
-      let todayTrips = 0;
+      // Use the same logic as getConductorTripsCount
+      const totalTrips = await this.getConductorTripsCount(conductorId);
+
+      // Calculate today's trips using same logic
       const today = new Date().toISOString().split('T')[0];
-      
-      for (const dateDoc of datesSnapshot.docs) {
-        const dateId = dateDoc.id;
-        
-        // Process trip subcollections (trip1, trip2, etc.)
-        const tripNames = ['trip1', 'trip2', 'trip3', 'trip4', 'trip5', 'trip6', 'trip7', 'trip8', 'trip9', 'trip10'];
-        
-        for (const tripName of tripNames) {
-          try {
-            // Check for tickets in: /conductors/{conductorId}/dailyTrips/{dateId}/{tripName}/tickets/tickets/
-            const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
-            const ticketsSnapshot = await getDocs(ticketsRef);
-            
-            if (ticketsSnapshot.docs.length > 0) {
-              // This trip has tickets, so count it
-              totalTrips++;
-              
-              // Check if it's today
-              if (dateId === today) {
-                todayTrips++;
-              }
-            }
-          } catch (tripError) {
-            // Normal - not all trip numbers will exist
-            continue;
-          }
-        }
-      }
-      
+      const todayTrips = await this.getConductorTripsCountForDate(conductorId, today);
+
       const conductorRef = doc(db, 'conductors', conductorId);
       const updateData = {
         totalTrips: totalTrips,
@@ -472,7 +727,7 @@ class ConductorService {
       };
 
       await updateDoc(conductorRef, updateData);
-      
+
       return {
         success: true,
         totalTrips: totalTrips
@@ -486,89 +741,122 @@ class ConductorService {
     }
   }
 
-  // FIXED: Real-time listener for conductors list with accurate trip counts
+  // Helper method to get trip count for a specific date
+  async getConductorTripsCountForDate(conductorId, targetDate) {
+    try {
+      const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
+      const dateDoc = doc(dailyTripsRef, targetDate);
+      const dateSnapshot = await getDoc(dateDoc);
+
+      if (!dateSnapshot.exists()) {
+        return 0;
+      }
+
+      const allTrips = [];
+      const tripNames = await this.getAllTripNames(conductorId, targetDate);
+
+      for (const tripName of tripNames) {
+        try {
+          const [ticketsSnapshot, preBookingsSnapshot] = await Promise.all([
+            getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', targetDate, tripName, 'tickets', 'tickets')),
+            getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', targetDate, tripName, 'preBookings', 'preBookings'))
+          ]);
+
+          // Add each ticket and prebooking as trip objects
+          ticketsSnapshot.docs.forEach(() => {
+            allTrips.push({
+              conductorId: conductorId,
+              tripId: tripName,
+              date: targetDate
+            });
+          });
+
+          preBookingsSnapshot.docs.forEach(() => {
+            allTrips.push({
+              conductorId: conductorId,
+              tripId: tripName,
+              date: targetDate
+            });
+          });
+        } catch (tripError) {
+          continue;
+        }
+      }
+
+      // Count unique trips like daily revenue
+      const uniqueTrips = new Set();
+      allTrips.forEach(trip => {
+        if (trip.conductorId && trip.tripId) {
+          const uniqueKey = `${trip.conductorId}_${trip.date}_${trip.tripId}`;
+          uniqueTrips.add(uniqueKey);
+        }
+      });
+
+      return uniqueTrips.size;
+    } catch (error) {
+      console.error('Error getting trips count for date:', error);
+      return 0;
+    }
+  }
+
+  // 🚀 CACHED: Real-time listener for conductors list (uses cache when available)
   setupConductorsListener(callback) {
-    // Remove only conductors listener, not all listeners
+    // Remove existing conductors listener to prevent duplicates
     this.removeListener('conductors');
 
-    // Initialize global listener tracking if not exists
-    if (!window.firestoreListeners) {
-      window.firestoreListeners = [];
+    // Clear any existing callback to prevent old ones from firing
+    this.currentConductorsCallback = null;
+
+    // If we have cached data, return it immediately
+    if (this.conductorsCache && this.isCacheListenerActive) {
+      // Store the callback for cache updates AFTER returning cached data
+      this.currentConductorsCallback = callback;
+
+      // Return a copy to prevent external modifications
+      setTimeout(() => {
+        if (this.currentConductorsCallback === callback) {
+          callback([...this.conductorsCache]);
+        }
+      }, 0);
+
+      // Create a proper unsubscribe function
+      const unsubscribe = () => {
+        if (this.currentConductorsCallback === callback) {
+          this.currentConductorsCallback = null;
+        }
+      };
+
+      // Store the unsubscribe function
+      this.listeners.set('conductors', unsubscribe);
+
+      return unsubscribe;
     }
 
-    const conductorsRef = collection(db, 'conductors');
+    // If no cache, fetch data using getAllConductors (which will set up caching)
+    // Store the callback for future cache updates
+    this.currentConductorsCallback = callback;
 
-    const unsubscribe = onSnapshot(conductorsRef, async (snapshot) => {
-      try {
-        const conductors = [];
+    this.getAllConductors()
+      .then(conductors => {
+        if (this.currentConductorsCallback === callback) {
+          callback(conductors);
+        }
+      })
+      .catch(error => {
+        console.error('Error in cached conductors listener:', error);
+        if (this.currentConductorsCallback === callback) {
+          callback([]);
+        }
+      });
 
-        // Process conductors in parallel for better performance
-        const conductorPromises = snapshot.docs
-          .filter(doc => doc.data().status !== 'deleted') // Filter out deleted
-          .map(async (doc) => {
-          try {
-            const conductorData = doc.data();
-
-            // Use remittance-based counting logic for accurate trip counts
-            let tripsCount;
-
-            // Always calculate using the new remittance logic for accuracy
-            tripsCount = await this.getConductorTripsCount(doc.id);
-
-            // Update the cache in the background for consistency
-            if (conductorData.totalTrips !== tripsCount) {
-              try {
-                await this.updateConductorTripsCount(doc.id);
-              } catch (updateError) {
-                console.warn(`⚠️ Failed to update cache for ${doc.id}:`, updateError);
-              }
-            }
-
-
-            return {
-              id: doc.id,
-              ...conductorData,
-              tripsCount: tripsCount
-            };
-          } catch (error) {
-            console.error(`Error processing conductor ${doc.id}:`, error);
-            return {
-              id: doc.id,
-              ...doc.data(),
-              tripsCount: doc.data().totalTrips || 0 // Use cache or fallback to 0
-            };
-          }
-        });
-
-        const results = await Promise.allSettled(conductorPromises);
-
-        results.forEach((result) => {
-          if (result.status === 'fulfilled') {
-            conductors.push(result.value);
-          }
-        });
-
-        callback(conductors);
-      } catch (error) {
-        console.error('Error in conductors listener:', error);
-        callback([]);
+    // Create and store cleanup function
+    const unsubscribe = () => {
+      if (this.currentConductorsCallback === callback) {
+        this.currentConductorsCallback = null;
       }
-    }, (error) => {
-      console.error('Error setting up conductors listener:', error);
-
-      // Clean up all listeners on error
-      if (this.cleanupOnError) {
-        this.removeAllListeners();
-      }
-
-      callback([]);
-    });
+    };
 
     this.listeners.set('conductors', unsubscribe);
-
-    // Also track globally
-    window.firestoreListeners.push(unsubscribe);
-
     return unsubscribe;
   }
 
@@ -1977,29 +2265,44 @@ class ConductorService {
     }
   }
 
-  // NEW: Sync all conductor trip counts (run this to fix existing data)
+  // ENHANCED: Sync all conductor trip counts (run this to fix existing data)
   async syncAllConductorTripCounts() {
     try {
-      
+      console.log('Starting trip count synchronization...');
+
       const conductorsRef = collection(db, 'conductors');
       const snapshot = await getDocs(conductorsRef);
-      
+
       let updatedCount = 0;
-      const updatePromises = [];
-      
+      const results = [];
+
       for (const doc of snapshot.docs) {
         const conductorData = doc.data();
+
+        // Skip deleted conductors
+        if (conductorData.status === 'deleted') {
+          continue;
+        }
+
+        const cachedCount = conductorData.totalTrips || 0;
         const actualTripsCount = await this.getConductorTripsCount(doc.id);
-        
-        // Only update if counts don't match
-        if (conductorData.totalTrips !== actualTripsCount) {
-          updatePromises.push(this.updateConductorTripsCount(doc.id));
+
+        console.log(`${doc.id}: cached=${cachedCount}, actual=${actualTripsCount}`);
+
+        // Update if counts don't match
+        if (cachedCount !== actualTripsCount) {
+          await this.updateConductorTripsCount(doc.id);
           updatedCount++;
+          results.push({
+            conductorId: doc.id,
+            name: conductorData.name,
+            oldCount: cachedCount,
+            newCount: actualTripsCount
+          });
         }
       }
-      
-      // Execute all updates in parallel
-      await Promise.all(updatePromises);
+
+      console.log('Trip count sync results:', results);
 
       // Log the activity
       await logActivity(
@@ -2009,6 +2312,7 @@ class ConductorService {
           action: 'bulk_trip_count_sync',
           updatedCount: updatedCount,
           totalProcessed: snapshot.docs.length,
+          results: results,
           timestamp: new Date().toISOString()
         }
       );
@@ -2016,9 +2320,10 @@ class ConductorService {
       return {
         success: true,
         message: `Successfully synced trip counts for ${updatedCount} conductors`,
-        updatedCount
+        updatedCount,
+        results
       };
-      
+
     } catch (error) {
       console.error('Error syncing conductor trip counts:', error);
       return {

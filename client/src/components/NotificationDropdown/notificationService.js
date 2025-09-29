@@ -1,4 +1,4 @@
-import { collection, query, orderBy, onSnapshot, where, limit } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, where, limit, doc, getDoc } from "firebase/firestore";
 import { db } from "/src/firebase/firebase.js";
 
 // Listen to SOS requests for notifications
@@ -101,17 +101,75 @@ export const listenToReceiptUploadNotifications = (callback) => {
   });
 };
 
+// Listen to ID verification uploads for notifications
+export const listenToIDVerificationNotifications = (callback) => {
+  const usersCollection = collection(db, "users");
+
+  return onSnapshot(usersCollection, async (querySnapshot) => {
+    const notifications = [];
+
+    // Process each user to check for pending ID verifications
+    const userPromises = querySnapshot.docs.map(async (userDoc) => {
+      const userData = userDoc.data();
+      const userId = userDoc.id;
+
+      try {
+        // Check the VerifyID subcollection for pending verifications
+        const idDocRef = doc(db, 'users', userId, 'VerifyID', 'id');
+        const idSnapshot = await getDoc(idDocRef);
+
+        if (idSnapshot.exists()) {
+          const idData = idSnapshot.data();
+
+          // Only show notifications for pending ID verifications
+          if (idData.status === 'pending' || !idData.status) {
+            return {
+              id: `id_verification_${userId}`,
+              title: `ID Verification Pending`,
+              message: `${userData.name || userData.displayName || userData.email || 'User'} uploaded ID document - Needs verification`,
+              type: 'warning',
+              timestamp: idData.uploadedAt?.seconds ? new Date(idData.uploadedAt.seconds * 1000) :
+                        userData.createdAt?.seconds ? new Date(userData.createdAt.seconds * 1000) : new Date(),
+              read: false,
+              category: 'id_verification',
+              sourceId: userId,
+              sourceData: {
+                ...userData,
+                idData: idData
+              }
+            };
+          }
+        }
+      } catch (error) {
+        console.warn(`Error checking ID verification for user ${userId}:`, error);
+      }
+
+      return null;
+    });
+
+    try {
+      const results = await Promise.all(userPromises);
+      const validNotifications = results.filter(notification => notification !== null);
+      callback(validNotifications);
+    } catch (error) {
+      console.error('Error processing ID verification notifications:', error);
+      callback([]);
+    }
+  });
+};
+
 // Combined notification listener
 export const listenToAllNotifications = (callback) => {
   const notifications = [];
   let sosNotifications = [];
   let reservationNotifications = [];
   let receiptNotifications = [];
+  let idVerificationNotifications = [];
 
   // Listen to SOS notifications
   const unsubscribeSOS = listenToSOSNotifications((sosNotifs) => {
     sosNotifications = sosNotifs;
-    const allNotifications = [...sosNotifications, ...reservationNotifications, ...receiptNotifications];
+    const allNotifications = [...sosNotifications, ...reservationNotifications, ...receiptNotifications, ...idVerificationNotifications];
 
     // Sort by timestamp (newest first)
     allNotifications.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -122,7 +180,7 @@ export const listenToAllNotifications = (callback) => {
   // Listen to reservation notifications
   const unsubscribeReservations = listenToReservationNotifications((reservationNotifs) => {
     reservationNotifications = reservationNotifs;
-    const allNotifications = [...sosNotifications, ...reservationNotifications, ...receiptNotifications];
+    const allNotifications = [...sosNotifications, ...reservationNotifications, ...receiptNotifications, ...idVerificationNotifications];
 
     // Sort by timestamp (newest first)
     allNotifications.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -133,7 +191,18 @@ export const listenToAllNotifications = (callback) => {
   // Listen to receipt upload notifications
   const unsubscribeReceipts = listenToReceiptUploadNotifications((receiptNotifs) => {
     receiptNotifications = receiptNotifs;
-    const allNotifications = [...sosNotifications, ...reservationNotifications, ...receiptNotifications];
+    const allNotifications = [...sosNotifications, ...reservationNotifications, ...receiptNotifications, ...idVerificationNotifications];
+
+    // Sort by timestamp (newest first)
+    allNotifications.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    callback(allNotifications);
+  });
+
+  // Listen to ID verification notifications
+  const unsubscribeIDVerifications = listenToIDVerificationNotifications((idVerificationNotifs) => {
+    idVerificationNotifications = idVerificationNotifs;
+    const allNotifications = [...sosNotifications, ...reservationNotifications, ...receiptNotifications, ...idVerificationNotifications];
 
     // Sort by timestamp (newest first)
     allNotifications.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -146,6 +215,7 @@ export const listenToAllNotifications = (callback) => {
     unsubscribeSOS();
     unsubscribeReservations();
     unsubscribeReceipts();
+    unsubscribeIDVerifications();
   };
 };
 
@@ -159,4 +229,81 @@ export const markNotificationAsRead = (notificationId) => {
 // Helper function to get unread count
 export const getUnreadCount = (notifications) => {
   return notifications.filter(n => !n.read).length;
+};
+
+// Helper function to handle notification clicks and navigation
+export const handleNotificationClick = (notification, navigate) => {
+  console.log(`Handling notification click:`, notification);
+
+  // Mark notification as read
+  markNotificationAsRead(notification.id);
+
+  // Handle navigation based on notification category
+  switch (notification.category) {
+    case 'id_verification':
+      // Simply navigate to ID verification page
+      navigate('/admin/verification');
+      break;
+
+    case 'sos':
+      // Navigate to SOS management/dashboard
+      navigate('/sos-requests');
+      break;
+
+    case 'reservation':
+      // Navigate to reservations page
+      navigate('/reservations');
+      break;
+
+    case 'receipt':
+      // Navigate to payment verification
+      navigate('/payment-verification');
+      break;
+
+    default:
+      console.warn(`Unknown notification category: ${notification.category}`);
+      break;
+  }
+};
+
+// Helper function to get notification badge count by category
+export const getNotificationCountByCategory = (notifications) => {
+  const counts = {
+    id_verification: 0,
+    sos: 0,
+    reservation: 0,
+    receipt: 0,
+    total: 0
+  };
+
+  notifications.forEach(notification => {
+    if (!notification.read) {
+      counts[notification.category] = (counts[notification.category] || 0) + 1;
+      counts.total++;
+    }
+  });
+
+  return counts;
+};
+
+// Helper function to format notification time
+export const formatNotificationTime = (timestamp) => {
+  if (!timestamp) return 'Just now';
+
+  const now = new Date();
+  const notificationTime = new Date(timestamp);
+  const diffInSeconds = Math.floor((now - notificationTime) / 1000);
+
+  if (diffInSeconds < 60) {
+    return 'Just now';
+  } else if (diffInSeconds < 3600) {
+    const minutes = Math.floor(diffInSeconds / 60);
+    return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+  } else if (diffInSeconds < 86400) {
+    const hours = Math.floor(diffInSeconds / 3600);
+    return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  } else {
+    const days = Math.floor(diffInSeconds / 86400);
+    return `${days} day${days > 1 ? 's' : ''} ago`;
+  }
 };

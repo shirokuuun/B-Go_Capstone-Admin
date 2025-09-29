@@ -1,6 +1,7 @@
 import './NotificationDropdown.css';
 import { IoMdCheckmarkCircle, IoMdInformationCircle, IoMdWarning, IoMdAlert } from 'react-icons/io';
 import { useNavigate } from 'react-router-dom';
+import { handleNotificationClick, formatNotificationTime } from './notificationService.js';
 
 const NotificationDropdown = ({ notifications, isOpen, onClose }) => {
   const navigate = useNavigate();
@@ -22,26 +23,9 @@ const NotificationDropdown = ({ notifications, isOpen, onClose }) => {
     }
   };
 
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now - date) / (1000 * 60));
-    
-    if (diffInMinutes < 1) return 'Just now';
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
-    return `${Math.floor(diffInMinutes / 1440)}d ago`;
-  };
-
-  const handleNotificationClick = (notification) => {
-    // Check notification category and navigate accordingly
-    if (notification.category === 'sos') {
-      // Navigate to SOS request page
-      navigate('/admin/sos');
-    } else if (notification.category === 'reservation' || notification.category === 'receipt') {
-      // Navigate to Payment Transactions page for reservations and receipts
-      navigate('/admin/payments');
-    }
+  const handleNotificationClickLocal = (notification) => {
+    // Use the enhanced notification handler from service
+    handleNotificationClick(notification, navigate);
 
     // Close dropdown after navigation
     setTimeout(() => {
@@ -72,7 +56,7 @@ const NotificationDropdown = ({ notifications, isOpen, onClose }) => {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                handleNotificationClick(notification);
+                handleNotificationClickLocal(notification);
               }}
               style={{ cursor: 'pointer' }}
             >
@@ -85,7 +69,7 @@ const NotificationDropdown = ({ notifications, isOpen, onClose }) => {
                   </div>
                 </div>
                 <div className="notification-time">
-                  {formatTime(notification.timestamp)}
+                  {formatNotificationTime(notification.timestamp)}
                 </div>
               </div>
               {!notification.read && <div className="unread-indicator"></div>}
