@@ -41,7 +41,7 @@ const Layout = () => {
         return "Trip Schedules";
       case "/admin/user":
         return "User Management";
-      case "/admin/ticketing/pre-booking":
+      case "/admin/ticketing":
         return "Ticketing";
       case "/admin/sos":
         return "SOS Requests";

@@ -121,6 +121,66 @@ html, body {
   z-index: 10;
 }
 
+.password-input-container {
+  position: relative;
+  width: 100%;
+  margin-bottom: 20px;
+  display: block;
+}
+
+.password-input-container input {
+  width: 100%;
+  padding: 16px 50px 16px 20px !important;
+  margin-bottom: 0 !important;
+  font-size: 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  box-sizing: border-box;
+}
+
+.password-toggle-btn {
+  position: absolute !important;
+  right: 15px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  background: none !important;
+  border: none !important;
+  color: #64748b !important;
+  cursor: pointer !important;
+  padding: 6px !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease !important;
+  font-size: 18px !important;
+  z-index: 100 !important;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  box-shadow: none !important;
+}
+
+.password-toggle-btn:hover {
+  color: #334155 !important;
+  transform: translateY(-50%) scale(1.1) !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+
+.password-toggle-btn:active {
+  transform: translateY(-50%) scale(0.95) !important;
+}
+
+.password-toggle-btn:focus {
+  outline: none !important;
+  color: #007A8F !important;
+  box-shadow: none !important;
+}
+
 .signup-form input {
   width: 100%;
   padding: 16px 20px;
@@ -141,7 +201,14 @@ html, body {
   transform: translateY(-2px);
 }
 
-.signup-form button {
+.password-input-container input:focus {
+  outline: none;
+  border-color: #007A8F;
+  box-shadow: 0 0 0 4px rgba(0, 122, 143, 0.1);
+  transform: translateY(0);
+}
+
+.signup-form button[type="submit"] {
   width: 100%;
   padding: 18px;
   background: linear-gradient(135deg, #007A8F 0%, #005f70 100%);
@@ -156,7 +223,7 @@ html, body {
   margin-top: 12px;
 }
 
-.signup-form button:hover {
+.signup-form button[type="submit"]:hover {
   background: linear-gradient(135deg, #005f70 0%, #004a57 100%);
   transform: translateY(-3px);
   box-shadow: 0 12px 35px rgba(0, 122, 143, 0.4);

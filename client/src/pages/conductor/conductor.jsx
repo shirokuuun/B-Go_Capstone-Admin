@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import conductorService from '/src/pages/conductor/conductor.js';
 import './conductor.css';
 import { IoMdAdd } from "react-icons/io";
-import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaTrash, FaEdit, FaSync, FaCheck } from 'react-icons/fa';
+import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaTrash, FaEdit, FaCheck } from 'react-icons/fa';
 
 const Conductor = () => {
   const [conductors, setConductors] = useState([]);
@@ -15,7 +15,6 @@ const Conductor = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingConductor, setEditingConductor] = useState(null);
-  const [syncingStatus, setSyncingStatus] = useState(false);
 
 
 
@@ -103,14 +102,6 @@ const Conductor = () => {
         setSelectedConductor(null);
       }
 
-      // Force refresh after deletion to ensure real-time update
-      setTimeout(() => {
-        conductorService.refreshConductorsList().then(result => {
-          if (result.success) {
-            setConductors(result.conductors);
-          }
-        });
-      }, 1000);
     } catch (error) {
       console.error("Error deleting conductor:", error);
       alert(`❌ Error deleting conductor: ${error.message}`);
@@ -120,31 +111,6 @@ const Conductor = () => {
   const handleEditConductor = (conductor) => {
     setEditingConductor(conductor);
     setShowEditModal(true);
-  };
-
-  const handleSyncAllStatus = async () => {
-    setSyncingStatus(true);
-    try {
-      const result = await conductorService.syncAllConductorStatus();
-      if (result.success) {
-        alert(`✅ Status sync completed!\n\nUpdated ${result.updatedCount} conductors`);
-        // Refresh the conductor list
-        setTimeout(() => {
-          conductorService.refreshConductorsList().then(result => {
-            if (result.success) {
-              setConductors(result.conductors);
-            }
-          });
-        }, 1000);
-      } else {
-        alert(`❌ Error syncing status: ${result.error}`);
-      }
-    } catch (error) {
-      console.error("Error syncing status:", error);
-      alert(`❌ Error syncing status: ${error.message}`);
-    } finally {
-      setSyncingStatus(false);
-    }
   };
 
   const handleMarkAsCompleted = async (conductorId) => {
@@ -237,14 +203,6 @@ const Conductor = () => {
 
             {/* Action Buttons */}
             <div className="conductor-action-buttons">
-              <button
-                onClick={handleSyncAllStatus}
-                className="conductor-sync-btn"
-                disabled={syncingStatus}
-              >
-                <FaSync className={`mr-2 ${syncingStatus ? 'animate-spin' : ''}`} />
-                {syncingStatus ? 'Syncing...' : 'Sync Status'}
-              </button>
               <button
                 onClick={() => setShowAddModal(true)}
                 className="conductor-add-btn"

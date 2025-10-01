@@ -468,6 +468,7 @@ class DashboardService {
   }
 
   // Helper to process users data into ID verification summary
+  // NOTE: Only counts users who have uploaded IDs (matching ID Verification page logic)
   processIDVerificationSummary(usersData) {
     if (!usersData || usersData.length === 0) {
       return {
@@ -478,29 +479,29 @@ class DashboardService {
       };
     }
 
-    let totalUsers = 0;
+    let totalUsers = 0; // Only users with uploaded IDs
     let pendingVerifications = 0;
     let verifiedUsers = 0;
 
     usersData.forEach(user => {
-      totalUsers++;
-
+      // Only count users who have uploaded an ID (matching ID Verification page)
       if (user.idVerificationData) {
+        totalUsers++;
+
         const status = user.idVerificationData.status || 'pending';
         if (status === 'verified') {
           verifiedUsers++;
         } else if (status === 'pending') {
           pendingVerifications++;
         }
-      } else {
-        pendingVerifications++;
       }
+      // Users without idVerificationData are not counted at all
     });
 
     const verificationRate = totalUsers === 0 ? 0 : ((verifiedUsers / totalUsers) * 100).toFixed(1);
 
     return {
-      totalUsers,
+      totalUsers, // Only users with uploaded IDs
       pendingVerifications,
       verifiedUsers,
       verificationRate
@@ -963,6 +964,12 @@ class DashboardService {
     // Remove existing dashboard listener
     this.removeListener('dashboard');
 
+    // Clear any existing auto-refresh interval
+    if (this.autoRefreshInterval) {
+      clearInterval(this.autoRefreshInterval);
+      this.autoRefreshInterval = null;
+    }
+
     // Store the callback for cache updates
     this.currentDashboardCallback = () => {
       this.getDashboardData(filter, customDate)
@@ -993,10 +1000,27 @@ class DashboardService {
       }, 100); // 100ms delay to ensure loading state is visible
     }
 
+    // Set up auto-refresh for trip/revenue data (every 30 seconds)
+    this.autoRefreshInterval = setInterval(() => {
+      // Invalidate only the full dashboard cache, but keep conductors and users cache
+      this.dashboardCache.fullDashboardData = null;
+
+      // Trigger refresh
+      if (this.currentDashboardCallback) {
+        this.currentDashboardCallback();
+      }
+    }, 30000); // 30 seconds
+
     // Create cleanup function
     const unsubscribe = () => {
       // Cleaning up dashboard listener
       this.currentDashboardCallback = null;
+
+      // Clear auto-refresh interval
+      if (this.autoRefreshInterval) {
+        clearInterval(this.autoRefreshInterval);
+        this.autoRefreshInterval = null;
+      }
     };
 
     this.listeners.set('dashboard', unsubscribe);
@@ -1019,7 +1043,7 @@ class DashboardService {
 
       // Fetching fresh dashboard data...
 
-      // 🔄 SLOW PATH: Fetch fresh data
+      // SLOW PATH: Fetch fresh data
       const [tripSummary, sosSummary, conductorsSummary, idVerificationSummary, revenueTrend, busReservations] = await Promise.all([
         this.getTripSummary(filter, customDate),
         this.getSOSRequestSummary(filter, customDate),
@@ -1053,7 +1077,7 @@ class DashboardService {
     }
   }
 
-  // 🔄 Get fresh dashboard data (bypass cache)
+  //  Get fresh dashboard data (bypass cache)
   async getFreshDashboardData(filter = 'today', customDate = null) {
     // Force fetching fresh dashboard data...
 

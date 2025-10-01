@@ -199,7 +199,16 @@ function Dashboard() {
         <div className="dashboard-title">
           <h1>Dashboard User</h1>
           {userData && (
-            <p className="admin-greeting">Welcome back, <span>{userData.name}</span></p>
+            <div className="admin-greeting-container">
+              {userData.profileImageUrl ? (
+                <img src={userData.profileImageUrl} alt="Profile" className="admin-profile-picture" />
+              ) : (
+                <div className="admin-profile-placeholder">
+                  {(userData.name || '?').charAt(0).toUpperCase()}
+                </div>
+              )}
+              <p className="admin-greeting">Welcome back, <span>{userData.name}</span></p>
+            </div>
           )}
         </div>
         <div className="dashboard-controls">

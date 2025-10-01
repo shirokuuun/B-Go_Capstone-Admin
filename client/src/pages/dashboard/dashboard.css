@@ -55,10 +55,41 @@
   margin-bottom: 0.5rem;
 }
 
+.admin-greeting-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.admin-profile-picture {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #007c91;
+  box-shadow: 0 2px 8px rgba(0, 124, 145, 0.2);
+}
+
+.admin-profile-placeholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #007c91, #4fd1c7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1.25rem;
+  font-weight: 700;
+  border: 3px solid #007c91;
+  box-shadow: 0 2px 8px rgba(0, 124, 145, 0.2);
+}
+
 .admin-greeting {
   font-size: 1rem;
   color: #718096;
   font-weight: 500;
+  margin: 0;
 }
 
 .admin-greeting span {
