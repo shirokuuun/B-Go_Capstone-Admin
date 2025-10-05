@@ -501,8 +501,10 @@ html, body {
   font-size: 28px;
   font-weight: 700;
   margin: 0;
-  
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* =========================
@@ -625,6 +627,20 @@ html, body {
 
 .revenue-chart-container .recharts-responsive-container {
   margin: 0 auto !important;
+}
+
+/* Pie Chart Label Styling - Smaller Text */
+.revenue-chart-container .recharts-pie-label-text {
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  fill: #2c3e50 !important;
+}
+
+/* Make pie chart labels even smaller on mobile */
+@media (max-width: 768px) {
+  .revenue-chart-container .recharts-pie-label-text {
+    font-size: 8px !important;
+  }
 }
 
 /* Special styling for routes chart */
@@ -1641,37 +1657,66 @@ html, body {
    RESPONSIVE DESIGN
    ========================= */
 
+@media (max-width: 1366px) {
+  .revenue-card-value {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .revenue-card-value {
+    font-size: 22px;
+  }
+
+  .revenue-card-title {
+    font-size: 12px;
+  }
+
+  .revenue-summary-card {
+    padding: 18px;
+  }
+
+  .revenue-daily-summary-card-container,
+  .revenue-remittance-summary-card-container {
+    padding: 1.25rem 1.25rem 0.3rem 1.25rem;
+  }
+}
+
 @media (max-width: 768px) {
   .revenue-container {
     padding: 10px;
     margin: 0;
   }
-  
+
   .revenue-filters, .revenue-monthly-filters {
     flex-direction: column;
     gap: 15px;
   }
-  
+
   .revenue-filter-group {
     width: 100%;
   }
-  
+
   .revenue-filter-select,
   .revenue-filter-input {
     min-width: 100%;
   }
-  
+
   .revenue-summary-cards {
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 15px;
   }
-  
+
   .revenue-summary-card {
     padding: 20px;
   }
-  
+
   .revenue-card-value {
-    font-size: 24px;
+    font-size: 20px;
+  }
+
+  .revenue-card-title {
+    font-size: 11px;
   }
   
   .revenue-chart-container {
@@ -1802,9 +1847,13 @@ html, body {
   .revenue-summary-cards {
     grid-template-columns: 1fr;
   }
-  
+
   .revenue-card-value {
-    font-size: 24px;
+    font-size: 18px;
+  }
+
+  .revenue-card-title {
+    font-size: 10px;
   }
   
   .revenue-revenue-table,
@@ -2273,6 +2322,153 @@ html, body {
 /* =========================
    MONTHLY REVENUE TABLE STYLES
    ========================= */
+
+/* Monthly Revenue Daily Breakdown Table - Unique Styles */
+.revenue-monthly-breakdown-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  margin: 0;
+  table-layout: fixed;
+  border: 1px solid #dee2e6;
+}
+
+.revenue-monthly-breakdown-table thead tr {
+  background-color: #f8f9fa;
+}
+
+.revenue-monthly-breakdown-table th {
+  padding: 10px 8px;
+  text-align: center;
+  border: 1px solid #dee2e6;
+  font-weight: 600;
+  color: #495057;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background-color: #f8f9fa;
+  vertical-align: middle;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.revenue-monthly-breakdown-table td {
+  padding: 8px 6px;
+  border: 1px solid #e9ecef;
+  color: #495057;
+  font-size: 12px;
+  vertical-align: middle;
+  text-align: center;
+  line-height: 1.3;
+}
+
+.revenue-monthly-breakdown-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* Column width specifications for Monthly Revenue Daily Breakdown */
+.revenue-monthly-breakdown-table th:nth-child(1),
+.revenue-monthly-breakdown-table td:nth-child(1) {
+  width: 12%;
+  min-width: 90px;
+  text-align: center;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.revenue-monthly-breakdown-table th:nth-child(2),
+.revenue-monthly-breakdown-table td:nth-child(2) {
+  width: 15%;
+  min-width: 100px;
+  text-align: right;
+}
+
+.revenue-monthly-breakdown-table th:nth-child(3),
+.revenue-monthly-breakdown-table td:nth-child(3) {
+  width: 11%;
+  min-width: 80px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.revenue-monthly-breakdown-table th:nth-child(4),
+.revenue-monthly-breakdown-table td:nth-child(4) {
+  width: 15%;
+  min-width: 95px;
+  text-align: right;
+}
+
+.revenue-monthly-breakdown-table th:nth-child(5),
+.revenue-monthly-breakdown-table td:nth-child(5) {
+  width: 15%;
+  min-width: 95px;
+  text-align: right;
+}
+
+.revenue-monthly-breakdown-table th:nth-child(6),
+.revenue-monthly-breakdown-table td:nth-child(6) {
+  width: 15%;
+  min-width: 95px;
+  text-align: right;
+}
+
+.revenue-monthly-breakdown-table th:nth-child(7),
+.revenue-monthly-breakdown-table td:nth-child(7) {
+  width: 12%;
+  min-width: 85px;
+  text-align: right;
+}
+
+/* Revenue amounts in monthly breakdown table */
+.revenue-monthly-breakdown-table .revenue-fare-amount {
+  font-weight: 600;
+  color: #28a745;
+  text-align: right;
+}
+
+/* Responsive adjustments for monthly breakdown table */
+@media (max-width: 768px) {
+  .revenue-monthly-breakdown-table {
+    font-size: 10px;
+    table-layout: auto;
+  }
+
+  .revenue-monthly-breakdown-table th {
+    padding: 6px 4px;
+    font-size: 9px;
+  }
+
+  .revenue-monthly-breakdown-table td {
+    padding: 6px 4px;
+    font-size: 10px;
+  }
+
+  .revenue-monthly-breakdown-table th:nth-child(n),
+  .revenue-monthly-breakdown-table td:nth-child(n) {
+    min-width: 70px;
+  }
+}
+
+@media (max-width: 480px) {
+  .revenue-monthly-breakdown-table {
+    font-size: 9px;
+  }
+
+  .revenue-monthly-breakdown-table th {
+    padding: 4px 3px;
+    font-size: 8px;
+  }
+
+  .revenue-monthly-breakdown-table td {
+    padding: 4px 3px;
+    font-size: 9px;
+  }
+
+  .revenue-monthly-breakdown-table th:nth-child(n),
+  .revenue-monthly-breakdown-table td:nth-child(n) {
+    min-width: 60px;
+  }
+}
 
 /* Monthly revenue table container - unique styles for MonthlyRevenue component */
 .revenue-monthly-table-container {

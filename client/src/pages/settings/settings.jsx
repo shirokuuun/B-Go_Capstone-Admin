@@ -849,6 +849,10 @@ const formatLogDescription = (description) => {
   const loadBackupFiles = async () => {
     setBackupFilesLoading(true);
     try {
+      // First, cleanup expired backups automatically
+      await backupService.cleanupExpiredBackups();
+
+      // Then load the remaining backups
       const result = await backupService.listBackups();
       if (result.success) {
         setBackupFiles(result.backups || []);
@@ -1025,10 +1029,6 @@ const formatLogDescription = (description) => {
 
   return (
     <div className="settings-container">
-      {/* Messages */}
-      {message && <div className="settings-message-success">{safeRender(message)}</div>}
-      {error && <div className="settings-message-error">{safeRender(error)}</div>}
-
       <div className="settings-grid">
         {/* Account & Profile Section */}
         <div className="settings-card">
@@ -1786,8 +1786,14 @@ const formatLogDescription = (description) => {
                       {backupFiles.map(file => {
                         const createdDate = new Date(file.createdAt);
                         const expiresDate = new Date(file.expiresAt);
-                        const isExpiringSoon = (expiresDate - new Date()) < (7 * 24 * 60 * 60 * 1000); // 7 days
+                        const now = new Date();
+                        const isExpired = expiresDate <= now;
+                        const daysUntilExpiry = Math.ceil((expiresDate - now) / (24 * 60 * 60 * 1000));
+                        const isExpiringSoon = !isExpired && daysUntilExpiry <= 7 && daysUntilExpiry > 0; // 7 days or less but not expired
                         const fileSizeKB = Math.round((file.fileSizeBytes || 0) / 1024);
+
+                        // Skip rendering expired files (they should be auto-deleted)
+                        if (isExpired) return null;
 
                         return (
                           <div key={file.id || file.backupId} className={`backup-file-row ${isExpiringSoon ? 'expiring-soon' : ''}`}>

@@ -693,15 +693,19 @@ const Revenue = () => {
           {/* Revenue Source Breakdown */}
           <div className="revenue-chart-container">
             <h3 className="revenue-chart-title">Revenue by Source</h3>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={350}>
               <PieChart>
                 <Pie
                   data={pieChartData}
                   cx="50%"
-                  cy="50%"
+                  cy="45%"
                   labelLine={false}
-                  label={({ name, value }) => `${name}: ${formatCurrency(value)}`}
-                  outerRadius={80}
+                  label={({ percent, value }) => {
+                    // Only show percentage if value exists (greater than 0)
+                    if (!value || value <= 0) return null;
+                    return `${(percent * 100).toFixed(1)}%`;
+                  }}
+                  outerRadius={100}
                   fill="#8884d8"
                   dataKey="value"
                 >
@@ -709,7 +713,16 @@ const Revenue = () => {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value) => formatCurrency(value)} />
+                <Tooltip
+                  formatter={(value, name) => [formatCurrency(value), name]}
+                  contentStyle={{ fontSize: '12px' }}
+                />
+                <Legend
+                  verticalAlign="bottom"
+                  height={50}
+                  formatter={(value, entry) => `${value}: ${formatCurrency(entry.payload.value)}`}
+                  wrapperStyle={{ fontSize: '12px', fontWeight: '600' }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -717,12 +730,29 @@ const Revenue = () => {
           {/* Top Routes by Revenue */}
           <div className="revenue-chart-container">
             <h3 className="revenue-chart-title">Top Routes by Revenue</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={routeChartData.slice(0, 5)}>
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart
+                data={routeChartData.slice(0, 5)}
+                margin={{ top: 20, right: 30, left: 20, bottom: 100 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="route" angle={-45} textAnchor="end" height={80} />
-                <YAxis />
-                <Tooltip formatter={(value) => formatCurrency(value)} />
+                <XAxis
+                  dataKey="route"
+                  angle={-45}
+                  textAnchor="end"
+                  height={100}
+                  fontSize={9}
+                  interval={0}
+                  tick={{ fontSize: 9 }}
+                />
+                <YAxis
+                  fontSize={11}
+                  tickFormatter={(value) => `₱${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+                />
+                <Tooltip
+                  formatter={(value) => [formatCurrency(value), 'Revenue']}
+                  labelFormatter={(label) => `Route: ${label}`}
+                />
                 <Bar dataKey="revenue" fill="#8884d8" />
               </BarChart>
             </ResponsiveContainer>

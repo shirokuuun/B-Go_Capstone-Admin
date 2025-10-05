@@ -31,7 +31,16 @@ const MonthlyRevenue = ({
   onTicketTypeChange,
   onRefresh
 }) => {
-  
+
+  // Custom label renderer showing percentage inside slices for all visible data
+  const renderCustomLabel = ({ percent, value }) => {
+    // Only show percentage if the value exists (greater than 0)
+    if (!value || value <= 0) return null;
+
+    // Show percentage with 1 decimal place
+    return `${(percent * 100).toFixed(1)}%`;
+  };
+
   // Excel export function
   const handleExportToExcel = async () => {
     try {
@@ -384,15 +393,15 @@ const MonthlyRevenue = ({
         {/* Monthly Revenue Source Breakdown */}
         <div className="revenue-chart-container">
           <h3 className="revenue-chart-title">Monthly Revenue by Source</h3>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={350}>
             <PieChart>
               <Pie
                 data={preparePieChartData(monthlyData.conductorMonthlyRevenue, monthlyData.preBookingMonthlyRevenue, monthlyData.preTicketingMonthlyRevenue)}
                 cx="50%"
-                cy="50%"
+                cy="45%"
                 labelLine={false}
-                label={({ name, value }) => `${name}: ${formatCurrency(value)}`}
-                outerRadius={80}
+                label={renderCustomLabel}
+                outerRadius={100}
                 fill="#8884d8"
                 dataKey="value"
               >
@@ -400,7 +409,16 @@ const MonthlyRevenue = ({
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value) => formatChartTooltip(value, formatCurrency)} />
+              <Tooltip
+                formatter={(value, name) => [formatCurrency(value), name]}
+                contentStyle={{ fontSize: '12px' }}
+              />
+              <Legend
+                verticalAlign="bottom"
+                height={50}
+                formatter={(value, entry) => `${value}: ${formatCurrency(entry.payload.value)}`}
+                wrapperStyle={{ fontSize: '12px', fontWeight: '600' }}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -503,7 +521,7 @@ const MonthlyRevenue = ({
 
         {hasData ? (
           <div className="revenue-table-container" style={{ width: '100%', display: 'flex', justifyContent: 'flex-start' }}>
-            <table className="revenue-revenue-table revenue-detailed-breakdown-table daily-revenue-table" style={{ width: '100%', margin: '0' }}>
+            <table className="revenue-monthly-breakdown-table" style={{ width: '100%', margin: '0' }}>
               <thead>
                 <tr>
                   <th>Date</th>
@@ -511,7 +529,7 @@ const MonthlyRevenue = ({
                   <th>Passengers</th>
                   <th>Conductor</th>
                   <th>Pre-booking</th>
-                  <th>Pre-ticketing </th>
+                  <th>Pre-ticketing</th>
                   <th>Avg Fare</th>
                 </tr>
               </thead>

@@ -1996,6 +1996,55 @@ class ConductorService {
     };
   }
 
+  /**
+   * Handle delete conductor with role checking and UI feedback
+   * @param {string} conductorId - The ID of the conductor to delete
+   * @param {Object} conductor - The conductor object with name and email
+   * @param {string} userRole - The current user's role
+   * @returns {Promise<Object>} Result with success status
+   */
+  async handleDeleteConductor(conductorId, conductor, userRole) {
+    try {
+      // Check if user is superadmin
+      if (userRole !== 'superadmin') {
+        alert('❌ Only superadmin users can delete conductors.');
+        return { success: false, error: 'Permission denied' };
+      }
+
+      // Check if conductor exists
+      if (!conductor) {
+        alert('❌ Conductor not found!');
+        return { success: false, error: 'Conductor not found' };
+      }
+
+      // Show confirmation dialog
+      const confirmMessage = `Are you sure you want to delete conductor ${conductor.name}?\n\nThis will permanently delete:\n• Conductor profile\n• Login account (${conductor.email})\n• All conductor data\n\nThis action cannot be undone.`;
+
+      if (!window.confirm(confirmMessage)) {
+        return { success: false, cancelled: true };
+      }
+
+      // Call the actual delete method
+      console.log(`Deleting conductor: ${conductor.name} (${conductor.email})`);
+      const result = await this.deleteConductor(conductorId);
+
+      // Show success message
+      if (result.success) {
+        if (result.authDeleted) {
+          alert(`✅ Conductor deleted completely!\n\n• Profile: Deleted\n• Login account: Deleted\n• Email: ${conductor.email}`);
+        } else {
+          alert(`⚠️ Conductor profile deleted.\n\nLogin account status: ${result.message || 'See activity logs for details'}`);
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error in handleDeleteConductor:', error);
+      alert(`❌ Error deleting conductor: ${error.message}`);
+      return { success: false, error: error.message };
+    }
+  }
+
   async deleteConductor(conductorId) {
     try {
       // Get conductor data before deletion for logging

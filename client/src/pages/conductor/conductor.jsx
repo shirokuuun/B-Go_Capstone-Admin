@@ -3,6 +3,9 @@ import conductorService from '/src/pages/conductor/conductor.js';
 import './conductor.css';
 import { IoMdAdd } from "react-icons/io";
 import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaTrash, FaEdit, FaCheck } from 'react-icons/fa';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from '/src/firebase/firebase.js';
+import { doc, getDoc } from 'firebase/firestore';
 
 const Conductor = () => {
   const [conductors, setConductors] = useState([]);
@@ -15,9 +18,25 @@ const Conductor = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingConductor, setEditingConductor] = useState(null);
+  const [currentUserRole, setCurrentUserRole] = useState(null);
 
+  // Fetch current user role
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            setCurrentUserRole(userDoc.data().role);
+          }
+        } catch (error) {
+          console.error('Error fetching user role:', error);
+        }
+      }
+    });
 
-
+    return () => unsubscribe();
+  }, []);
 
 
 
@@ -76,35 +95,13 @@ const Conductor = () => {
 
   const handleDeleteConductor = async (id) => {
     const conductor = conductors.find(c => c.id === id);
-    if (!conductor) {
-      alert("Conductor not found!");
-      return;
-    }
 
-    const confirmMessage = `Are you sure you want to delete conductor ${conductor.name}?\n\nThis will permanently delete:\n• Conductor profile\n• Login account (${conductor.email})\n• All conductor data\n\nThis action cannot be undone.`;
-    
-    if (!window.confirm(confirmMessage)) return;
+    // Call service method that contains all the business logic
+    const result = await conductorService.handleDeleteConductor(id, conductor, currentUserRole);
 
-    try {
-      console.log(`Deleting conductor: ${conductor.name} (${conductor.email})`);
-      const result = await conductorService.deleteConductor(id);
-      
-      if (result.success) {
-        if (result.authDeleted) {
-          alert(`✅ Conductor deleted completely!\n\n• Profile: Deleted\n• Login account: Deleted\n• Email: ${conductor.email}`);
-        } else {
-          alert(`⚠️ Conductor profile deleted.\n\nLogin account status: ${result.message || 'See activity logs for details'}`);
-        }
-      }
-      
-      // Clear selected conductor if it was deleted
-      if (selectedConductor?.id === id) {
-        setSelectedConductor(null);
-      }
-
-    } catch (error) {
-      console.error("Error deleting conductor:", error);
-      alert(`❌ Error deleting conductor: ${error.message}`);
+    // Handle UI updates based on result
+    if (result.success && selectedConductor?.id === id) {
+      setSelectedConductor(null);
     }
   };
 
@@ -382,12 +379,13 @@ const Conductor = () => {
                     <FaEdit />
                   </button>
                   <button
-                    className="action-btn delete-conductor"
+                    className={`action-btn delete-conductor ${currentUserRole !== 'superadmin' ? 'disabled' : ''}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleDeleteConductor(conductor.id);
                     }}
-                    title="Delete Conductor"
+                    disabled={currentUserRole !== 'superadmin'}
+                    title={currentUserRole !== 'superadmin' ? 'Only superadmin can delete conductors' : 'Delete Conductor'}
                   >
                     <FaTrash />
                   </button>
