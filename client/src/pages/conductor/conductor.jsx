@@ -19,15 +19,18 @@ const Conductor = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingConductor, setEditingConductor] = useState(null);
   const [currentUserRole, setCurrentUserRole] = useState(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
-  // Fetch current user role
+  // Fetch current user role and superadmin status
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          const userDoc = await getDoc(doc(db, 'Admin', user.uid));
           if (userDoc.exists()) {
-            setCurrentUserRole(userDoc.data().role);
+            const userData = userDoc.data();
+            setCurrentUserRole(userData.role);
+            setIsSuperAdmin(userData.isSuperAdmin === true);
           }
         } catch (error) {
           console.error('Error fetching user role:', error);
@@ -97,7 +100,7 @@ const Conductor = () => {
     const conductor = conductors.find(c => c.id === id);
 
     // Call service method that contains all the business logic
-    const result = await conductorService.handleDeleteConductor(id, conductor, currentUserRole);
+    const result = await conductorService.handleDeleteConductor(id, conductor, currentUserRole, isSuperAdmin);
 
     // Handle UI updates based on result
     if (result.success && selectedConductor?.id === id) {
@@ -379,13 +382,13 @@ const Conductor = () => {
                     <FaEdit />
                   </button>
                   <button
-                    className={`action-btn delete-conductor ${currentUserRole !== 'superadmin' ? 'disabled' : ''}`}
+                    className={`action-btn delete-conductor ${(currentUserRole !== 'superadmin' || !isSuperAdmin) ? 'disabled' : ''}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleDeleteConductor(conductor.id);
                     }}
-                    disabled={currentUserRole !== 'superadmin'}
-                    title={currentUserRole !== 'superadmin' ? 'Only superadmin can delete conductors' : 'Delete Conductor'}
+                    disabled={currentUserRole !== 'superadmin' || !isSuperAdmin}
+                    title={(currentUserRole !== 'superadmin' || !isSuperAdmin) ? 'Only superadmin can delete conductors' : 'Delete Conductor'}
                   >
                     <FaTrash />
                   </button>

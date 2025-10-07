@@ -2001,12 +2001,13 @@ class ConductorService {
    * @param {string} conductorId - The ID of the conductor to delete
    * @param {Object} conductor - The conductor object with name and email
    * @param {string} userRole - The current user's role
+   * @param {boolean} isSuperAdmin - Whether the user has superadmin privileges
    * @returns {Promise<Object>} Result with success status
    */
-  async handleDeleteConductor(conductorId, conductor, userRole) {
+  async handleDeleteConductor(conductorId, conductor, userRole, isSuperAdmin) {
     try {
-      // Check if user is superadmin
-      if (userRole !== 'superadmin') {
+      // Check if user is superadmin with proper privileges
+      if (userRole !== 'superadmin' || isSuperAdmin !== true) {
         alert('❌ Only superadmin users can delete conductors.');
         return { success: false, error: 'Permission denied' };
       }
