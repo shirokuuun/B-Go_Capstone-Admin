@@ -516,35 +516,35 @@ const MonthlyRevenue = ({
       </div>
 
       {/* Daily Breakdown Table */}
-      <div className="revenue-breakdown-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%' }}>
-        <h3 className="revenue-breakdown-title">Daily Revenue Breakdown</h3>
+      <div className="monthly-revenue-breakdown-section">
+        <h3 className="monthly-revenue-breakdown-title">Daily Revenue Breakdown</h3>
 
         {hasData ? (
-          <div className="revenue-table-container" style={{ width: '100%', display: 'flex', justifyContent: 'flex-start' }}>
-            <table className="revenue-monthly-breakdown-table" style={{ width: '100%', margin: '0' }}>
+          <div className="monthly-revenue-table-wrapper">
+            <table className="monthly-revenue-daily-table">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Total Revenue</th>
-                  <th>Passengers</th>
-                  <th>Conductor</th>
-                  <th>Pre-booking</th>
-                  <th>Pre-ticketing</th>
-                  <th>Avg Fare</th>
+                  <th className="monthly-revenue-date-col">Date</th>
+                  <th className="monthly-revenue-amount-col">Total Revenue</th>
+                  <th className="monthly-revenue-count-col">Passengers</th>
+                  <th className="monthly-revenue-amount-col">Conductor</th>
+                  <th className="monthly-revenue-amount-col">Pre-booking</th>
+                  <th className="monthly-revenue-amount-col">Pre-ticketing</th>
+                  <th className="monthly-revenue-amount-col">Avg Fare</th>
                 </tr>
               </thead>
               <tbody>
                 {[...monthlyData.dailyBreakdown]
                   .sort((a, b) => new Date(b.date) - new Date(a.date))
                   .map((day, index) => (
-                  <tr key={index}>
-                    <td>{formatDateForBreakdown(day.date)}</td>
-                    <td className="revenue-fare-amount">{formatCurrency(day.totalRevenue)}</td>
-                    <td>{day.totalPassengers}</td>
-                    <td className="revenue-fare-amount">{formatCurrency(day.conductorRevenue)}</td>
-                    <td className="revenue-fare-amount">{formatCurrency(day.preBookingRevenue)}</td>
-                    <td className="revenue-fare-amount">{formatCurrency(day.preTicketingRevenue)}</td>
-                    <td className="revenue-fare-amount">{formatCurrency(day.averageFare)}</td>
+                  <tr key={index} className="monthly-revenue-table-row">
+                    <td className="monthly-revenue-date-cell">{formatDateForBreakdown(day.date)}</td>
+                    <td className="monthly-revenue-amount-cell">{formatCurrency(day.totalRevenue)}</td>
+                    <td className="monthly-revenue-count-cell">{day.totalPassengers}</td>
+                    <td className="monthly-revenue-amount-cell">{formatCurrency(day.conductorRevenue)}</td>
+                    <td className="monthly-revenue-amount-cell">{formatCurrency(day.preBookingRevenue)}</td>
+                    <td className="monthly-revenue-amount-cell">{formatCurrency(day.preTicketingRevenue)}</td>
+                    <td className="monthly-revenue-amount-cell">{formatCurrency(day.averageFare)}</td>
                   </tr>
                 ))}
               </tbody>

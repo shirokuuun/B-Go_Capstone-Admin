@@ -4,9 +4,10 @@ import {
   getConductorsWithPreTickets,
   getPreTicketsByConductor,
   getConductorById,
-  deletePreTicket,
+  deleteTicket,
   subscribeToConductorsWithTickets,
-  subscribeToTicketsByConductor
+  subscribeToTicketsByConductor,
+  invalidateAllTicketCache
 } from './ticketing.js';
 import { IoMdPeople } from "react-icons/io";
 import './ticketing.css';
@@ -42,8 +43,9 @@ const Ticketing = () => {
   // Bulk selection states
   const [selectedTickets, setSelectedTickets] = useState(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
+  const [deletingStatus, setDeletingStatus] = useState(null);
 
-  // State for managing ticket subscriptions (declare before use)
+  // State for managing ticket subscriptions
   const [ticketUnsubscribe, setTicketUnsubscribe] = useState(null);
 
   // Set up authentication listener
@@ -73,7 +75,7 @@ const Ticketing = () => {
       try {
         setLoading(true);
 
-        // Get initial stats (still using static call for now)
+        // Get initial stats
         const statsData = await getPreTicketingStats();
         setStats(statsData);
         
@@ -100,7 +102,6 @@ const Ticketing = () => {
 
     setupRealTimeData();
     
-    // Cleanup function
     return () => {
       if (unsubscribeConductors) {
         console.log('🔇 Unsubscribing from conductors real-time listener');
@@ -123,12 +124,10 @@ const Ticketing = () => {
   useEffect(() => {
     let filtered = [...conductorTickets];
 
-    // Filter by date
     if (selectedDate) {
       filtered = filtered.filter(ticket => ticket.date === selectedDate);
     }
 
-    // Filter by ticket type
     if (selectedTicketType) {
       if (selectedTicketType === 'conductor') {
         filtered = filtered.filter(ticket => {
@@ -143,7 +142,6 @@ const Ticketing = () => {
       }
     }
 
-    // Filter by trip direction
     if (selectedTripDirection) {
       filtered = filtered.filter(ticket => ticket.direction === selectedTripDirection);
     }
@@ -155,18 +153,15 @@ const Ticketing = () => {
     try {
       setTicketsLoading(true);
       
-      // Clean up previous subscription
       if (ticketUnsubscribe) {
         console.log('🔇 Unsubscribing from previous ticket listener');
         ticketUnsubscribe();
         setTicketUnsubscribe(null);
       }
       
-      // Get conductor data
       const conductorData = await getConductorById(conductorId);
       setSelectedConductor(conductorData);
       
-      // Set up real-time ticket listener for this conductor
       const unsubscribe = subscribeToTicketsByConductor(conductorId, (updatedTickets, error) => {
         if (error) {
           console.error(`Real-time tickets error for conductor ${conductorId}:`, error);
@@ -190,31 +185,41 @@ const Ticketing = () => {
   };
 
   const handleDeleteTicket = async (conductorId, ticketId) => {
-    // Check if user is authorized
     if (!userData || userData.role !== 'superadmin' || userData.isSuperAdmin !== true) {
-      alert('Access denied: Only superadmin users can delete tickets. You are logged in as a regular admin.');
+      alert('Access denied: Only superadmin users can delete tickets.');
       return;
     }
 
-    if (!window.confirm('Are you sure you want to delete this pre-ticket? This action cannot be undone.')) {
-      return;
-    }
+    const confirmed = window.confirm('Delete this ticket?\n\nThis action cannot be undone.');
+    if (!confirmed) return;
 
     try {
-      await deletePreTicket(conductorId, ticketId);
+      setDeletingStatus('Deleting ticket...');
+      await deleteTicket(conductorId, ticketId);
 
-      // Refresh the tickets list
+      // IMMEDIATE UPDATE: Remove ticket from local state instantly
       const updatedTickets = conductorTickets.filter(ticket => ticket.id !== ticketId);
       setConductorTickets(updatedTickets);
 
-      // Update stats
-      const statsData = await getPreTicketingStats();
-      setStats(statsData);
+      // Invalidate all cache to force fresh data
+      invalidateAllTicketCache();
 
-      alert('Ticket deleted successfully');
+      setDeletingStatus('✓ Ticket deleted');
+      setTimeout(() => setDeletingStatus(null), 1500);
+
+      // Update stats and conductors list in background to refresh counts
+      Promise.all([
+        getPreTicketingStats(),
+        getConductorsWithPreTickets()
+      ]).then(([statsData, conductorsData]) => {
+        setStats(statsData);
+        setConductors(conductorsData);
+      });
+
     } catch (error) {
       console.error('Error in handleDeleteTicket:', error);
-      alert('Failed to delete pre-ticket: ' + error.message);
+      setDeletingStatus(null);
+      alert('Failed to delete ticket: ' + error.message);
     }
   };
 
@@ -244,9 +249,8 @@ const Ticketing = () => {
   };
 
   const handleBulkDelete = async () => {
-    // Check if user is authorized
     if (!userData || userData.role !== 'superadmin' || userData.isSuperAdmin !== true) {
-      alert('Access denied: Only superadmin users can delete tickets. You are logged in as a regular admin.');
+      alert('Access denied: Only superadmin users can delete tickets.');
       return;
     }
 
@@ -255,52 +259,106 @@ const Ticketing = () => {
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to delete ${selectedTickets.size} selected tickets? This action cannot be undone.`)) {
-      return;
-    }
+    const confirmed = window.confirm(`Delete ${selectedTickets.size} selected ticket${selectedTickets.size > 1 ? 's' : ''}?\n\nThis action cannot be undone.`);
+    if (!confirmed) return;
 
     try {
       setTicketsLoading(true);
-      const deletePromises = Array.from(selectedTickets).map(ticketId => {
-        return deletePreTicket(selectedConductor.id, ticketId);
-      });
+      setDeletingStatus(`Deleting ${selectedTickets.size} ticket${selectedTickets.size > 1 ? 's' : ''}...`);
 
-      await Promise.all(deletePromises);
+      const ticketIds = Array.from(selectedTickets);
+      const batchSize = 10;
+      const batches = [];
+      
+      for (let i = 0; i < ticketIds.length; i += batchSize) {
+        batches.push(ticketIds.slice(i, i + batchSize));
+      }
 
-      // Clear selections and exit select mode
+      let deletedCount = 0;
+      const successfulDeletes = [];
+      
+      for (const batch of batches) {
+        const results = await Promise.allSettled(
+          batch.map(async ticketId => {
+            await deleteTicket(selectedConductor.id, ticketId);
+            return ticketId;
+          })
+        );
+        
+        // Track successful deletes
+        results.forEach(result => {
+          if (result.status === 'fulfilled') {
+            successfulDeletes.push(result.value);
+            deletedCount++;
+          }
+        });
+        
+        setDeletingStatus(`Deleting tickets... ${deletedCount}/${ticketIds.length}`);
+      }
+
+      // IMMEDIATE UPDATE: Remove deleted tickets from local state instantly
+      const updatedTickets = conductorTickets.filter(ticket => !successfulDeletes.includes(ticket.id));
+      setConductorTickets(updatedTickets);
+
+      // Invalidate all cache to force fresh data
+      invalidateAllTicketCache();
+
       setSelectedTickets(new Set());
       setIsSelectMode(false);
+      setDeletingStatus(`✓ Successfully deleted ${deletedCount} ticket${deletedCount > 1 ? 's' : ''}`);
+      setTimeout(() => setDeletingStatus(null), 2000);
 
-      // Update stats
-      const statsData = await getPreTicketingStats();
-      setStats(statsData);
+      // Update stats and conductors list in background to refresh counts
+      Promise.all([
+        getPreTicketingStats(),
+        getConductorsWithPreTickets()
+      ]).then(([statsData, conductorsData]) => {
+        setStats(statsData);
+        setConductors(conductorsData);
+      });
 
-      alert(`${selectedTickets.size} tickets deleted successfully`);
     } catch (error) {
       console.error('Error in bulk delete:', error);
-      alert('Failed to delete some tickets: ' + error.message);
+      setDeletingStatus(null);
+      alert('Failed to delete tickets: ' + error.message);
     } finally {
       setTicketsLoading(false);
     }
   };
 
-  const handleBackToConductors = () => {
-    // Force state updates
+  const handleBackToConductors = async () => {
+    // Cleanup ticket subscription
+    if (ticketUnsubscribe) {
+      console.log('🔇 Unsubscribing from ticket listener on back');
+      ticketUnsubscribe();
+      setTicketUnsubscribe(null);
+    }
+
+    // Clear selected conductor state
     setSelectedConductor(null);
     setConductorTickets([]);
     setFilteredTickets([]);
-    
-    // Clear filters
     setSelectedDate('');
     setSelectedTicketType('');
     setSelectedTripDirection('');
-
-    // Clear selections
     setSelectedTickets(new Set());
     setIsSelectMode(false);
-
-    // Force component re-render by updating loading state briefly
     setTicketsLoading(false);
+
+    // Force refresh conductors list to show updated counts
+    setLoading(true);
+    try {
+      const [statsData, conductorsData] = await Promise.all([
+        getPreTicketingStats(),
+        getConductorsWithPreTickets()
+      ]);
+      setStats(statsData);
+      setConductors(conductorsData);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatDate = (dateString) => {
@@ -314,41 +372,28 @@ const Ticketing = () => {
 
   const formatTime = (timeString) => {
     try {
-      // Handle different time formats
       let date;
-
-      // If timeString contains AM/PM, parse it differently
       if (timeString.includes('AM') || timeString.includes('PM')) {
-        // Remove seconds if present (10:05:00PM -> 10:05PM)
         const cleanTime = timeString.replace(/:\d{2}(AM|PM)/, '$1');
-        // Create a date object for today with the given time
         date = new Date(`1/1/2000 ${cleanTime}`);
       } else {
-        // Assume it's in 24-hour format or other format
         date = new Date(`1/1/2000 ${timeString}`);
       }
-
-      // Format to readable 12-hour format
       return date.toLocaleString('en-US', {
         hour: 'numeric',
         minute: '2-digit',
         hour12: true
       });
     } catch (error) {
-      // If formatting fails, return original string
       console.warn('Error formatting time:', timeString, error);
       return timeString;
     }
   };
 
-  // Format the scannedAt timestamp
   const formatScannedAt = (scannedAt) => {
     if (!scannedAt) return 'Not scanned';
-
     try {
-      // Handle Firestore timestamp
       const timestamp = scannedAt.seconds ? new Date(scannedAt.seconds * 1000) : new Date(scannedAt);
-
       return timestamp.toLocaleString('en-US', {
         year: 'numeric',
         month: 'short',
@@ -363,11 +408,8 @@ const Ticketing = () => {
     }
   };
 
-
   const getTicketTypeLabel = (ticket) => {
-    // Check documentType first, then fallback to ticketType
     const effectiveType = ticket.documentType || ticket.ticketType;
-    
     if (effectiveType === 'preBooking') {
       return 'Pre-Booking';
     } else if (effectiveType === 'preTicket') {
@@ -377,12 +419,10 @@ const Ticketing = () => {
     }
   };
 
-  // Helper function to get the effective ticket type for filtering/styling
   const getEffectiveTicketType = (ticket) => {
     return ticket.documentType || ticket.ticketType || 'conductor';
   };
 
-  // Get unique filter options from current tickets
   const getUniqueOptions = (tickets, field) => {
     const uniqueValues = [...new Set(tickets.map(ticket => ticket[field]).filter(Boolean))];
     return uniqueValues.sort();
@@ -393,10 +433,8 @@ const Ticketing = () => {
   const getTicketTypes = () => {
     const types = [...new Set(conductorTickets.map(ticket => {
       const effectiveType = getEffectiveTicketType(ticket);
-      // Normalize all conductor-related types to 'conductor'
       if (effectiveType === 'preBooking') return 'preBooking';
       if (effectiveType === 'preTicket') return 'preTicket';
-      // Everything else (conductor, conductorTicket, undefined, etc.) becomes 'conductor'
       return 'conductor';
     }))];
     return types.sort();
@@ -456,7 +494,7 @@ const Ticketing = () => {
           )}
         </div>
       )}
-       </div>
+    </div>
   );
 
   const renderConductorTickets = () => (
@@ -499,7 +537,6 @@ const Ticketing = () => {
 
       {/* Filters Section */}
       <div className="revenue-filters">
-        {/* Date Filter */}
         <div className="revenue-filter-group">
           <label className="revenue-filter-label">Available Dates</label>
           <select 
@@ -514,7 +551,6 @@ const Ticketing = () => {
           </select>
         </div>
 
-        {/* Ticket Type Filter */}
         <div className="revenue-filter-group">
           <label className="revenue-filter-label">Ticket Type</label>
           <select 
@@ -533,7 +569,6 @@ const Ticketing = () => {
           </select>
         </div>
 
-        {/* Trip Direction Filter */}
         <div className="revenue-filter-group">
           <label className="revenue-filter-label">Trip Direction</label>
           <select 
@@ -548,7 +583,6 @@ const Ticketing = () => {
           </select>
         </div>
 
-        {/* Clear Filters Button */}
         <div className="revenue-filter-group">
           <label className="revenue-filter-label">&nbsp;</label>
           <button 
@@ -564,7 +598,6 @@ const Ticketing = () => {
           </button>
         </div>
         
-        {/* Results Count */}
         <div className="revenue-filter-group">
           <label className="revenue-filter-label">&nbsp;</label>
           <div className="ticketing-results-count" style={{
@@ -580,7 +613,6 @@ const Ticketing = () => {
           </div>
         </div>
 
-        {/* Bulk Selection Controls */}
         {userData && userData.role === 'superadmin' && userData.isSuperAdmin === true && filteredTickets.length > 0 && (
           <div className="revenue-filter-group">
             <label className="revenue-filter-label">&nbsp;</label>
@@ -597,18 +629,8 @@ const Ticketing = () => {
 
       {/* Bulk Actions Bar */}
       {isSelectMode && (
-        <div className="ticketing-bulk-actions-bar" style={{
-          background: '#f8f9fa',
-          padding: '15px 20px',
-          borderRadius: '8px',
-          border: '2px solid #e1e8ed',
-          marginBottom: '20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '10px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+        <div className="ticketing-bulk-actions-bar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
             <span style={{ fontWeight: '600', color: '#2c3e50' }}>
               {selectedTickets.size} of {filteredTickets.length} selected
             </span>
@@ -630,12 +652,12 @@ const Ticketing = () => {
           <button
             onClick={handleBulkDelete}
             className="ticketing-btn ticketing-btn-danger"
-            disabled={selectedTickets.size === 0}
+            disabled={selectedTickets.size === 0 || ticketsLoading}
             style={{
               padding: '8px 16px',
               fontSize: '14px',
-              opacity: selectedTickets.size === 0 ? 0.6 : 1,
-              cursor: selectedTickets.size === 0 ? 'not-allowed' : 'pointer'
+              opacity: (selectedTickets.size === 0 || ticketsLoading) ? 0.6 : 1,
+              cursor: (selectedTickets.size === 0 || ticketsLoading) ? 'not-allowed' : 'pointer'
             }}
           >
             Delete Selected ({selectedTickets.size})
@@ -643,7 +665,15 @@ const Ticketing = () => {
         </div>
       )}
 
-      {ticketsLoading ? (
+      {/* Deleting Status Message */}
+      {deletingStatus && (
+        <div className={`ticketing-deleting-status ${deletingStatus.includes('✓') ? 'success' : ''}`}>
+          {!deletingStatus.includes('✓') && <div className="ticketing-spinner"></div>}
+          <span>{deletingStatus}</span>
+        </div>
+      )}
+
+      {ticketsLoading && !deletingStatus ? (
         <div className="ticketing-loading-state">Loading tickets...</div>
       ) : (
         <div className="ticketing-tickets-list">
@@ -656,28 +686,15 @@ const Ticketing = () => {
               <div
                 key={`${ticket.conductorId}-${ticket.date}-${ticket.tripId}-${ticket.id}`}
                 className={`ticketing-ticket-card ${isSelectMode ? 'selectable' : ''} ${selectedTickets.has(ticket.id) ? 'selected' : ''}`}
-                style={{
-                  border: selectedTickets.has(ticket.id) ? '2px solid #007bff' : '',
-                  backgroundColor: selectedTickets.has(ticket.id) ? '#f8f9ff' : ''
-                }}
+                onClick={isSelectMode ? () => toggleTicketSelection(ticket.id) : undefined}
               >
-                {/* Checkbox for selection mode */}
                 {isSelectMode && (
-                  <div className="ticketing-ticket-checkbox" style={{
-                    position: 'absolute',
-                    top: '15px',
-                    right: '15px',
-                    zIndex: 10
-                  }}>
+                  <div className="ticketing-ticket-checkbox">
                     <input
                       type="checkbox"
                       checked={selectedTickets.has(ticket.id)}
                       onChange={() => toggleTicketSelection(ticket.id)}
-                      style={{
-                        width: '18px',
-                        height: '18px',
-                        cursor: 'pointer'
-                      }}
+                      onClick={(e) => e.stopPropagation()}
                     />
                   </div>
                 )}
@@ -721,8 +738,8 @@ const Ticketing = () => {
                 <div className="ticketing-ticket-actions">
                   {!isSelectMode && (
                     <button
-                      className={`ticketing-btn ticketing-btn-danger ${userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? 'disabled' : ''}`}
-                      onClick={userData && userData.role === 'superadmin' && userData.isSuperAdmin === true ? () => handleDeleteTicket(selectedConductor.id, ticket.id) : undefined}
+                      className="ticketing-btn ticketing-btn-danger"
+                      onClick={() => handleDeleteTicket(selectedConductor.id, ticket.id)}
                       disabled={!userData || (userData.role === 'admin' && userData.isSuperAdmin !== true)}
                       title={userData && userData.role === 'admin' && userData.isSuperAdmin !== true ? "Delete not allowed for admin users" : "Delete ticket"}
                       style={{
@@ -745,7 +762,7 @@ const Ticketing = () => {
                       fontStyle: 'italic',
                       fontSize: '14px'
                     }}>
-                      Use checkboxes to select tickets
+                      Click card or checkbox to select
                     </div>
                   )}
                 </div>
@@ -774,69 +791,59 @@ const Ticketing = () => {
 
   return (
     <div className="ticketing-container">
-      {/* Header */}
-    <div className="ticketing-header-container">
-      {/* Background Pattern */}
-      <div className="ticketing-header-pattern"></div>
-      
-      <div className="ticketing-header-content">
-        {/* Page Header */}
-        <div className="ticketing-page-header">
-          <h1>Ticketing Management</h1>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="ticketing-stats-container">
-          {/* Total Conductor Tickets */}
-          <div className="ticketing-stat-card ticketing-total">
-            <div className="ticketing-stat-icon">
-              <FaUsers className="ticketing-stat-icon-fa" />
-            </div>
-            <div className="ticketing-stat-content">
-              <div className="ticketing-stat-number">{stats.conductorTickets || 0}</div>
-              <div className="ticketing-stat-label">Total Conductor Tickets</div>
-            </div>
+      <div className="ticketing-header-container">
+        <div className="ticketing-header-pattern"></div>
+        
+        <div className="ticketing-header-content">
+          <div className="ticketing-page-header">
+            <h1>Ticketing Management</h1>
           </div>
 
-          {/* Total Pre-Tickets*/}
-          <div className="ticketing-stat-card ticketing-online">
-            <div className="ticketing-stat-icon">
-              <FaCheckCircle className="ticketing-stat-icon-fa" />
+          <div className="ticketing-stats-container">
+            <div className="ticketing-stat-card ticketing-total">
+              <div className="ticketing-stat-icon">
+                <FaUsers className="ticketing-stat-icon-fa" />
+              </div>
+              <div className="ticketing-stat-content">
+                <div className="ticketing-stat-number">{stats.conductorTickets || 0}</div>
+                <div className="ticketing-stat-label">Total Conductor Tickets</div>
+              </div>
             </div>
-            <div className="ticketing-stat-content">
-              <div className="ticketing-stat-number">{stats.preTickets || 0}</div>
-              <div className="ticketing-stat-label">Total Pre-tickets</div>
-            </div>
-          </div>
 
-          {/* Total Pre-bookings */}
-          <div className="ticketing-stat-card ticketing-online">
-            <div className="ticketing-stat-icon">
-              <FaCheckCircle className="ticketing-stat-icon-fa" />
+            <div className="ticketing-stat-card ticketing-online">
+              <div className="ticketing-stat-icon">
+                <FaCheckCircle className="ticketing-stat-icon-fa" />
+              </div>
+              <div className="ticketing-stat-content">
+                <div className="ticketing-stat-number">{stats.preTickets || 0}</div>
+                <div className="ticketing-stat-label">Total Pre-tickets</div>
+              </div>
             </div>
-            <div className="ticketing-stat-content">
-              <div className="ticketing-stat-number">{stats.preBookings || 0}</div>
-              <div className="ticketing-stat-label">Total Pre-bookings</div>
-            </div>
-          </div>
 
-          {/*Total Tickets*/}
-          <div className="ticketing-stat-card ticketing-online">
-            <div className="ticketing-stat-icon">
-              <FaCheckCircle className="ticketing-stat-icon-fa" />
+            <div className="ticketing-stat-card ticketing-online">
+              <div className="ticketing-stat-icon">
+                <FaCheckCircle className="ticketing-stat-icon-fa" />
+              </div>
+              <div className="ticketing-stat-content">
+                <div className="ticketing-stat-number">{stats.preBookings || 0}</div>
+                <div className="ticketing-stat-label">Total Pre-bookings</div>
+              </div>
             </div>
-            <div className="ticketing-stat-content">
-              <div className="ticketing-stat-number">{stats.totalTickets || 0}</div>
-              <div className="ticketing-stat-label">Total Tickets</div>
+
+            <div className="ticketing-stat-card ticketing-online">
+              <div className="ticketing-stat-icon">
+                <FaCheckCircle className="ticketing-stat-icon-fa" />
+              </div>
+              <div className="ticketing-stat-content">
+                <div className="ticketing-stat-number">{stats.totalTickets || 0}</div>
+                <div className="ticketing-stat-label">Total Tickets</div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-      {/* Content Area */}
       <div className="ticketing-content-card">
-        {/* Navigation Tabs */}
         <div className="ticketing-nav-tabs">
           {[
             { id: 'overview', name: 'Conductors & Tickets', icon: <IoMdPeople size={30} /> }
@@ -858,7 +865,6 @@ const Ticketing = () => {
           ))}
         </div>
 
-        {/* Tab Content */}
         <div className="ticketing-tab-content">
           {renderOverview()}
         </div>

@@ -150,216 +150,353 @@ class RemittanceDataCacheService {
     return allRemittanceData;
   }
 
-  // CACHED: Get trip data from dailyTrips (moved to cache service)
-  async getTripDataFromDailyTrips(conductorId, date) {
-    try {
-      // Get trip info from dailyTrips document (since it has the trip maps)
-      const dailyTripsDocRef = doc(db, `conductors/${conductorId}/dailyTrips/${date}`);
-      const dailyTripsDoc = await getDoc(dailyTripsDocRef);
+async getTripDataFromDailyTrips(conductorId, date) {
+  try {
+    const dailyTripsDocRef = doc(db, `conductors/${conductorId}/dailyTrips/${date}`);
+    const dailyTripsDoc = await getDoc(dailyTripsDocRef);
 
-      if (!dailyTripsDoc.exists()) {
-        return [];
-      }
-
-      const dailyTripsData = dailyTripsDoc.data();
-      const trips = [];
-
-      // Extract trip maps from dailyTrips document
-      for (const [key, value] of Object.entries(dailyTripsData)) {
-        if (key.startsWith('trip') && typeof value === 'object' && value !== null) {
-
-          // Get both tickets and pre-bookings from their respective paths
-          const [ticketDetails, preBookingDetails] = await Promise.all([
-            this.getTicketDetailsFromDailyTrips(conductorId, date, key),
-            this.getPreBookingDetailsFromNewPath(conductorId, date, key)
-          ]);
-
-          // Combine tickets and pre-bookings for unified processing
-          const allTickets = [...ticketDetails.tickets, ...preBookingDetails.preBookings];
-          const combinedRevenue = ticketDetails.totalRevenue + preBookingDetails.totalRevenue;
-          const combinedPassengers = ticketDetails.totalPassengers + preBookingDetails.totalPassengers;
-
-          // Determine trip documentType based on all tickets (check both documentType and ticketType)
-          const tripDocumentType = (() => {
-            if (allTickets.length === 0) return 'Regular';
-
-            // Check both documentType and ticketType fields from all tickets
-            const allTicketTypes = [];
-            allTickets.forEach(ticket => {
-              if (ticket.documentType) allTicketTypes.push(ticket.documentType);
-              if (ticket.ticketType) allTicketTypes.push(ticket.ticketType);
-            });
-
-            const uniqueTypes = [...new Set(allTicketTypes)];
-
-            if (uniqueTypes.length === 1) {
-              // All tickets have the same type
-              return uniqueTypes[0];
-            } else if (uniqueTypes.includes('preTicket')) {
-              // Mixed types, prioritize preTicket
-              return 'preTicket';
-            } else if (uniqueTypes.includes('preBooking')) {
-              // Mixed types, prioritize preBooking
-              return 'preBooking';
-            } else {
-              // Default to Regular
-              return 'Regular';
-            }
-          })();
-
-          trips.push({
-            tripNumber: key,
-            tripDirection: value.direction || 'Unknown Direction',
-            startTime: value.startTime,
-            endTime: value.endTime,
-            isComplete: value.isComplete,
-            placeCollection: value.placeCollection,
-            totalRevenue: combinedRevenue,
-            totalPassengers: combinedPassengers,
-            ticketCount: allTickets.length,
-            tickets: allTickets, // Combined tickets and pre-bookings
-            conductorTickets: ticketDetails.tickets,
-            preBookings: preBookingDetails.preBookings,
-            documentType: tripDocumentType,
-            data: value // Original trip data from dailyTrips
-          });
-        }
-      }
-
-      return trips;
-    } catch (error) {
-      console.error(`Error getting trip data from dailyTrips for ${conductorId}/${date}:`, error);
+    if (!dailyTripsDoc.exists()) {
       return [];
     }
+
+    const dailyTripsData = dailyTripsDoc.data();
+    const trips = [];
+
+    for (const [key, value] of Object.entries(dailyTripsData)) {
+      if (key.startsWith('trip') && typeof value === 'object' && value !== null) {
+
+        // ✅ Get conductor tickets, pre-bookings, AND pre-tickets in parallel
+        const [ticketDetails, preBookingDetails, preTicketDetails] = await Promise.all([
+          this.getTicketDetailsFromDailyTrips(conductorId, date, key),
+          this.getPreBookingDetailsFromNewPath(conductorId, date, key),
+          this.getPreTicketDetailsFromNewPath(conductorId, date, key)
+        ]);
+
+        // ✅ Combine all ticket types
+        const allTickets = [
+          ...ticketDetails.tickets, 
+          ...preBookingDetails.preBookings,
+          ...preTicketDetails.preTickets
+        ];
+        
+        const combinedRevenue = ticketDetails.totalRevenue + 
+                               preBookingDetails.totalRevenue + 
+                               preTicketDetails.totalRevenue;
+                               
+        const combinedPassengers = ticketDetails.totalPassengers +
+                                  preBookingDetails.totalPassengers +
+                                  preTicketDetails.totalPassengers;
+
+        // Determine trip documentType based on what tickets are present
+        const tripDocumentType = (() => {
+          if (allTickets.length === 0) return 'Regular';
+
+          const hasPreTicket = preTicketDetails.preTickets.length > 0;
+          const hasPreBooking = preBookingDetails.preBookings.length > 0;
+          const hasConductor = ticketDetails.tickets.length > 0;
+
+          // Priority: preTicket > preBooking > conductor
+          if (hasPreTicket) return 'preTicket';
+          if (hasPreBooking) return 'preBooking';
+          if (hasConductor) return 'conductorTicket';
+          
+          return 'Regular';
+        })();
+
+        trips.push({
+          tripNumber: key,
+          tripDirection: value.direction || 'Unknown Direction',
+          startTime: value.startTime,
+          endTime: value.endTime,
+          isComplete: value.isComplete,
+          placeCollection: value.placeCollection,
+          totalRevenue: combinedRevenue,
+          totalPassengers: combinedPassengers,
+          ticketCount: allTickets.length,
+          tickets: allTickets,
+          conductorTickets: ticketDetails.tickets,
+          preBookings: preBookingDetails.preBookings,
+          preTickets: preTicketDetails.preTickets,
+          documentType: tripDocumentType,
+          data: value
+        });
+      }
+    }
+
+    return trips;
+  } catch (error) {
+    console.error(`Error getting trip data from dailyTrips for ${conductorId}/${date}:`, error);
+    return [];
   }
+}
 
-  // CACHED: Get ticket details from dailyTrips (moved to cache service)
-  async getTicketDetailsFromDailyTrips(conductorId, date, tripNumber) {
-    try {
-      const ticketsPath = `conductors/${conductorId}/dailyTrips/${date}/${tripNumber}/tickets/tickets`;
-      const ticketsRef = collection(db, ticketsPath);
-      const ticketsSnapshot = await getDocs(ticketsRef);
+async getTicketDetailsFromDailyTrips(conductorId, date, tripNumber) {
+  try {
+    const ticketsPath = `conductors/${conductorId}/dailyTrips/${date}/${tripNumber}/tickets/tickets`;
+    const ticketsRef = collection(db, ticketsPath);
+    const ticketsSnapshot = await getDocs(ticketsRef);
 
-      let totalRevenue = 0;
-      let totalPassengers = 0;
-      const tickets = [];
+    let totalRevenue = 0;
+    let totalPassengers = 0;
+    const tickets = [];
 
-      for (const ticketDoc of ticketsSnapshot.docs) {
-        const ticketData = ticketDoc.data();
-        const ticketId = ticketDoc.id;
+    for (const ticketDoc of ticketsSnapshot.docs) {
+      const ticketData = ticketDoc.data();
+      const ticketId = ticketDoc.id;
 
-        if (ticketData.totalFare && ticketData.quantity) {
-          const fare = parseFloat(ticketData.totalFare);
-          const passengers = parseInt(ticketData.quantity);
+      if (ticketData.totalFare && ticketData.quantity) {
+        const fare = parseFloat(ticketData.totalFare);
+        const passengers = parseInt(ticketData.quantity);
 
-          // Skip pre-booking tickets here - they're handled by getPreBookingDetailsFromNewPath
-          if (ticketData.documentType === 'preBooking' || ticketData.ticketType === 'preBooking') {
-            continue;
+        // Skip pre-booking tickets here - they're handled by getPreBookingDetailsFromNewPath
+        if (ticketData.documentType === 'preBooking' || ticketData.ticketType === 'preBooking') {
+          continue;
+        }
+
+        // Skip pre-ticket tickets here - they're handled by getPreTicketDetailsFromNewPath
+        if (ticketData.documentType === 'preTicket' || ticketData.ticketType === 'preTicket') {
+          continue;
+        }
+
+        totalRevenue += fare;
+        totalPassengers += passengers;
+
+        tickets.push({
+          id: ticketId,
+          from: ticketData.from || 'N/A',
+          to: ticketData.to || 'N/A',
+          fare: fare,
+          passengers: passengers,
+          timestamp: ticketData.timestamp,
+          documentType: ticketData.documentType || ticketData.ticketType || 'Regular',
+          ticketType: ticketData.ticketType || ticketData.documentType || 'Regular',
+          discountAmount: ticketData.discountAmount || 0,
+          discountBreakdown: ticketData.discountBreakdown || [],
+          discountList: ticketData.discountList || [],
+          startKm: ticketData.startKm,
+          endKm: ticketData.endKm,
+          totalKm: ticketData.totalKm,
+          farePerPassenger: ticketData.farePerPassenger || [],
+          source: 'dailyTrips'
+        });
+      }
+    }
+
+    return {
+      tickets,
+      totalRevenue,
+      totalPassengers
+    };
+  } catch (error) {
+    console.error(`Error getting ticket details from dailyTrips for ${conductorId}/${date}/${tripNumber}:`, error);
+    return {
+      tickets: [],
+      totalRevenue: 0,
+      totalPassengers: 0
+    };
+  }
+}
+
+async getPreBookingDetailsFromNewPath(conductorId, date, tripNumber) {
+  try {
+    const preBookingsPath = `conductors/${conductorId}/dailyTrips/${date}/${tripNumber}/preBookings/preBookings`;
+    const preBookingsRef = collection(db, preBookingsPath);
+    const preBookingsSnapshot = await getDocs(preBookingsRef);
+
+    let totalRevenue = 0;
+    let totalPassengers = 0;
+    const preBookings = [];
+
+    for (const preBookingDoc of preBookingsSnapshot.docs) {
+      const preBookingData = preBookingDoc.data();
+      const preBookingId = preBookingDoc.id;
+
+      if (preBookingData.totalFare && preBookingData.quantity) {
+        const fare = parseFloat(preBookingData.totalFare);
+        const passengers = parseInt(preBookingData.quantity);
+
+        totalRevenue += fare;
+        totalPassengers += passengers;
+
+        preBookings.push({
+          id: preBookingId,
+          from: preBookingData.from || 'N/A',
+          to: preBookingData.to || 'N/A',
+          fare: fare,
+          passengers: passengers,
+          timestamp: preBookingData.timestamp,
+          documentType: 'preBooking',
+          ticketType: preBookingData.ticketType || 'preBooking',
+          discountAmount: preBookingData.discountAmount || 0,
+          discountBreakdown: preBookingData.discountBreakdown || [],
+          discountList: preBookingData.discountList || [],
+          farePerPassenger: preBookingData.farePerPassenger || preBookingData.passengerFares || [],
+          startKm: preBookingData.fromKm,
+          endKm: preBookingData.toKm,
+          totalKm: preBookingData.totalKm,
+          busNumber: preBookingData.busNumber,
+          conductorName: preBookingData.conductorName,
+          route: preBookingData.route,
+          direction: preBookingData.direction,
+          status: preBookingData.status,
+          paymentMethod: preBookingData.paymentMethod,
+          userId: preBookingData.userId,
+          preBookingId: preBookingData.preBookingId,
+          createdAt: preBookingData.createdAt,
+          paidAt: preBookingData.paidAt,
+          source: 'preBookings'
+        });
+      }
+    }
+
+    return {
+      preBookings,
+      totalRevenue,
+      totalPassengers
+    };
+  } catch (error) {
+    console.error(`Error getting pre-booking details from new path for ${conductorId}/${date}/${tripNumber}:`, error);
+    return {
+      preBookings: [],
+      totalRevenue: 0,
+      totalPassengers: 0
+    };
+  }
+}
+
+async getPreTicketDetailsFromNewPath(conductorId, date, tripNumber) {
+  try {
+    const preTicketsPath = `conductors/${conductorId}/dailyTrips/${date}/${tripNumber}/preTickets/preTickets`;
+    const preTicketsRef = collection(db, preTicketsPath);
+    const preTicketsSnapshot = await getDocs(preTicketsRef);
+
+    let totalRevenue = 0;
+    let totalPassengers = 0;
+    const preTickets = [];
+
+    for (const preTicketDoc of preTicketsSnapshot.docs) {
+      const preTicketData = preTicketDoc.data();
+      const preTicketId = preTicketDoc.id;
+
+      // Parse qrData if it's a string
+      let parsedQrData = null;
+      if (preTicketData.qrData) {
+        try {
+          if (typeof preTicketData.qrData === 'string') {
+            parsedQrData = JSON.parse(preTicketData.qrData);
+          } else if (typeof preTicketData.qrData === 'object') {
+            parsedQrData = preTicketData.qrData;
           }
-
-          totalRevenue += fare;
-          totalPassengers += passengers;
-
-          tickets.push({
-            id: ticketId,
-            from: ticketData.from || 'N/A',
-            to: ticketData.to || 'N/A',
-            fare: fare,
-            passengers: passengers,
-            timestamp: ticketData.timestamp,
-            documentType: ticketData.documentType || ticketData.ticketType || 'Regular',
-            ticketType: ticketData.ticketType || ticketData.documentType || 'Regular',
-            discountAmount: ticketData.discountAmount || 0,
-            startKm: ticketData.startKm,
-            endKm: ticketData.endKm,
-            totalKm: ticketData.totalKm,
-            farePerPassenger: ticketData.farePerPassenger || [],
-            source: 'dailyTrips'
-          });
+        } catch (parseError) {
+          console.warn(`Failed to parse qrData for preTicket ${preTicketId}:`, parseError);
         }
       }
 
-      return {
-        tickets,
-        totalRevenue,
-        totalPassengers
-      };
-    } catch (error) {
-      console.error(`Error getting ticket details from dailyTrips for ${conductorId}/${date}/${tripNumber}:`, error);
-      return {
-        tickets: [],
-        totalRevenue: 0,
-        totalPassengers: 0
-      };
-    }
-  }
+      const sourceData = parsedQrData || preTicketData;
 
-  // CACHED: Get pre-booking details from new path (moved to cache service)
-  async getPreBookingDetailsFromNewPath(conductorId, date, tripNumber) {
-    try {
-      const preBookingsPath = `conductors/${conductorId}/dailyTrips/${date}/${tripNumber}/preBookings/preBookings`;
-      const preBookingsRef = collection(db, preBookingsPath);
-      const preBookingsSnapshot = await getDocs(preBookingsRef);
+      if (sourceData.amount || sourceData.totalFare || preTicketData.totalFare) {
+        const fare = parseFloat(sourceData.amount || sourceData.totalFare || preTicketData.totalFare || 0);
+        const passengers = parseInt(sourceData.quantity || preTicketData.quantity || 0);
 
-      let totalRevenue = 0;
-      let totalPassengers = 0;
-      const preBookings = [];
+        totalRevenue += fare;
+        totalPassengers += passengers;
 
-      for (const preBookingDoc of preBookingsSnapshot.docs) {
-        const preBookingData = preBookingDoc.data();
-        const preBookingId = preBookingDoc.id;
+        // Build discount breakdown from qrData
+        let discountBreakdown = [];
+        let farePerPassenger = [];
 
-        if (preBookingData.totalFare && preBookingData.quantity) {
-          const fare = parseFloat(preBookingData.totalFare);
-          const passengers = parseInt(preBookingData.quantity);
+        if (sourceData.discountBreakdown && Array.isArray(sourceData.discountBreakdown)) {
+          discountBreakdown = sourceData.discountBreakdown.map((breakdownStr) => {
+            if (typeof breakdownStr === 'object') return breakdownStr;
 
-          totalRevenue += fare;
-          totalPassengers += passengers;
-
-          preBookings.push({
-            id: preBookingId,
-            from: preBookingData.from || 'N/A',
-            to: preBookingData.to || 'N/A',
-            fare: fare,
-            passengers: passengers,
-            timestamp: preBookingData.timestamp,
-            documentType: 'preBooking',
-            ticketType: preBookingData.ticketType || 'preBooking',
-            discountAmount: preBookingData.discountAmount || 0,
-            startKm: preBookingData.fromKm,
-            endKm: preBookingData.toKm,
-            totalKm: preBookingData.totalKm,
-            farePerPassenger: preBookingData.farePerPassenger || [],
-            // Additional pre-booking specific fields
-            busNumber: preBookingData.busNumber,
-            conductorName: preBookingData.conductorName,
-            route: preBookingData.route,
-            direction: preBookingData.direction,
-            status: preBookingData.status,
-            paymentMethod: preBookingData.paymentMethod,
-            userId: preBookingData.userId,
-            preBookingId: preBookingData.preBookingId,
-            createdAt: preBookingData.createdAt,
-            paidAt: preBookingData.paidAt,
-            source: 'preBookings'
+            const fareTypeMatch = breakdownStr.match(/(Senior|Student|PWD|Regular)/i);
+            const amountMatch = breakdownStr.match(/(\d+\.?\d*)\s*PHP/);
+            const discountMatch = breakdownStr.match(/(\d+)%/);
+            
+            const fareType = fareTypeMatch ? fareTypeMatch[1] : 'Regular';
+            const fare = amountMatch ? parseFloat(amountMatch[1]) : 0;
+            const discountPercent = discountMatch ? parseInt(discountMatch[1]) : 0;
+            
+            return {
+              type: fareType,
+              count: 1,
+              discount: discountPercent > 0 ? (fare / (1 - discountPercent / 100)) - fare : 0,
+              fare: fare,
+              discountPercent: discountPercent
+            };
           });
         }
-      }
 
-      return {
-        preBookings,
-        totalRevenue,
-        totalPassengers
-      };
-    } catch (error) {
-      console.error(`Error getting pre-booking details from new path for ${conductorId}/${date}/${tripNumber}:`, error);
-      return {
-        preBookings: [],
-        totalRevenue: 0,
-        totalPassengers: 0
-      };
+        if (sourceData.fareTypes && Array.isArray(sourceData.fareTypes) && sourceData.passengerFares) {
+          farePerPassenger = sourceData.passengerFares;
+          
+          if (discountBreakdown.length === 0) {
+            const regularFare = sourceData.fare || 15;
+            discountBreakdown = sourceData.fareTypes.map((type, index) => {
+              const passengerFare = sourceData.passengerFares[index] || 0;
+              const isDiscounted = type !== 'Regular';
+              const discountAmount = isDiscounted ? regularFare - passengerFare : 0;
+              
+              return {
+                type: type,
+                count: 1,
+                discount: discountAmount,
+                fare: passengerFare,
+                originalFare: regularFare,
+                discountPercent: isDiscounted ? Math.round((discountAmount / regularFare) * 100) : 0
+              };
+            });
+          }
+        }
+
+        if (farePerPassenger.length === 0) {
+          farePerPassenger = preTicketData.farePerPassenger || preTicketData.passengerFares || [];
+        }
+
+        preTickets.push({
+          id: preTicketId,
+          from: sourceData.from || preTicketData.from || 'N/A',
+          to: sourceData.to || preTicketData.to || 'N/A',
+          fare: fare,
+          passengers: passengers,
+          timestamp: preTicketData.timestamp || preTicketData.scannedAt,
+          documentType: 'preTicket',
+          ticketType: sourceData.ticketType || preTicketData.ticketType || 'preTicket',
+          discountAmount: preTicketData.discountAmount || discountBreakdown.reduce((sum, item) => sum + (item.discount || 0), 0),
+          discountBreakdown: discountBreakdown,
+          discountList: sourceData.fareTypes || preTicketData.discountList || [],
+          farePerPassenger: farePerPassenger,
+          startKm: sourceData.fromKm || preTicketData.fromKm || preTicketData.startKm || 0,
+          endKm: sourceData.toKm || preTicketData.toKm || preTicketData.endKm || 0,
+          totalKm: sourceData.totalKm || preTicketData.totalKm || 0,
+          route: sourceData.route || preTicketData.route,
+          direction: sourceData.direction || preTicketData.direction,
+          scannedAt: preTicketData.scannedAt,
+          scannedBy: preTicketData.scannedBy,
+          status: preTicketData.status,
+          qrData: preTicketData.qrData,
+          qrDataParsed: parsedQrData,
+          placeCollection: sourceData.placeCollection || preTicketData.placeCollection,
+          time: sourceData.time || preTicketData.time,
+          source: 'preTickets'
+        });
+      }
     }
+
+    return {
+      preTickets,
+      totalRevenue,
+      totalPassengers
+    };
+  } catch (error) {
+    console.error(`Error getting pre-ticket details for ${conductorId}/${date}/${tripNumber}:`, error);
+    return {
+      preTickets: [],
+      totalRevenue: 0,
+      totalPassengers: 0
+    };
   }
+}
 
   // CACHED: Get remittance summary data (moved to cache service)
   async getRemittanceSummaryData(conductorId, date) {
@@ -380,7 +517,7 @@ class RemittanceDataCacheService {
     }
   }
 
-  // Start real-time cache updates listener
+  // Start real-time cache updates listener - IMPROVED VERSION
   startRemittanceDataListener() {
     if (this.isCacheListenerActive) {
       return; // Don't create duplicate listeners
@@ -396,12 +533,34 @@ class RemittanceDataCacheService {
         return;
       }
 
+      // Track which dates need to be invalidated
+      const affectedDates = new Set();
 
-      // For simplicity, invalidate all cache when any conductor data changes
-      this.invalidateAllCache();
+      // Process each change to determine which cached dates are affected
+      changes.forEach(change => {
+        const conductorId = change.doc.id;
 
-      // Notify active listeners about cache update
-      this.notifyListenersOfCacheUpdate();
+        // Invalidate cache for dates related to this conductor
+        // Since we don't know which dates are affected, we'll invalidate all for this conductor
+        // This is more efficient than invalidating everything
+        this.remittanceCache.forEach((data, cacheKey) => {
+          // Check if this cached data contains the affected conductor
+          const hasAffectedConductor = data.some(trip => trip.conductorId === conductorId);
+          if (hasAffectedConductor) {
+            affectedDates.add(cacheKey);
+          }
+        });
+      });
+
+      // Invalidate only affected dates
+      if (affectedDates.size > 0) {
+        affectedDates.forEach(date => {
+          this.invalidateCache(date);
+        });
+
+        // Notify active listeners about cache update
+        this.notifyListenersOfCacheUpdate();
+      }
     }, (error) => {
       console.error('Error in remittance cache listener:', error);
       this.isCacheListenerActive = false;
@@ -463,13 +622,56 @@ class RemittanceDataCacheService {
         const conductorId = conductorDoc.id;
 
         try {
-          const remittanceRef = collection(db, `conductors/${conductorId}/remittance`);
-          const remittanceSnapshot = await getDocs(remittanceRef);
+          // Get all daily trips dates for this conductor
+          const dailyTripsRef = collection(db, `conductors/${conductorId}/dailyTrips`);
+          const dailyTripsSnapshot = await getDocs(dailyTripsRef);
 
-          for (const dateDoc of remittanceSnapshot.docs) {
+          for (const dateDoc of dailyTripsSnapshot.docs) {
             const dateId = dateDoc.id;
+
+            // Only process valid date formats (YYYY-MM-DD)
             if (dateId.match(/^\d{4}-\d{2}-\d{2}$/)) {
-              dates.add(dateId);
+              // Flag to check if this date has any trips with tickets
+              let hasTripsWithTickets = false;
+
+              try {
+                // Get the date document which contains trip maps
+                const dateData = dateDoc.data();
+
+                // Look for all fields that start with "trip" and are objects (maps)
+                for (const [key, value] of Object.entries(dateData)) {
+                  if (key.startsWith('trip') && typeof value === 'object' && value !== null) {
+                    // Check for tickets in this trip
+                    try {
+                      const ticketsRef = collection(db, `conductors/${conductorId}/dailyTrips/${dateId}/${key}/tickets/tickets`);
+                      const ticketsSnapshot = await getDocs(ticketsRef);
+
+                      // Also check for pre-bookings
+                      const preBookingsRef = collection(db, `conductors/${conductorId}/dailyTrips/${dateId}/${key}/preBookings/preBookings`);
+                      const preBookingsSnapshot = await getDocs(preBookingsRef);
+
+                      // Also check for pre-tickets
+                      const preTicketsRef = collection(db, `conductors/${conductorId}/dailyTrips/${dateId}/${key}/preTickets/preTickets`);
+                      const preTicketsSnapshot = await getDocs(preTicketsRef);
+
+                      // If any of these have documents, this date has trips
+                      if (ticketsSnapshot.docs.length > 0 || preBookingsSnapshot.docs.length > 0 || preTicketsSnapshot.docs.length > 0) {
+                        hasTripsWithTickets = true;
+                        break; // No need to check other trips
+                      }
+                    } catch (tripError) {
+                      // Trip doesn't have tickets, continue checking
+                    }
+                  }
+                }
+              } catch (tripsError) {
+                // No trips found for date
+              }
+
+              // Only add date if it has trips with tickets
+              if (hasTripsWithTickets) {
+                dates.add(dateId);
+              }
             }
           }
         } catch (error) {
@@ -938,4 +1140,160 @@ export const getRemittanceDataCacheInfo = () => {
 // CACHED: Remove all listeners on cleanup
 export const removeAllRemittanceListeners = () => {
   remittanceDataCache.removeAllListeners();
+};
+
+// Helper function to parse discount breakdown from a single ticket (returns REVENUE amounts, not counts)
+export const parseTicketDiscountBreakdown = (ticket) => {
+  const breakdown = {
+    regular: 0,
+    pwd: 0,
+    senior: 0,
+    student: 0
+  };
+
+  const quantity = ticket.passengers || ticket.quantity || 0;
+  const discountBreakdown = ticket.discountBreakdown || [];
+  // Support both farePerPassenger and passengerFares fields
+  const farePerPassenger = ticket.farePerPassenger || ticket.passengerFares || [];
+
+  // Calculate REVENUE for each type using farePerPassenger array
+  if (farePerPassenger.length > 0 && discountBreakdown.length > 0) {
+    // Process each passenger individually based on discountBreakdown
+    discountBreakdown.forEach((desc, index) => {
+      // Ensure we have a fare for this index
+      if (index >= farePerPassenger.length) {
+        console.warn(`Mismatch: discountBreakdown has more entries than farePerPassenger for ticket`, ticket.id || 'unknown');
+        return;
+      }
+
+      // ✅ HANDLE BOTH STRING AND OBJECT FORMATS
+      let fareType = 'regular';
+      let fare = parseFloat(farePerPassenger[index]) || 0;
+
+      if (typeof desc === 'string') {
+        // OLD FORMAT: String like "Passenger 1: Senior (20% off) — 12.00 PHP"
+        const lowerDesc = desc.toLowerCase();
+
+        if (lowerDesc.includes('pwd')) {
+          fareType = 'pwd';
+        } else if (lowerDesc.includes('senior') || lowerDesc.includes('senior citizen')) {
+          fareType = 'senior';
+        } else if (lowerDesc.includes('student')) {
+          fareType = 'student';
+        } else if (lowerDesc.includes('regular') || lowerDesc.includes('no discount') || lowerDesc.includes('full fare')) {
+          fareType = 'regular';
+        } else {
+          console.warn(`Unknown discount type in breakdown: "${desc}" - defaulting to regular`);
+          fareType = 'regular';
+        }
+      } else if (typeof desc === 'object' && desc !== null) {
+        // ✅ NEW FORMAT: Object like { type: 'Senior', count: 1, discount: 3, fare: 12 }
+        const type = (desc.type || 'Regular').toLowerCase();
+        
+        // Use fare from object if available, otherwise use farePerPassenger
+        if (desc.fare !== undefined) {
+          fare = parseFloat(desc.fare) || 0;
+        }
+
+        if (type.includes('pwd')) {
+          fareType = 'pwd';
+        } else if (type.includes('senior')) {
+          fareType = 'senior';
+        } else if (type.includes('student')) {
+          fareType = 'student';
+        } else if (type.includes('regular')) {
+          fareType = 'regular';
+        } else {
+          console.warn(`Unknown discount type in breakdown object: "${desc.type}" - defaulting to regular`);
+          fareType = 'regular';
+        }
+      }
+
+      breakdown[fareType] += fare;
+    });
+  } else if (farePerPassenger.length > 0) {
+    // If we have fares but no breakdown, assume all are regular
+    farePerPassenger.forEach(fare => {
+      breakdown.regular += parseFloat(fare) || 0;
+    });
+  } else {
+    // Fallback: distribute total fare proportionally if no individual fares
+    const totalFare = parseFloat(ticket.fare || ticket.totalFare || ticket.amount) || 0;
+    
+    // Count discount types from discountBreakdown
+    const passengerCounts = {
+      regular: 0,
+      pwd: 0,
+      senior: 0,
+      student: 0
+    };
+
+    discountBreakdown.forEach(desc => {
+      let fareType = 'regular';
+
+      if (typeof desc === 'string') {
+        // String format
+        const lowerDesc = desc.toLowerCase();
+        if (lowerDesc.includes('pwd')) {
+          fareType = 'pwd';
+        } else if (lowerDesc.includes('senior') || lowerDesc.includes('senior citizen')) {
+          fareType = 'senior';
+        } else if (lowerDesc.includes('student')) {
+          fareType = 'student';
+        } else if (lowerDesc.includes('regular') || lowerDesc.includes('no discount') || lowerDesc.includes('full fare')) {
+          fareType = 'regular';
+        }
+      } else if (typeof desc === 'object' && desc !== null) {
+        // Object format
+        const type = (desc.type || 'Regular').toLowerCase();
+        if (type.includes('pwd')) {
+          fareType = 'pwd';
+        } else if (type.includes('senior')) {
+          fareType = 'senior';
+        } else if (type.includes('student')) {
+          fareType = 'student';
+        } else {
+          fareType = 'regular';
+        }
+      }
+
+      passengerCounts[fareType]++;
+    });
+
+    // If no breakdown info, assume all regular
+    if (discountBreakdown.length === 0) {
+      passengerCounts.regular = quantity;
+    }
+
+    const avgFare = quantity > 0 ? totalFare / quantity : 0;
+    breakdown.regular = passengerCounts.regular * avgFare;
+    breakdown.pwd = passengerCounts.pwd * avgFare;
+    breakdown.senior = passengerCounts.senior * avgFare;
+    breakdown.student = passengerCounts.student * avgFare;
+  }
+
+  return breakdown;
+};
+
+// Helper function to calculate discount breakdown for a trip (aggregates all tickets, returns REVENUE)
+export const calculateTripDiscountBreakdown = (trip) => {
+  const totalBreakdown = {
+    regular: 0,
+    pwd: 0,
+    senior: 0,
+    student: 0
+  };
+
+  const tickets = trip.tickets || [];
+
+  tickets.forEach((ticket) => {
+    const ticketBreakdown = parseTicketDiscountBreakdown(ticket);
+
+    totalBreakdown.regular += ticketBreakdown.regular;
+    totalBreakdown.pwd += ticketBreakdown.pwd;
+    totalBreakdown.senior += ticketBreakdown.senior;
+    totalBreakdown.student += ticketBreakdown.student;
+  });
+
+  return totalBreakdown;
 };

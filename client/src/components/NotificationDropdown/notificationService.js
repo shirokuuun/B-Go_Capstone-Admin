@@ -247,7 +247,7 @@ export const handleNotificationClick = (notification, navigate) => {
 
     case 'sos':
       // Navigate to SOS management/dashboard
-      navigate('/sos-requests');
+      navigate('/admin/sos');
       break;
 
     case 'reservation':

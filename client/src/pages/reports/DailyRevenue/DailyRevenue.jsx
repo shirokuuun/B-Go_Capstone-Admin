@@ -7,15 +7,17 @@ import { FaRegCalendarCheck } from "react-icons/fa";
 import { BsCalendar3 } from "react-icons/bs";
 import { LuBus } from "react-icons/lu";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, BarChart, Bar, ResponsiveContainer } from 'recharts';
-import { 
-  loadRevenueData, 
-  preparePieChartData, 
+import {
+  loadRevenueData,
+  preparePieChartData,
   prepareRouteRevenueData,
   getAvailableDates,
   getAvailableRoutes,
-  calculateRevenueMetrics 
+  calculateRevenueMetrics,
+  forceRefreshRevenueCache
 } from '/src/pages/reports/DailyRevenue/DailyRevenue.js';
 import MonthlyRevenue from './MonthlyRevenue.jsx';
+import { calculateTripDiscountBreakdown, parseTicketDiscountBreakdown } from './Remittance.js';
 import { 
   initializeMonthlyData, 
   getCurrentMonth, 
@@ -116,6 +118,29 @@ const Revenue = () => {
   // Load revenue data for summary cards (always load) and detailed view
   const handleLoadRevenueData = async () => {
     return handleLoadRevenueDataWithDates(availableDates, selectedDate);
+  };
+
+  // Force refresh - clears cache and reloads data
+  const handleRefresh = async () => {
+    setLoading(true);
+    try {
+      // Force cache refresh by invalidating cache first
+      if (selectedDate) {
+        await forceRefreshRevenueCache(selectedDate, selectedRoute);
+      } else {
+        // Refresh all dates
+        for (const date of availableDates) {
+          await forceRefreshRevenueCache(date, selectedRoute);
+        }
+      }
+
+      // Reload data
+      await handleLoadRevenueData();
+    } catch (error) {
+      console.error('Error refreshing revenue data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   //Monthly Revenue Data load
@@ -356,11 +381,21 @@ const Revenue = () => {
         const conductorData = [
           ['Conductor Trips - Detailed Breakdown'],
           [''],
-          ['Trip ID', 'Date & Time', 'Route', 'Trip Direction', 'Passengers', 'Revenue']
+          ['Trip ID', 'Date & Time', 'Route', 'Trip Direction', 'Passengers', 'Regular', 'PWD', 'Senior', 'Student', 'Revenue']
         ];
+
+        // Calculate totals for discount breakdown
+        let totalBreakdown = { regular: 0, pwd: 0, senior: 0, student: 0 };
 
         revenueData.conductorTrips.forEach(trip => {
           const dateTime = formatDateTime(trip.date, trip.timestamp);
+
+          // Calculate discount breakdown for this trip
+          const breakdown = parseTicketDiscountBreakdown(trip);
+          totalBreakdown.regular += breakdown.regular;
+          totalBreakdown.pwd += breakdown.pwd;
+          totalBreakdown.senior += breakdown.senior;
+          totalBreakdown.student += breakdown.student;
 
           conductorData.push([
             trip.tripId || 'N/A',
@@ -368,6 +403,10 @@ const Revenue = () => {
             `${trip.from} → ${trip.to}`,
             trip.tripDirection || 'N/A',
             trip.quantity,
+            `₱${breakdown.regular.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `₱${breakdown.pwd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `₱${breakdown.senior.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `₱${breakdown.student.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             `₱${trip.totalFare.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
           ]);
         });
@@ -376,6 +415,10 @@ const Revenue = () => {
         conductorData.push([
           '', '', '', `Conductor Total (${revenueData.conductorTrips.length} tickets):`,
           revenueData.conductorTrips.reduce((sum, trip) => sum + (trip.quantity || 0), 0),
+          `₱${totalBreakdown.regular.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          `₱${totalBreakdown.pwd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          `₱${totalBreakdown.senior.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          `₱${totalBreakdown.student.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           `₱${revenueData.conductorRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         ]);
 
@@ -388,11 +431,15 @@ const Revenue = () => {
           { wch: 25 }, // Route
           { wch: 25 }, // Trip Direction
           { wch: 12 }, // Passengers
+          { wch: 12 }, // Regular
+          { wch: 12 }, // PWD
+          { wch: 12 }, // Senior
+          { wch: 12 }, // Student
           { wch: 15 }  // Revenue
         ];
 
         // Merge title
-        conductorWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 5, r: 0 } }];
+        conductorWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 9, r: 0 } }];
 
         XLSX.utils.book_append_sheet(workbook, conductorWS, 'Conductor Trips');
       }
@@ -402,11 +449,21 @@ const Revenue = () => {
         const preBookingData = [
           ['Pre-booking - Detailed Breakdown'],
           [''],
-          ['Trip ID', 'Date & Time', 'Route', 'Trip Direction', 'Passengers', 'Revenue']
+          ['Trip ID', 'Date & Time', 'Route', 'Trip Direction', 'Passengers', 'Regular', 'PWD', 'Senior', 'Student', 'Revenue']
         ];
+
+        // Calculate totals for discount breakdown
+        let totalBreakdown = { regular: 0, pwd: 0, senior: 0, student: 0 };
 
         revenueData.preBookingTrips.forEach(trip => {
           const dateTime = formatDateTime(trip.date, trip.timestamp);
+
+          // Calculate discount breakdown for this trip
+          const breakdown = parseTicketDiscountBreakdown(trip);
+          totalBreakdown.regular += breakdown.regular;
+          totalBreakdown.pwd += breakdown.pwd;
+          totalBreakdown.senior += breakdown.senior;
+          totalBreakdown.student += breakdown.student;
 
           preBookingData.push([
             trip.tripId || 'N/A',
@@ -414,6 +471,10 @@ const Revenue = () => {
             `${trip.from} → ${trip.to}`,
             trip.tripDirection || 'N/A',
             trip.quantity,
+            `₱${breakdown.regular.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `₱${breakdown.pwd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `₱${breakdown.senior.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `₱${breakdown.student.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             `₱${trip.totalFare.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
           ]);
         });
@@ -422,16 +483,20 @@ const Revenue = () => {
         preBookingData.push([
           '', '', '', `Pre-booking Total (${revenueData.preBookingTrips.length} tickets):`,
           revenueData.preBookingTrips.reduce((sum, trip) => sum + (trip.quantity || 0), 0),
+          `₱${totalBreakdown.regular.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          `₱${totalBreakdown.pwd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          `₱${totalBreakdown.senior.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          `₱${totalBreakdown.student.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           `₱${revenueData.preBookingRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         ]);
 
         const preBookingWS = XLSX.utils.aoa_to_sheet(preBookingData);
 
         preBookingWS['!cols'] = [
-          { wch: 12 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 12 }, { wch: 15 }
+          { wch: 12 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 }
         ];
 
-        preBookingWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 5, r: 0 } }];
+        preBookingWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 9, r: 0 } }];
 
         XLSX.utils.book_append_sheet(workbook, preBookingWS, 'Pre-booking');
       }
@@ -441,11 +506,21 @@ const Revenue = () => {
         const preTicketingData = [
           ['Pre-ticketing - Detailed Breakdown'],
           [''],
-          ['Trip ID', 'Date & Time', 'Route', 'Trip Direction', 'Passengers', 'Revenue']
+          ['Trip ID', 'Date & Time', 'Route', 'Trip Direction', 'Passengers', 'Regular', 'PWD', 'Senior', 'Student', 'Revenue']
         ];
+
+        // Calculate totals for discount breakdown
+        let totalBreakdown = { regular: 0, pwd: 0, senior: 0, student: 0 };
 
         revenueData.preTicketing.forEach(trip => {
           const dateTime = formatDateTime(trip.date, trip.timestamp);
+
+          // Calculate discount breakdown for this trip
+          const breakdown = parseTicketDiscountBreakdown(trip);
+          totalBreakdown.regular += breakdown.regular;
+          totalBreakdown.pwd += breakdown.pwd;
+          totalBreakdown.senior += breakdown.senior;
+          totalBreakdown.student += breakdown.student;
 
           preTicketingData.push([
             trip.tripId || 'N/A',
@@ -453,6 +528,10 @@ const Revenue = () => {
             `${trip.from} → ${trip.to}`,
             trip.tripDirection || 'N/A',
             trip.quantity,
+            `₱${breakdown.regular.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `₱${breakdown.pwd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `₱${breakdown.senior.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `₱${breakdown.student.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             `₱${trip.totalFare.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
           ]);
         });
@@ -461,16 +540,20 @@ const Revenue = () => {
         preTicketingData.push([
           '', '', '', `Pre-ticketing Total (${revenueData.preTicketing.length} tickets):`,
           revenueData.preTicketing.reduce((sum, trip) => sum + (trip.quantity || 0), 0),
+          `₱${totalBreakdown.regular.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          `₱${totalBreakdown.pwd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          `₱${totalBreakdown.senior.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          `₱${totalBreakdown.student.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           `₱${revenueData.preTicketingRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         ]);
 
         const preTicketingWS = XLSX.utils.aoa_to_sheet(preTicketingData);
 
         preTicketingWS['!cols'] = [
-          { wch: 12 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 12 }, { wch: 15 }
+          { wch: 12 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 }
         ];
 
-        preTicketingWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 5, r: 0 } }];
+        preTicketingWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 9, r: 0 } }];
 
         XLSX.utils.book_append_sheet(workbook, preTicketingWS, 'Pre-ticketing');
       }
@@ -505,8 +588,6 @@ const Revenue = () => {
       } catch (logError) {
         console.warn('Failed to log export activity:', logError);
       }
-
-      console.log('Excel file exported successfully');
     } catch (error) {
       console.error('Error exporting to Excel:', error);
       alert('Failed to export to Excel. Please try again.');
@@ -670,7 +751,7 @@ const Revenue = () => {
         {/* Controls - Only show for daily revenue */}
         <div className="revenue-daily-controls">
           <button
-            onClick={handleLoadRevenueData}
+            onClick={handleRefresh}
             disabled={loading}
             className="revenue-refresh-btn"
           >
@@ -774,33 +855,47 @@ const Revenue = () => {
                   <table className="revenue-revenue-table revenue-detailed-breakdown-table daily-revenue-table">
                     <thead>
                       <tr>
-                        <th>Trip ID</th>
-                        <th>Date & Time</th>
-                        <th>Route</th>
-                        <th>Trip Direction</th>
-                        <th>Passengers</th>
-                        <th>Fare</th>
+                        <th rowSpan={2}>Trip ID</th>
+                        <th rowSpan={2}>Date & Time</th>
+                        <th rowSpan={2}>Route</th>
+                        <th rowSpan={2}>Trip Direction</th>
+                        <th rowSpan={2}>Passengers</th>
+                        <th colSpan={4} style={{ textAlign: 'center', backgroundColor: '#f8f9fa', color: '#495057', fontSize: '12px', padding: '10px 8px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Discount Breakdown</th>
+                        <th rowSpan={2}>Fare</th>
+                      </tr>
+                      <tr>
+                        <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>Reg</th>
+                        <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>PWD</th>
+                        <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>Sen</th>
+                        <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>Std</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {revenueData.conductorTrips.map((trip, index) => (
-                        <tr key={index}>
-                          <td className="revenue-trip-id">
-                            {trip.tripId || 'N/A'}
-                          </td>
-                          <td>
-                            {formatDateTime(trip.date, trip.timestamp)}
-                          </td>
-                          <td className="revenue-route-text">
-                            {trip.from} → {trip.to}
-                          </td>
-                          <td className="revenue-trip-direction">
-                            {trip.tripDirection || 'N/A'}
-                          </td>
-                          <td>{trip.quantity}</td>
-                          <td className="revenue-fare-amount">{formatCurrency(trip.totalFare)}</td>
-                        </tr>
-                      ))}
+                      {revenueData.conductorTrips.map((trip, index) => {
+                        const breakdown = parseTicketDiscountBreakdown(trip);
+                        return (
+                          <tr key={index}>
+                            <td className="revenue-trip-id">
+                              {trip.tripId || 'N/A'}
+                            </td>
+                            <td>
+                              {formatDateTime(trip.date, trip.timestamp)}
+                            </td>
+                            <td className="revenue-route-text">
+                              {trip.from} → {trip.to}
+                            </td>
+                            <td className="revenue-trip-direction">
+                              {trip.tripDirection || 'N/A'}
+                            </td>
+                            <td>{trip.quantity}</td>
+                            <td>{formatCurrency(breakdown.regular)}</td>
+                            <td>{formatCurrency(breakdown.pwd)}</td>
+                            <td>{formatCurrency(breakdown.senior)}</td>
+                            <td>{formatCurrency(breakdown.student)}</td>
+                            <td className="revenue-fare-amount">{formatCurrency(trip.totalFare)}</td>
+                          </tr>
+                        );
+                      })}
                       {/* Conductor Total Row */}
                       <tr style={{ backgroundColor: '#f8f9fa', fontWeight: 'bold', borderTop: '2px solid #dee2e6' }}>
                         <td colSpan="4" style={{ textAlign: 'right', padding: '12px', fontSize: '14px' }}>
@@ -808,6 +903,30 @@ const Revenue = () => {
                         </td>
                         <td style={{ textAlign: 'center', padding: '12px' }}>
                           <strong>{revenueData.conductorTrips.reduce((sum, trip) => sum + (trip.quantity || 0), 0)}</strong>
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '12px' }}>
+                          <strong>{formatCurrency(revenueData.conductorTrips.reduce((sum, trip) => {
+                            const breakdown = parseTicketDiscountBreakdown(trip);
+                            return sum + breakdown.regular;
+                          }, 0))}</strong>
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '12px' }}>
+                          <strong>{formatCurrency(revenueData.conductorTrips.reduce((sum, trip) => {
+                            const breakdown = parseTicketDiscountBreakdown(trip);
+                            return sum + breakdown.pwd;
+                          }, 0))}</strong>
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '12px' }}>
+                          <strong>{formatCurrency(revenueData.conductorTrips.reduce((sum, trip) => {
+                            const breakdown = parseTicketDiscountBreakdown(trip);
+                            return sum + breakdown.senior;
+                          }, 0))}</strong>
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '12px' }}>
+                          <strong>{formatCurrency(revenueData.conductorTrips.reduce((sum, trip) => {
+                            const breakdown = parseTicketDiscountBreakdown(trip);
+                            return sum + breakdown.student;
+                          }, 0))}</strong>
                         </td>
                         <td className="revenue-fare-amount" style={{ padding: '12px', color: '#28a745', fontWeight: 'bold' }}>
                           <strong>{formatCurrency(revenueData.conductorRevenue || 0)}</strong>
@@ -825,27 +944,36 @@ const Revenue = () => {
             </div>
           )}
 
-          {/* Pre-booking Section - Show only if no filter or pre-book filter is selected */}
-          {(!selectedTicketType || selectedTicketType === '' || selectedTicketType === 'pre-book') && (
-            <div className="revenue-section-container">
-              <h4 className="revenue-section-title revenue-section-pre-booking">
-                Pre-booking ({formatCurrency(revenueData.preBookingRevenue || 0)})
-              </h4>
-              {revenueData.preBookingTrips && revenueData.preBookingTrips.length > 0 ? (
-                <div className="revenue-table-container">
-                  <table className="revenue-revenue-table revenue-detailed-breakdown-table daily-revenue-table">
-                    <thead>
-                      <tr>
-                        <th>Trip ID</th>
-                        <th>Date & Time</th>
-                        <th>Route</th>
-                        <th>Trip Direction</th>
-                        <th>Passengers</th>
-                        <th>Fare</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {revenueData.preBookingTrips.map((trip, index) => (
+         {/* Pre-booking Section - Show only if no filter or pre-book filter is selected */}
+        {(!selectedTicketType || selectedTicketType === '' || selectedTicketType === 'pre-book') && (
+          <div className="revenue-section-container">
+            <h4 className="revenue-section-title revenue-section-pre-booking">
+              Pre-booking ({formatCurrency(revenueData.preBookingRevenue || 0)})
+            </h4>
+            {revenueData.preBookingTrips && revenueData.preBookingTrips.length > 0 ? (
+              <div className="revenue-table-container">
+                <table className="revenue-revenue-table revenue-detailed-breakdown-table daily-revenue-table">
+                  <thead>
+                    <tr>
+                      <th rowSpan={2}>Trip ID</th>
+                      <th rowSpan={2}>Date & Time</th>
+                      <th rowSpan={2}>Route</th>
+                      <th rowSpan={2}>Trip Direction</th>
+                      <th rowSpan={2}>Passengers</th>
+                      <th colSpan={4} style={{ textAlign: 'center', backgroundColor: '#f8f9fa', color: '#495057', fontSize: '12px', padding: '10px 8px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Discount Breakdown</th>
+                      <th rowSpan={2}>Fare</th>
+                    </tr>
+                    <tr>
+                      <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>Reg</th>
+                      <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>PWD</th>
+                      <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>Sen</th>
+                      <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>Std</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {revenueData.preBookingTrips.map((trip, index) => {
+                      const breakdown = parseTicketDiscountBreakdown(trip);
+                      return (
                         <tr key={index}>
                           <td className="revenue-trip-id">
                             {trip.tripId || 'N/A'}
@@ -860,71 +988,115 @@ const Revenue = () => {
                             {trip.tripDirection || 'N/A'}
                           </td>
                           <td>{trip.quantity}</td>
+                          <td>{formatCurrency(breakdown.regular)}</td>
+                          <td>{formatCurrency(breakdown.pwd)}</td>
+                          <td>{formatCurrency(breakdown.senior)}</td>
+                          <td>{formatCurrency(breakdown.student)}</td>
                           <td className="revenue-fare-amount">{formatCurrency(trip.totalFare)}</td>
                         </tr>
-                      ))}
-                      {/* Pre-booking Total Row */}
-                      <tr style={{ backgroundColor: '#f8f9fa', fontWeight: 'bold', borderTop: '2px solid #dee2e6' }}>
-                        <td colSpan="4" style={{ textAlign: 'right', padding: '12px', fontSize: '14px' }}>
-                          <strong>Pre-booking Total ({revenueData.preBookingTrips?.length || 0} tickets):</strong>
-                        </td>
-                        <td style={{ textAlign: 'center', padding: '12px' }}>
-                          <strong>{revenueData.preBookingTrips?.reduce((sum, trip) => sum + (trip.quantity || 0), 0) || 0}</strong>
-                        </td>
-                        <td className="revenue-fare-amount" style={{ padding: '12px', color: '#28a745', fontWeight: 'bold' }}>
-                          <strong>{formatCurrency(revenueData.preBookingRevenue || 0)}</strong>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="revenue-empty-state">
-                  <h3>No pre-booking data found</h3>
-                  <p>No pre-booking data available for the selected date{selectedRoute ? ` and trip direction: ${selectedRoute}` : ''}.</p>
-                </div>
-              )}
-            </div>
-          )}
+                      );
+                    })}
+                    {/* Pre-booking Total Row */}
+                    <tr style={{ backgroundColor: '#f8f9fa', fontWeight: 'bold', borderTop: '2px solid #dee2e6' }}>
+                      <td colSpan="4" style={{ textAlign: 'right', padding: '12px', fontSize: '14px' }}>
+                        <strong>Pre-booking Total ({revenueData.preBookingTrips?.length || 0} tickets):</strong>
+                      </td>
+                      <td style={{ textAlign: 'center', padding: '12px' }}>
+                        <strong>{revenueData.preBookingTrips?.reduce((sum, trip) => sum + (trip.quantity || 0), 0) || 0}</strong>
+                      </td>
+                      <td style={{ textAlign: 'center', padding: '12px' }}>
+                        <strong>{formatCurrency(revenueData.preBookingTrips.reduce((sum, trip) => {
+                          const breakdown = parseTicketDiscountBreakdown(trip);
+                          return sum + breakdown.regular;
+                        }, 0))}</strong>
+                      </td>
+                      <td style={{ textAlign: 'center', padding: '12px' }}>
+                        <strong>{formatCurrency(revenueData.preBookingTrips.reduce((sum, trip) => {
+                          const breakdown = parseTicketDiscountBreakdown(trip);
+                          return sum + breakdown.pwd;
+                        }, 0))}</strong>
+                      </td>
+                      <td style={{ textAlign: 'center', padding: '12px' }}>
+                        <strong>{formatCurrency(revenueData.preBookingTrips.reduce((sum, trip) => {
+                          const breakdown = parseTicketDiscountBreakdown(trip);
+                          return sum + breakdown.senior;
+                        }, 0))}</strong>
+                      </td>
+                      <td style={{ textAlign: 'center', padding: '12px' }}>
+                        <strong>{formatCurrency(revenueData.preBookingTrips.reduce((sum, trip) => {
+                          const breakdown = parseTicketDiscountBreakdown(trip);
+                          return sum + breakdown.student;
+                        }, 0))}</strong>
+                      </td>
+                      <td className="revenue-fare-amount" style={{ padding: '12px', color: '#28a745', fontWeight: 'bold' }}>
+                        <strong>{formatCurrency(revenueData.preBookingRevenue || 0)}</strong>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="revenue-empty-state">
+                <h3>No pre-booking data found</h3>
+                <p>No pre-booking data available for the selected date{selectedRoute ? ` and trip direction: ${selectedRoute}` : ''}.</p>
+              </div>
+            )}
+          </div>
+        )}
+        </div>
 
-          {/* Pre-ticketing Section - Show only if no filter or pre-ticket filter is selected */}
+        {/* Pre-ticketing Section - Show only if no filter or pre-ticket filter is selected */}
           {(!selectedTicketType || selectedTicketType === '' || selectedTicketType === 'pre-ticket') && (
             <div className="revenue-section-container">
               <h4 className="revenue-section-title revenue-section-pre-ticketing">
                 Pre-ticketing ({formatCurrency(revenueData.preTicketingRevenue || 0)})
               </h4>
-              {revenueData.preTicketing.length > 0 ? (
+              {revenueData.preTicketing && revenueData.preTicketing.length > 0 ? (
                 <div className="revenue-table-container">
                   <table className="revenue-revenue-table revenue-detailed-breakdown-table daily-revenue-table">
                     <thead>
                       <tr>
-                        <th>Trip ID</th>
-                        <th>Date & Time</th>
-                        <th>Route</th>
-                        <th>Trip Direction</th>
-                        <th>Passengers</th>
-                        <th>Fare</th>
+                        <th rowSpan={2}>Trip ID</th>
+                        <th rowSpan={2}>Date & Time</th>
+                        <th rowSpan={2}>Route</th>
+                        <th rowSpan={2}>Trip Direction</th>
+                        <th rowSpan={2}>Passengers</th>
+                        <th colSpan={4} style={{ textAlign: 'center', backgroundColor: '#f8f9fa', color: '#495057', fontSize: '12px', padding: '10px 8px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Discount Breakdown</th>
+                        <th rowSpan={2}>Fare</th>
+                      </tr>
+                      <tr>
+                        <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>Reg</th>
+                        <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>PWD</th>
+                        <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>Sen</th>
+                        <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>Std</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {revenueData.preTicketing.map((trip, index) => (
-                        <tr key={index}>
-                          <td className="revenue-trip-id">
-                            {trip.tripId || 'N/A'}
-                          </td>
-                          <td>
-                            {formatDateTime(trip.date, trip.timestamp)}
-                          </td>
-                          <td className="revenue-route-text">
-                            {trip.from} → {trip.to}
-                          </td>
-                          <td className="revenue-trip-direction">
-                            {trip.tripDirection || 'N/A'}
-                          </td>
-                          <td>{trip.quantity}</td>
-                          <td className="revenue-fare-amount">{formatCurrency(trip.totalFare)}</td>
-                        </tr>
-                      ))}
+                      {revenueData.preTicketing.map((trip, index) => {
+                        const breakdown = parseTicketDiscountBreakdown(trip);
+                        return (
+                          <tr key={index}>
+                            <td className="revenue-trip-id">
+                              {trip.tripId || 'N/A'}
+                            </td>
+                            <td>
+                              {formatDateTime(trip.date, trip.timestamp)}
+                            </td>
+                            <td className="revenue-route-text">
+                              {trip.from} → {trip.to}
+                            </td>
+                            <td className="revenue-trip-direction">
+                              {trip.tripDirection || 'N/A'}
+                            </td>
+                            <td>{trip.quantity}</td>
+                            <td>{formatCurrency(breakdown.regular)}</td>
+                            <td>{formatCurrency(breakdown.pwd)}</td>
+                            <td>{formatCurrency(breakdown.senior)}</td>
+                            <td>{formatCurrency(breakdown.student)}</td>
+                            <td className="revenue-fare-amount">{formatCurrency(trip.totalFare)}</td>
+                          </tr>
+                        );
+                      })}
                       {/* Pre-ticketing Total Row */}
                       <tr style={{ backgroundColor: '#f8f9fa', fontWeight: 'bold', borderTop: '2px solid #dee2e6' }}>
                         <td colSpan="4" style={{ textAlign: 'right', padding: '12px', fontSize: '14px' }}>
@@ -932,6 +1104,30 @@ const Revenue = () => {
                         </td>
                         <td style={{ textAlign: 'center', padding: '12px' }}>
                           <strong>{revenueData.preTicketing.reduce((sum, trip) => sum + (trip.quantity || 0), 0)}</strong>
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '12px' }}>
+                          <strong>{formatCurrency(revenueData.preTicketing.reduce((sum, trip) => {
+                            const breakdown = parseTicketDiscountBreakdown(trip);
+                            return sum + breakdown.regular;
+                          }, 0))}</strong>
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '12px' }}>
+                          <strong>{formatCurrency(revenueData.preTicketing.reduce((sum, trip) => {
+                            const breakdown = parseTicketDiscountBreakdown(trip);
+                            return sum + breakdown.pwd;
+                          }, 0))}</strong>
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '12px' }}>
+                          <strong>{formatCurrency(revenueData.preTicketing.reduce((sum, trip) => {
+                            const breakdown = parseTicketDiscountBreakdown(trip);
+                            return sum + breakdown.senior;
+                          }, 0))}</strong>
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '12px' }}>
+                          <strong>{formatCurrency(revenueData.preTicketing.reduce((sum, trip) => {
+                            const breakdown = parseTicketDiscountBreakdown(trip);
+                            return sum + breakdown.student;
+                          }, 0))}</strong>
                         </td>
                         <td className="revenue-fare-amount" style={{ padding: '12px', color: '#28a745', fontWeight: 'bold' }}>
                           <strong>{formatCurrency(revenueData.preTicketingRevenue || 0)}</strong>
@@ -948,7 +1144,6 @@ const Revenue = () => {
               )}
             </div>
           )}
-        </div>
 
       </div>
     );

@@ -89,9 +89,14 @@ export const getAvailableRoutes = async () => {
 // Get main analytics data overview using DailyRevenue functions
 export const getTicketAnalyticsData = async (timeRange, route, ticketType = '') => {
   try {
+    console.log('=== TICKET ANALYTICS: getTicketAnalyticsData START ===');
+    console.log('Input params:', { timeRange, route, ticketType });
+    
     // Convert timeRange to date range
     const now = new Date();
     let startDate = new Date();
+    
+    console.log('Current date (now):', now.toISOString());
     
     switch (timeRange) {
       case 'last_7_days':
@@ -113,6 +118,13 @@ export const getTicketAnalyticsData = async (timeRange, route, ticketType = '') 
         startDate.setDate(now.getDate() - 30);
     }
 
+    console.log('Date range:', {
+      startDate: startDate.toISOString(),
+      endDate: now.toISOString(),
+      startDateLocal: startDate.toLocaleDateString(),
+      endDateLocal: now.toLocaleDateString()
+    });
+
     // Use DailyRevenue functions to get comprehensive data
     // For range queries, we need to aggregate data from multiple dates
     let allConductorTrips = [];
@@ -124,6 +136,9 @@ export const getTicketAnalyticsData = async (timeRange, route, ticketType = '') 
     const conductorsSnapshot = await getDocs(conductorsRef);
     const relevantDates = new Set();
 
+    console.log('Finding dates within range...');
+    let dateCheckCount = 0;
+
     // Find all dates within the time range
     for (const conductorDoc of conductorsSnapshot.docs) {
       const conductorId = conductorDoc.id;
@@ -132,29 +147,54 @@ export const getTicketAnalyticsData = async (timeRange, route, ticketType = '') 
         const dailyTripsRef = collection(db, `conductors/${conductorId}/dailyTrips`);
         const dailyTripsSnapshot = await getDocs(dailyTripsRef);
         
+        console.log(`Conductor ${conductorId}: Found ${dailyTripsSnapshot.docs.length} date documents`);
+        
         for (const dateDoc of dailyTripsSnapshot.docs) {
           const dateData = dateDoc.data();
           const dateId = dateDoc.id;
+          dateCheckCount++;
           
           let tripDate;
           if (dateData.createdAt) {
             tripDate = dateData.createdAt.toDate ? dateData.createdAt.toDate() : new Date(dateData.createdAt);
+            console.log(`Date ${dateId} (from createdAt):`, {
+              tripDate: tripDate.toISOString(),
+              tripDateLocal: tripDate.toLocaleDateString(),
+              isInRange: tripDate >= startDate && tripDate <= now
+            });
           } else {
             tripDate = new Date(dateId);
+            console.log(`Date ${dateId} (from dateId):`, {
+              tripDate: tripDate.toISOString(),
+              tripDateLocal: tripDate.toLocaleDateString(),
+              isInRange: tripDate >= startDate && tripDate <= now
+            });
           }
           
           if (tripDate >= startDate && tripDate <= now) {
             relevantDates.add(dateId);
+            console.log(`✓ Date ${dateId} is INCLUDED in range`);
+          } else {
+            console.log(`✗ Date ${dateId} is EXCLUDED from range`);
           }
         }
       } catch (error) {
+        console.error(`Error processing conductor ${conductorId}:`, error);
         continue;
       }
     }
 
+    console.log('Date filtering complete:', {
+      totalDatesChecked: dateCheckCount,
+      relevantDatesFound: relevantDates.size,
+      relevantDatesList: Array.from(relevantDates)
+    });
+
     // Fetch data for each relevant date
+    let datesFetched = 0;
     for (const dateId of relevantDates) {
       try {
+        console.log(`Fetching data for date: ${dateId}`);
         const routeFilter = route === 'all' ? null : route;
         
         const [{ conductorTrips }, preBookingTrips, preTicketing] = await Promise.all([
@@ -163,14 +203,28 @@ export const getTicketAnalyticsData = async (timeRange, route, ticketType = '') 
           fetchPreTicketing(dateId, routeFilter)
         ]);
 
+        console.log(`Data fetched for ${dateId}:`, {
+          conductorTrips: conductorTrips.length,
+          preBookingTrips: preBookingTrips.length,
+          preTicketing: preTicketing.length
+        });
+
         allConductorTrips = [...allConductorTrips, ...conductorTrips];
         allPreBookingTrips = [...allPreBookingTrips, ...preBookingTrips];
         allPreTicketing = [...allPreTicketing, ...preTicketing];
+        datesFetched++;
       } catch (error) {
         console.error(`Error fetching data for date ${dateId}:`, error);
         continue;
       }
     }
+
+    console.log('All data fetched:', {
+      datesFetched,
+      totalConductorTrips: allConductorTrips.length,
+      totalPreBookingTrips: allPreBookingTrips.length,
+      totalPreTicketing: allPreTicketing.length
+    });
 
     // Apply ticket type filtering
     let filteredConductorTrips = allConductorTrips;
@@ -178,6 +232,7 @@ export const getTicketAnalyticsData = async (timeRange, route, ticketType = '') 
     let filteredPreTicketing = allPreTicketing;
 
     if (ticketType && ticketType !== '') {
+      console.log(`Applying ticket type filter: ${ticketType}`);
       switch (ticketType) {
         case 'conductor':
           filteredPreBookingTrips = [];
@@ -192,17 +247,25 @@ export const getTicketAnalyticsData = async (timeRange, route, ticketType = '') 
           filteredPreBookingTrips = [];
           break;
       }
+      
+      console.log('After ticket type filtering:', {
+        conductorTrips: filteredConductorTrips.length,
+        preBookingTrips: filteredPreBookingTrips.length,
+        preTicketing: filteredPreTicketing.length
+      });
     }
 
     // Use DailyRevenue's calculateRevenueMetrics function with filtered data
     const metrics = calculateRevenueMetrics(filteredConductorTrips, filteredPreBookingTrips, filteredPreTicketing);
+    
+    console.log('Calculated metrics:', metrics);
     
     // Business metrics
     const marketShare = 23.8;
     const customerSatisfactionScore = 4.2;
     const onTimePerformance = 91.5;
     
-    return {
+    const result = {
       totalTicketsSold: metrics.totalPassengers,
       totalRevenue: Math.round(metrics.totalRevenue * 100) / 100,
       averageTicketPrice: Math.round(metrics.averageFare * 100) / 100,
@@ -220,8 +283,17 @@ export const getTicketAnalyticsData = async (timeRange, route, ticketType = '') 
       }
     };
     
+    console.log('=== TICKET ANALYTICS: getTicketAnalyticsData END ===');
+    console.log('Returning result:', {
+      totalTicketsSold: result.totalTicketsSold,
+      totalRevenue: result.totalRevenue,
+      averageTicketPrice: result.averageTicketPrice
+    });
+    
+    return result;
+    
   } catch (error) {
-    console.error('Error fetching analytics data:', error);
+    console.error('=== ERROR in getTicketAnalyticsData ===', error);
     return {
       totalTicketsSold: 0,
       totalRevenue: 0,
@@ -245,6 +317,8 @@ export const getTicketAnalyticsData = async (timeRange, route, ticketType = '') 
 // Demand patterns analysis
 export const getDemandPatternsData = async (timeRange, route, ticketType = '') => {
   try {
+    console.log('=== DEMAND PATTERNS: getDemandPatternsData START ===');
+    
     // Get analytics data to access raw trip data
     const analyticsData = await getTicketAnalyticsData(timeRange, route, ticketType);
     const { rawData } = analyticsData;
@@ -252,7 +326,10 @@ export const getDemandPatternsData = async (timeRange, route, ticketType = '') =
     // Combine all trip data
     const allTrips = [...rawData.conductorTrips, ...rawData.preBookingTrips, ...rawData.preTicketing];
     
+    console.log('Demand patterns - all trips count:', allTrips.length);
+    
     if (allTrips.length === 0) {
+      console.log('No trips data for demand patterns');
       return {
         peakHours: [],
         seasonalTrends: [],
@@ -307,9 +384,17 @@ export const getDemandPatternsData = async (timeRange, route, ticketType = '') =
       }
     });
 
+    console.log('Time field analysis:', timeFieldsFound);
+    console.log('Processed tickets for peak hours:', processedCount);
+
     // Calculate peak hours with demand percentages
     const maxTickets = Math.max(...hourlyDemand.map(h => h.ticketsCount));
     const hoursWithData = hourlyDemand.filter(h => h.ticketsCount > 0);
+    
+    console.log('Peak hours data:', {
+      maxTickets,
+      hoursWithData: hoursWithData.length
+    });
     
     const peakHours = hourlyDemand
       .filter(h => h.ticketsCount > 0)
@@ -352,6 +437,8 @@ export const getDemandPatternsData = async (timeRange, route, ticketType = '') =
     });
 
     const totalTickets = Object.values(datePatterns).reduce((sum, data) => sum + data.tickets, 0);
+    
+    console.log('Date patterns:', datePatterns);
     
     const seasonalTrends = Object.entries(datePatterns)
       .map(([day, data]) => ({
@@ -396,6 +483,8 @@ export const getDemandPatternsData = async (timeRange, route, ticketType = '') =
     ].filter(driver => driver.impact > 0)
      .sort((a, b) => b.impact - a.impact);
 
+    console.log('=== DEMAND PATTERNS: getDemandPatternsData END ===');
+    
     return {
       peakHours,
       seasonalTrends: seasonalTrends.slice(0, 7), // Top 7 trends
@@ -403,7 +492,7 @@ export const getDemandPatternsData = async (timeRange, route, ticketType = '') =
     };
     
   } catch (error) {
-    console.error('Error fetching demand patterns:', error);
+    console.error('=== ERROR in getDemandPatternsData ===', error);
     return {
       peakHours: [],
       seasonalTrends: [],
@@ -411,6 +500,9 @@ export const getDemandPatternsData = async (timeRange, route, ticketType = '') =
     };
   }
 };
+
+// Continue with rest of the functions...
+// (I'll include the remaining functions without changes to keep the file complete)
 
 // Route performance analysis using direction field from database
 export const getRoutePerformanceData = async (timeRange, route, ticketType = '') => {

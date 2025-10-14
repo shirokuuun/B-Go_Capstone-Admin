@@ -675,7 +675,7 @@ html, body {
   width: 100%;
   display: flex;
   flex-direction: column;
-  min-height: auto; /* Remove fixed height */
+  min-height: auto;
 }
 
 .revenue-breakdown-title {
@@ -698,16 +698,22 @@ html, body {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  min-height: auto; /* Remove fixed height */
+  min-height: auto;
 }
 
 .revenue-section-title {
   margin-bottom: 15px;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 8px 0;
+}
+
+.revenue-section-title span {
+  font-size: 12px !important;
+  font-weight: 500 !important;
 }
 
 .revenue-section-title.revenue-section-conductor {
@@ -720,6 +726,227 @@ html, body {
 
 .revenue-section-title.revenue-section-pre-ticketing {
   color: #82ca9d;
+}
+
+/* =========================
+   DAILY REVENUE DETAILED BREAKDOWN TABLE - MODERN DESIGN
+   ========================= */
+
+.daily-revenue-table {
+  width: 100%;
+  border-collapse: collapse !important;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  table-layout: fixed;
+  border: 1px solid #dee2e6;
+}
+
+/* Header styling - Purple gradient */
+.daily-revenue-table thead tr:first-child th {
+  background-color: #f8f9fa;
+  color: #495057;
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 10px 8px;
+  border: 1px solid #dee2e6;
+  text-align: center;
+  vertical-align: middle;
+  line-height: 1.2;
+}
+
+/* Second header row (discount breakdown sub-headers) */
+.daily-revenue-table thead tr:nth-child(2) th {
+  background: #f8f9fa;
+  color: #495057;
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 6px;
+  border: 1px solid #dee2e6;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* Body cells */
+.daily-revenue-table tbody td {
+ padding: 8px 6px;
+  border: 1px solid #e9ecef;
+  color: #495057;
+  font-size: 11px;
+  vertical-align: middle;
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* Hover effect on rows */
+.daily-revenue-table tbody tr:hover {
+  background-color: #f8f9fa;
+  transition: background-color 0.2s ease;
+}
+
+/* Remove last row border before total */
+.daily-revenue-table tbody tr:not(:last-child):last-of-type td {
+  border-bottom: none;
+}
+
+/* Trip ID column */
+.daily-revenue-table .revenue-trip-id {
+  font-weight: 600;
+  color: #212529;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+/* Date & Time column */
+.daily-revenue-table tbody td:nth-child(2) {
+  color: #17a2b8;
+  font-size: 10px;
+  text-align: center;
+  font-weight: 500;
+  font-style: italic;
+}
+
+/* Route column */
+.daily-revenue-table .revenue-route-text {
+  font-weight: 500;
+  color: #2c3e50;
+  text-align: center;
+  font-size: 11px;
+}
+
+/* Trip Direction column */
+.daily-revenue-table .revenue-trip-direction {
+  color: #2c3e50;
+  font-style: italic;
+  text-align: center;
+  font-weight: 500;
+  font-size: 10px;
+}
+
+/* Passengers column */
+.daily-revenue-table tbody td:nth-child(5) {
+  font-weight: 600;
+  color: #495057;
+}
+
+/* Discount breakdown columns (Reg, PWD, Sen, Std) */
+.daily-revenue-table tbody td:nth-child(6),
+.daily-revenue-table tbody td:nth-child(7),
+.daily-revenue-table tbody td:nth-child(8),
+.daily-revenue-table tbody td:nth-child(9) {
+  font-weight: 600;
+  color: #495057;
+  font-size: 10px;
+}
+
+/* Revenue/Fare column */
+.daily-revenue-table .revenue-fare-amount {
+  font-weight: 700;
+  color: #28a745;
+  text-align: right;
+  font-size: 11px;
+}
+
+/* Total row styling - Gradient background */
+.daily-revenue-table tbody tr:last-child {
+  background-color: #e8f4f8 !important;
+  border-top: 2px solid #17a2b8 !important;
+}
+
+.daily-revenue-table tbody tr:last-child td {
+  font-weight: bold !important;
+  color: #2c3e50 !important;
+  padding: 8px 6px !important;
+  font-size: 11px !important;
+  border: 1px solid #dee2e6;
+  text-align: center;
+}
+
+.daily-revenue-table tbody tr:last-child td:first-child {
+  text-align: right !important;
+}
+
+.daily-revenue-table tbody tr:last-child td:last-child {
+  color: #28a745 !important;
+  font-weight: bold !important;
+  text-align: right !important;
+}
+
+/* Column widths for better spacing - 10 columns total */
+.daily-revenue-table th:nth-child(1),
+.daily-revenue-table td:nth-child(1) {
+  width: 6%;
+}
+
+.daily-revenue-table th:nth-child(2),
+.daily-revenue-table td:nth-child(2) {
+  width: 12%;
+}
+
+.daily-revenue-table th:nth-child(3),
+.daily-revenue-table td:nth-child(3) {
+  width: 18%;
+}
+
+.daily-revenue-table th:nth-child(4),
+.daily-revenue-table td:nth-child(4) {
+  width: 15%;
+}
+
+.daily-revenue-table th:nth-child(5),
+.daily-revenue-table td:nth-child(5) {
+  width: 10%;
+}
+
+/* Discount columns - Equal width */
+.daily-revenue-table th:nth-child(6),
+.daily-revenue-table td:nth-child(6),
+.daily-revenue-table th:nth-child(7),
+.daily-revenue-table td:nth-child(7),
+.daily-revenue-table th:nth-child(8),
+.daily-revenue-table td:nth-child(8),
+.daily-revenue-table th:nth-child(9),
+.daily-revenue-table td:nth-child(9) {
+  width: 25%;
+}
+
+/* Fare column */
+.daily-revenue-table th:nth-child(10),
+.daily-revenue-table td:nth-child(10) {
+  width: 1%;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .daily-revenue-table {
+    font-size: 9px;
+    min-width: 900px;
+  }
+  
+  .daily-revenue-table thead tr:first-child th {
+    font-size: 8px;
+    padding: 8px 6px;
+  }
+  
+  .daily-revenue-table thead tr:nth-child(2) th {
+    font-size: 8px;
+    padding: 6px 4px;
+  }
+  
+  .daily-revenue-table tbody td {
+    padding: 6px 4px;
+    font-size: 9px;
+  }
+
+  .daily-revenue-table tbody tr:last-child td {
+    padding: 6px 4px;
+    font-size: 9px;
+  }
 }
 
 /* =========================
@@ -737,7 +964,7 @@ html, body {
 
 /* Remittance summary cards with remittance-specific colors */
 .revenue-remittance-summary-card-container {
-  background: #17a2b8; /* Teal color for remittance */
+  background: #17a2b8;
   border-radius: 1rem;
   padding: 1.5rem 1.5rem 0.3rem 1.5rem;
   margin-bottom: 2rem;
@@ -835,7 +1062,7 @@ html, body {
 .revenue-remittance-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 900px; /* Wider for remittance columns */
+  min-width: 900px;
   background: white;
   margin: 0 auto;
   table-layout: auto;
@@ -972,8 +1199,8 @@ html, body {
   scrollbar-width: thin;
   scrollbar-color: #ccc #f1f1f1;
   background: white;
-  min-height: auto; /* Remove fixed height */
-  max-height: none; /* Remove height restriction */
+  min-height: auto;
+  max-height: none;
 }
 
 .revenue-table-container::-webkit-scrollbar {
@@ -994,105 +1221,454 @@ html, body {
   background: #999;
 }
 
-.revenue-revenue-table {
+
+
+/* =========================
+   REMITTANCE BASE TABLE - Separate from Daily Revenue tables
+   ========================= */
+.revenue-remittance-base-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 800px;
   background: white;
   margin: 0 auto;
   table-layout: fixed;
   border: 1px solid #dee2e6;
 }
 
-/* =========================
-   REMITTANCE TABLE COLUMN WIDTHS (7-column layout with Bus #)
-   ========================= */
-.revenue-remittance-breakdown-table th:nth-child(1),
-.revenue-remittance-breakdown-table td:nth-child(1) {
-  width: 15%; /* Conductor ID */
-  min-width: 80px;
+.revenue-remittance-base-table thead tr {
+  background-color: #f8f9fa;
 }
 
-.revenue-remittance-breakdown-table th:nth-child(2),
-.revenue-remittance-breakdown-table td:nth-child(2) {
-  width: 8%; /* Bus # */
-  min-width: 60px;
-  text-align: center;
+.revenue-remittance-base-table th {
+  padding: 10px 8px;
+  text-align: left;
+  border: 1px solid #dee2e6;
+  font-weight: 600;
+  color: #495057;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  background-color: #f8f9fa;
+  vertical-align: middle;
+  line-height: 1.2;
 }
 
-.revenue-remittance-breakdown-table th:nth-child(3),
-.revenue-remittance-breakdown-table td:nth-child(3) {
-  width: 10%; /* Trip # */
-  min-width: 80px;
-  text-align: center;
+.revenue-remittance-base-table td {
+  padding: 8px 6px;
+  border: 1px solid #e9ecef;
+  color: #495057;
+  font-size: 12px;
+  vertical-align: top;
+  line-height: 1.3;
+  font-weight: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
-.revenue-remittance-breakdown-table th:nth-child(4),
-.revenue-remittance-breakdown-table td:nth-child(4) {
-  width: 20%; /* Date & Time */
-  min-width: 140px;
+.revenue-remittance-base-table tbody tr:hover {
+  background-color: #f8f9fa;
 }
 
-.revenue-remittance-breakdown-table th:nth-child(5),
-.revenue-remittance-breakdown-table td:nth-child(5) {
-  width: 25%; /* Trip Direction */
-  min-width: 160px;
-}
-
-.revenue-remittance-breakdown-table th:nth-child(6),
-.revenue-remittance-breakdown-table td:nth-child(6) {
-  width: 10%; /* Tickets */
-  min-width: 70px;
-  text-align: center;
-}
-
-.revenue-remittance-breakdown-table th:nth-child(7),
-.revenue-remittance-breakdown-table td:nth-child(7) {
-  width: 12%; /* Revenue */
-  min-width: 90px;
-  text-align: right;
+.revenue-remittance-base-table tbody tr:last-child td {
+  border-bottom: 1px solid #dee2e6;
 }
 
 /* =========================
-   DAILY REVENUE DETAILED BREAKDOWN TABLE COLUMN WIDTHS (6-column layout)
+   DAILY TRIPS REMITTANCE SUMMARY TABLE - Main summary table ONLY
    ========================= */
-.revenue-detailed-breakdown-table th:nth-child(1),
-.revenue-detailed-breakdown-table td:nth-child(1) {
-  width: 7%; /* Trip ID */
-  min-width: 30px;
+
+/* Column widths for MAIN SUMMARY TABLE - Optimized spacing */
+.revenue-remittance-summary-table th:nth-child(1),
+.revenue-remittance-summary-table td:nth-child(1) {
+  width: 10%;
 }
 
-.revenue-detailed-breakdown-table th:nth-child(2),
-.revenue-detailed-breakdown-table td:nth-child(2) {
-  width: 18%; /* Date & Time */
-  min-width: 140px;
-}
-
-.revenue-detailed-breakdown-table th:nth-child(3),
-.revenue-detailed-breakdown-table td:nth-child(3) {
-  width: 25%; /* Route */
-  min-width: 180px;
-}
-
-.revenue-detailed-breakdown-table th:nth-child(4),
-.revenue-detailed-breakdown-table td:nth-child(4) {
-  width: 15%; /* Trip Direction */
-  min-width: 160px;
-}
-
-.revenue-detailed-breakdown-table th:nth-child(5),
-.revenue-detailed-breakdown-table td:nth-child(5) {
-  width: 9%; /* Passengers */
-  min-width: 80px;
+.revenue-remittance-summary-table th:nth-child(2),
+.revenue-remittance-summary-table td:nth-child(2) {
+  width: 5%;
   text-align: center;
 }
 
-.revenue-detailed-breakdown-table th:nth-child(6),
-.revenue-detailed-breakdown-table td:nth-child(6) {
-  width: 7%; /* Fare */
-  min-width: 90px;
-  text-align: right;
+.revenue-remittance-summary-table th:nth-child(3),
+.revenue-remittance-summary-table td:nth-child(3) {
+  width: 6%;
+  text-align: center;
 }
+
+.revenue-remittance-summary-table th:nth-child(4),
+.revenue-remittance-summary-table td:nth-child(4) {
+  width: 13%;
+}
+
+.revenue-remittance-summary-table th:nth-child(5),
+.revenue-remittance-summary-table td:nth-child(5) {
+  width: 18%;
+}
+
+.revenue-remittance-summary-table th:nth-child(6),
+.revenue-remittance-summary-table td:nth-child(6) {
+  width: 6%;
+  text-align: center;
+}
+
+/* Discount Breakdown columns (7-10) - Better spacing for readability */
+.revenue-remittance-summary-table th:nth-child(7),
+.revenue-remittance-summary-table td:nth-child(7),
+.revenue-remittance-summary-table th:nth-child(8),
+.revenue-remittance-summary-table td:nth-child(8),
+.revenue-remittance-summary-table th:nth-child(9),
+.revenue-remittance-summary-table td:nth-child(9),
+.revenue-remittance-summary-table th:nth-child(10),
+.revenue-remittance-summary-table td:nth-child(10) {
+  width: 25%;
+  text-align: center;
+}
+
+/* Revenue column - Appropriate width without too much space */
+.revenue-remittance-summary-table th:nth-child(11),
+.revenue-remittance-summary-table td:nth-child(11) {
+  width: 10%;
+  text-align: right;
+  min-width: 0 !important;
+}
+
+/* Revenue column - Adjusted width */
+.revenue-remittance-summary-table th:nth-child(11),
+.revenue-remittance-summary-table td:nth-child(11) {
+  width: 12%;
+  text-align: right;
+  min-width: 0 !important;
+}
+
+.revenue-remittance-summary-table tbody tr:last-child td {
+  font-size: 11px !important;
+  font-weight: bold !important;
+  padding: 8px 6px !important;
+  background-color: #e8f4f8 !important;
+  color: #000000 !important;
+}
+
+.revenue-remittance-summary-table tbody tr:last-child {
+  border-top: 2px solid #17a2b8 !important;
+}
+
+/* Fix alignment for total row cells */
+.revenue-remittance-summary-table tbody tr:last-child td:nth-child(1) {
+  text-align: right !important;
+}
+
+.revenue-remittance-summary-table tbody tr:last-child td:nth-child(2),
+.revenue-remittance-summary-table tbody tr:last-child td:nth-child(3),
+.revenue-remittance-summary-table tbody tr:last-child td:nth-child(4),
+.revenue-remittance-summary-table tbody tr:last-child td:nth-child(5) {
+  text-align: center !important;
+}
+
+.revenue-remittance-summary-table tbody tr:last-child td:nth-child(6) {
+  text-align: center !important;
+}
+
+.revenue-remittance-summary-table tbody tr:last-child td:nth-child(7),
+.revenue-remittance-summary-table tbody tr:last-child td:nth-child(8),
+.revenue-remittance-summary-table tbody tr:last-child td:nth-child(9),
+.revenue-remittance-summary-table tbody tr:last-child td:nth-child(10) {
+  text-align: center !important;
+}
+
+.revenue-remittance-summary-table tbody tr:last-child td:nth-child(11) {
+  text-align: right !important;
+}
+
+
+
+/* Ensure total row border matches conductor table */
+.revenue-remittance-summary-table tbody tr:last-child {
+   border-top: 2px solid #17a2b8 !important;
+}
+
+/* =========================
+   DAILY TRIPS REMITTANCE SUMMARY - SIZE ADJUSTMENTS
+   ========================= */
+
+.revenue-remittance-summary-table {
+  font-size: 11px !important;
+}
+
+.revenue-remittance-summary-table th {
+  font-size: 10px !important;
+  padding: 8px 6px !important;
+  line-height: 1.2 !important;
+}
+
+.revenue-remittance-summary-table td {
+  font-size: 11px !important;
+  padding: 6px 4px !important;
+  line-height: 1.3 !important;
+}
+
+/* Conductor ID column */
+.revenue-remittance-summary-table td:nth-child(1) {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  color: #495057 !important;
+}
+
+/* Bus # column */
+.revenue-remittance-summary-table td:nth-child(2) {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: #495057 !important;
+}
+
+/* Trip # column */
+.revenue-remittance-summary-table td:nth-child(3) {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: #2c3e50 !important;
+  text-transform: uppercase;
+}
+
+/* Date & Time column - smaller and more compact */
+.revenue-remittance-summary-table td:nth-child(4) {
+  font-size: 10px !important;
+  line-height: 1.2 !important;
+  color: #17a2b8 !important;
+  font-weight: 500 !important;
+  font-style: italic !important;
+  text-transform: capitalize;
+}
+
+/* Trip Direction column - smaller */
+.revenue-remittance-summary-table td:nth-child(5) {
+  font-size: 10px !important;
+  line-height: 1.2 !important;
+  font-style: italic !important;
+  color: #2c3e50 !important;
+  font-weight: 500 !important;
+  text-transform: capitalize;
+}
+
+/* Tickets column */
+.revenue-remittance-summary-table td:nth-child(6) {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #495057 !important;
+}
+
+/* Discount breakdown columns (7-10) - Reg, PWD, Sen, Std */
+.revenue-remittance-summary-table td:nth-child(7),
+.revenue-remittance-summary-table td:nth-child(8),
+.revenue-remittance-summary-table td:nth-child(9),
+.revenue-remittance-summary-table td:nth-child(10) {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+}
+
+/* Revenue column */
+.revenue-remittance-summary-table td:nth-child(11) {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+  .revenue-remittance-summary-table {
+    font-size: 9px !important;
+  }
+  
+  .revenue-remittance-summary-table th {
+    font-size: 8px !important;
+    padding: 6px 4px !important;
+  }
+  
+  .revenue-remittance-summary-table td {
+    font-size: 9px !important;
+    padding: 4px 3px !important;
+  }
+}
+
+/* =========================
+   DETAILED BREAKDOWN BY CONDUCTOR TABLE - Per-conductor breakdown
+   ========================= */
+
+.revenue-remittance-conductor-table th:nth-child(1),
+.revenue-remittance-conductor-table td:nth-child(1) {
+  width: 8%;
+  text-align: center;
+}
+
+.revenue-remittance-conductor-table th:nth-child(2),
+.revenue-remittance-conductor-table td:nth-child(2) {
+  width: 15%;
+}
+
+.revenue-remittance-conductor-table th:nth-child(3),
+.revenue-remittance-conductor-table td:nth-child(3) {
+  width: 20%;
+}
+
+.revenue-remittance-conductor-table th:nth-child(4),
+.revenue-remittance-conductor-table td:nth-child(4) {
+  width: 8%;
+  text-align: center;
+}
+
+/* Discount Breakdown columns (5-8) */
+.revenue-remittance-conductor-table th:nth-child(5),
+.revenue-remittance-conductor-table td:nth-child(5),
+.revenue-remittance-conductor-table th:nth-child(6),
+.revenue-remittance-conductor-table td:nth-child(6),
+.revenue-remittance-conductor-table th:nth-child(7),
+.revenue-remittance-conductor-table td:nth-child(7),
+.revenue-remittance-conductor-table th:nth-child(8),
+.revenue-remittance-conductor-table td:nth-child(8) {
+  width: 20%;
+  text-align: center;
+  font-size: 12px;
+}
+
+.revenue-remittance-conductor-table th:nth-child(9),
+.revenue-remittance-conductor-table td:nth-child(9) {
+  width: 11%;
+  text-align: right;
+  min-width: 0 !important;
+}
+
+/* =========================
+   DETAILED BREAKDOWN BY CONDUCTOR - SIZE ADJUSTMENTS
+   ========================= */
+
+.revenue-remittance-conductor-table {
+  font-size: 11px !important;
+}
+
+.revenue-remittance-conductor-table th {
+  font-size: 10px !important;
+  padding: 8px 6px !important;
+  line-height: 1.2 !important;
+}
+
+.revenue-remittance-conductor-table td {
+  font-size: 11px !important;
+  padding: 6px 4px !important;
+  line-height: 1.3 !important;
+}
+
+/* Make Trip # column more compact */
+.revenue-remittance-conductor-table td:nth-child(1) {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: #2c3e50 !important;
+  text-transform: uppercase;
+}
+
+/* Date & Time column */
+.revenue-remittance-conductor-table td:nth-child(2) {
+  font-size: 10px !important;
+  line-height: 1.2 !important;
+  color: #17a2b8 !important;
+  font-weight: 500 !important;
+  font-style: italic !important;
+  text-transform: capitalize;
+}
+
+/* Direction column */
+.revenue-remittance-conductor-table td:nth-child(3) {
+  font-size: 10px !important;
+  line-height: 1.2 !important;
+  font-style: italic !important;
+  color: #2c3e50 !important;
+  font-weight: 500 !important;
+  text-transform: capitalize;
+}
+
+/* Passengers column */
+.revenue-remittance-conductor-table td:nth-child(4) {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #495057 !important;
+}
+
+/* Discount breakdown columns (5-8) */
+.revenue-remittance-conductor-table td:nth-child(5),
+.revenue-remittance-conductor-table td:nth-child(6),
+.revenue-remittance-conductor-table td:nth-child(7),
+.revenue-remittance-conductor-table td:nth-child(8) {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+}
+
+/* Revenue column */
+.revenue-remittance-conductor-table td:nth-child(9) {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+
+
+/* Apply teal background to main summary table total row */
+.revenue-remittance-summary-table .revenue-summary-total-row td {
+  font-size: 11px !important;
+  font-weight: bold !important;
+  padding: 8px 6px !important;
+  background-color: #e8f4f8 !important;
+  color: #2c3e50 !important;
+  text-align: center !important;
+}
+
+.revenue-remittance-summary-table .revenue-summary-total-row td:first-child {
+  text-align: right !important;
+}
+
+.revenue-remittance-summary-table .revenue-summary-total-row td:last-child {
+  text-align: right !important;
+}
+
+/* Conductor total row */
+.revenue-remittance-conductor-table .revenue-conductor-total-row td {
+  font-size: 11px !important;
+  font-weight: bold !important;
+  padding: 8px 6px !important;
+  background-color: #e8f4f8 !important;
+  color: #2c3e50 !important;
+  border-top: 2px solid #17a2b8 !important;
+  text-align: center !important;
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+  .revenue-remittance-conductor-table {
+    font-size: 9px !important;
+  }
+  
+  .revenue-remittance-conductor-table th {
+    font-size: 8px !important;
+    padding: 6px 4px !important;
+  }
+  
+  .revenue-remittance-conductor-table td {
+    font-size: 9px !important;
+    padding: 4px 3px !important;
+  }
+}
+
+/* First column of conductor total row (label) should be right-aligned */
+.revenue-remittance-conductor-table .revenue-conductor-total-row td:first-child {
+  text-align: right !important;
+}
+
+/* Last column of conductor total row (revenue) should be right-aligned */
+.revenue-remittance-conductor-table .revenue-conductor-total-row td:last-child {
+  text-align: right !important;
+}
+
+/* Ensure total row has teal top border */
+.revenue-remittance-summary-table .revenue-summary-total-row {
+  border-top: 2px solid #17a2b8 !important;
+}
+
+
 
 .revenue-revenue-table thead tr {
   background-color: #f8f9fa;
@@ -1132,7 +1708,6 @@ html, body {
   border-bottom: 1px solid #dee2e6;
 }
 
-/* Trip ID */
 .revenue-trip-id {
   font-weight: 600;
   color: #007c91;
@@ -1143,14 +1718,12 @@ html, body {
   overflow-wrap: break-word;
 }
 
-/* Route Text */
 .revenue-route-text {
   font-weight: 500;
   color: #2c3e50;
   min-width: 120px;
 }
 
-/* Trip Direction */
 .revenue-trip-direction {
   font-weight: 500;
   color: #17a2b8;
@@ -1165,7 +1738,6 @@ html, body {
   font-weight: 600;
   color: #28a745;
   text-align: right;
-  min-width: 80px;
 }
 
 /* Empty State */
@@ -1193,418 +1765,9 @@ html, body {
 }
 
 /* =========================
-   MONTHLY REVENUE STYLES
-   ========================= */
-
-.revenue-monthly-container {
-  padding: 20px;
-  max-width: 100%;
-  overflow-x: hidden;
-  overflow-y: visible;
-  width: 100%;
-}
-
-/* Growth indicator colors */
-.revenue-card-positive {
-  color: #055c1a !important;
-}
-
-.revenue-card-negative {
-  color: #dc3545 !important;
-}
-
-/* Monthly specific table adjustments */
-.revenue-monthly-container .revenue-revenue-table {
-  min-width: 900px;
-}
-
-.revenue-monthly-container .revenue-revenue-table th,
-.revenue-monthly-container .revenue-revenue-table td {
-  padding: 12px 8px;
-  font-size: 13px;
-}
-
-/* Chart container adjustments for monthly view */
-.revenue-monthly-container .revenue-chart-container {
-  margin-bottom: 20px;
-}
-
-/* Top Routes Chart Specific Styling */
-.revenue-monthly-container .revenue-chart-container:last-of-type {
-  margin-bottom: 30px;
-}
-
-/* =========================
-   DAILY REVENUE PRINT STYLES
-   ========================= */
-
-/* Daily Revenue Print Media Query */
-@media print {
-  /* Global print reset for daily revenue only */
-  .revenue-daily-container * {
-    -webkit-print-color-adjust: exact !important;
-    color-adjust: exact !important;
-    box-sizing: border-box;
-  }
-
-  /* Page setup for daily revenue */
-  @page {
-    size: A4 landscape;
-    margin: 0.5in;
-    orphans: 2;
-    widows: 2;
-  }
-
-  /* Basic page setup for daily revenue */
-  .revenue-daily-container {
-    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
-    font-size: 10pt !important;
-    line-height: 1.2 !important;
-    color: #000 !important;
-    background: white !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    width: 100% !important;
-  }
-
-  /* Hide screen-only elements for daily revenue */
-  .revenue-daily-container .revenue-menu-item,
-  .revenue-daily-container .revenue-filters,
-  .revenue-daily-container .revenue-daily-controls,
-  .revenue-daily-container .revenue-charts-section {
-    display: none !important;
-  }
-
-  /* Show print-only elements for daily revenue */
-  .revenue-daily-container .revenue-print-header,
-  .revenue-daily-container .revenue-print-footer,
-  .revenue-daily-container .revenue-daily-print-only {
-    display: block !important;
-  }
-
-  .revenue-daily-container .revenue-daily-print-tables {
-    display: grid !important;
-  }
-
-  /* ===== PRINT HEADER ===== */
-  .revenue-daily-container .revenue-print-header {
-    display: flex !important;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 15px !important;
-    padding-bottom: 10px !important;
-    border-bottom: 2px solid #000 !important;
-    page-break-inside: avoid;
-  }
-
-  .revenue-daily-container .revenue-company-info h1 {
-    margin: 0 !important;
-    font-size: 16pt !important;
-    font-weight: bold !important;
-    color: #000 !important;
-  }
-
-  .revenue-daily-container .revenue-company-info p {
-    margin: 3px 0 0 0 !important;
-    font-size: 11pt !important;
-    color: #000 !important;
-  }
-
-  .revenue-daily-container .revenue-report-info {
-    text-align: right !important;
-  }
-
-  .revenue-daily-container .revenue-report-info p {
-    margin: 2px 0 !important;
-    font-size: 9pt !important;
-    color: #000 !important;
-  }
-
-  /* ===== SUMMARY CARDS ===== */
-  .revenue-daily-container .revenue-daily-summary-card-container {
-    background: white !important;
-    border: 2px solid #000 !important;
-    border-radius: 0 !important;
-    padding: 10px !important;
-    margin: 10px 0 15px 0 !important;
-    page-break-inside: avoid;
-  }
-
-  .revenue-daily-container .revenue-daily-header-pattern {
-    display: none !important;
-  }
-
-  .revenue-daily-container .revenue-summary-cards {
-    display: grid !important;
-    grid-template-columns: repeat(4, 1fr) !important;
-    gap: 8px !important;
-    margin: 0 !important;
-  }
-
-  .revenue-daily-container .revenue-summary-card {
-    background: #f8f8f8 !important;
-    border: 1px solid #333 !important;
-    border-radius: 0 !important;
-    padding: 10px !important;
-    text-align: center !important;
-    box-shadow: none !important;
-  }
-
-  .revenue-daily-container .revenue-card-title {
-    font-size: 9pt !important;
-    color: #000 !important;
-    margin: 0 0 5px 0 !important;
-    font-weight: bold !important;
-    text-transform: uppercase;
-  }
-
-  .revenue-daily-container .revenue-card-value {
-    font-size: 12pt !important;
-    color: #000 !important;
-    font-weight: bold !important;
-    margin: 0 !important;
-  }
-
-  /* ===== SUMMARY TABLES (Revenue Breakdown & Top 5 Routes) ===== */
-  .revenue-daily-container .revenue-daily-print-tables {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 20px !important;
-    margin: 15px 0 !important;
-    page-break-inside: avoid;
-  }
-
-  .revenue-daily-container .revenue-summary-table-container {
-    background: white !important;
-    border: 2px solid #000 !important;
-    border-radius: 0 !important;
-    padding: 10px !important;
-    margin: 0 !important;
-    box-shadow: none !important;
-  }
-
-  .revenue-daily-container .revenue-summary-table-title {
-    font-size: 11pt !important;
-    color: #000 !important;
-    margin: 0 0 10px 0 !important;
-    font-weight: bold !important;
-    text-align: center !important;
-    border-bottom: 1px solid #000 !important;
-    padding-bottom: 5px !important;
-  }
-
-  .revenue-daily-container .revenue-summary-table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-    font-size: 8pt !important;
-  }
-
-  .revenue-daily-container .revenue-summary-table th,
-  .revenue-daily-container .revenue-summary-table td {
-    border: 1px solid #000 !important;
-    padding: 5px 8px !important;
-    text-align: left !important;
-    color: #000 !important;
-  }
-
-  .revenue-daily-container .revenue-summary-table th {
-    background: #e0e0e0 !important;
-    font-weight: bold !important;
-    font-size: 8pt !important;
-    text-transform: uppercase;
-  }
-
-  .revenue-daily-container .revenue-summary-table .revenue-amount {
-    text-align: right !important;
-    font-weight: bold !important;
-  }
-
-  .revenue-daily-container .revenue-summary-table .revenue-count {
-    text-align: center !important;
-    font-weight: bold !important;
-  }
-
-  /* ===== DETAILED BREAKDOWN SECTIONS ===== */
-  .revenue-daily-container .revenue-breakdown-section {
-    background: white !important;
-    border: none !important;
-    border-radius: 0 !important;
-    padding: 0 !important;
-    margin: 15px 0 0 0 !important;
-    box-shadow: none !important;
-    min-height: auto !important;
-  }
-
-  .revenue-daily-container .revenue-breakdown-title {
-    font-size: 14pt !important;
-    color: #000 !important;
-    margin: 0 0 15px 0 !important;
-    font-weight: bold !important;
-    text-align: center !important;
-    border-bottom: 2px solid #000 !important;
-    padding-bottom: 8px !important;
-    page-break-after: avoid;
-  }
-
-  .revenue-daily-container .revenue-section-container {
-    background: #f8f8f8 !important;
-    border: 2px solid #000 !important;
-    border-radius: 0 !important;
-    padding: 10px !important;
-    margin: 0 0 15px 0 !important;
-    min-height: auto !important;
-    page-break-inside: avoid;
-  }
-
-  .revenue-daily-container .revenue-section-title {
-    font-size: 11pt !important;
-    color: #000 !important;
-    margin: 0 0 10px 0 !important;
-    font-weight: bold !important;
-    page-break-after: avoid;
-  }
-
-  /* ===== DETAILED BREAKDOWN TABLES ===== */
-  .revenue-daily-container .revenue-table-container {
-    overflow: visible !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
-    margin: 0 !important;
-    min-height: auto !important;
-    max-height: none !important;
-  }
-
-  .revenue-daily-container .revenue-revenue-table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-    font-size: 7pt !important;
-    border: 1px solid #000 !important;
-    table-layout: fixed !important;
-  }
-
-  .revenue-daily-container .revenue-revenue-table th,
-  .revenue-daily-container .revenue-revenue-table td {
-    border: 1px solid #000 !important;
-    padding: 4px 6px !important;
-    color: #000 !important;
-    vertical-align: top !important;
-    word-wrap: break-word !important;
-    overflow-wrap: break-word !important;
-  }
-
-  .revenue-daily-container .revenue-revenue-table th {
-    background: #e0e0e0 !important;
-    font-weight: bold !important;
-    text-align: center !important;
-    font-size: 7pt !important;
-  }
-
-  /* UPDATED: Print column widths for 7-column layout - Remittance with Bus # */
-  .revenue-daily-container .revenue-revenue-table th:nth-child(1),
-  .revenue-daily-container .revenue-revenue-table td:nth-child(1) {
-    width: 15% !important; /* Conductor ID */
-  }
-
-  .revenue-daily-container .revenue-revenue-table th:nth-child(2),
-  .revenue-daily-container .revenue-revenue-table td:nth-child(2) {
-    width: 8% !important; /* Bus # */
-  }
-
-  .revenue-daily-container .revenue-revenue-table th:nth-child(3),
-  .revenue-daily-container .revenue-revenue-table td:nth-child(3) {
-    width: 10% !important; /* Trip # */
-  }
-
-  .revenue-daily-container .revenue-revenue-table th:nth-child(4),
-  .revenue-daily-container .revenue-revenue-table td:nth-child(4) {
-    width: 22% !important; /* Date & Time */
-  }
-
-  .revenue-daily-container .revenue-revenue-table th:nth-child(5),
-  .revenue-daily-container .revenue-revenue-table td:nth-child(5) {
-    width: 25% !important; /* Trip Direction */
-  }
-
-  .revenue-daily-container .revenue-revenue-table th:nth-child(6),
-  .revenue-daily-container .revenue-revenue-table td:nth-child(6) {
-    width: 10% !important; /* Tickets */
-  }
-
-  .revenue-daily-container .revenue-revenue-table th:nth-child(7),
-  .revenue-daily-container .revenue-revenue-table td:nth-child(7) {
-    width: 10% !important; /* Revenue */
-  }
-
-  /* Special styling for content */
-  .revenue-daily-container .revenue-trip-id {
-    font-weight: bold !important;
-    text-align: center !important;
-    font-size: 7pt !important;
-  }
-
-  .revenue-daily-container .revenue-route-text {
-    font-size: 7pt !important;
-    font-weight: 500 !important;
-  }
-
-  .revenue-daily-container .revenue-trip-direction {
-    font-size: 7pt !important;
-    font-style: italic !important;
-    line-height: 1.1 !important;
-  }
-
-  .revenue-daily-container .revenue-fare-amount {
-    font-weight: bold !important;
-    text-align: right !important;
-    font-size: 7pt !important;
-  }
-
-  /* Empty state styling */
-  .revenue-daily-container .revenue-empty-state {
-    background: #f0f0f0 !important;
-    border: 1px solid #ccc !important;
-    padding: 15px !important;
-    text-align: center !important;
-    margin: 0 !important;
-    border-radius: 0 !important;
-  }
-
-  .revenue-daily-container .revenue-empty-state h3 {
-    font-size: 9pt !important;
-    color: #000 !important;
-    margin: 0 0 5px 0 !important;
-  }
-
-  .revenue-daily-container .revenue-empty-state p {
-    font-size: 8pt !important;
-    color: #000 !important;
-    margin: 0 !important;
-  }
-
-  /* ===== PRINT FOOTER ===== */
-  .revenue-daily-container .revenue-print-footer {
-    display: flex !important;
-    justify-content: space-between;
-    align-items: center !important;
-    margin-top: 20px !important;
-    padding-top: 10px !important;
-    border-top: 1px solid #000 !important;
-    font-size: 8pt !important;
-    color: #000 !important;
-    page-break-inside: avoid;
-  }
-
-  .revenue-daily-container .revenue-print-footer p {
-    margin: 0 !important;
-    color: #000 !important;
-  }
-}
-
-/* =========================
    TOTAL ROWS STYLES
    ========================= */
 
-/* Screen styles for total rows */
 .revenue-total-row {
   background-color: #f8f9fa !important;
   font-weight: bold !important;
@@ -1622,35 +1785,6 @@ html, body {
   font-weight: bold !important;
   padding: 10px 8px !important;
   font-size: 12px !important;
-}
-
-/* =========================
-   DATE & TIME COLUMN STYLES
-   ========================= */
-
-/* Daily Revenue Date & Time column specific styling */
-.daily-revenue-table td:nth-child(2) {
-  font-size: 11px;
-  font-weight: 500;
-  color: #17a2b8;
-  font-style: italic;
-}
-
-/* Date & Time column styling for Detailed Breakdown by Conductor ONLY */
-.revenue-section-container .revenue-remittance-breakdown-table th:nth-child(2), 
-.revenue-section-container .revenue-remittance-breakdown-table td:nth-child(2) {
-  font-size: 11px;
-  font-weight: 500;
-  color: #17a2b8;
-  font-style: italic;
-}
-
-
-.revenue-remittance-breakdown-table th:nth-child(4), .revenue-remittance-breakdown-table td:nth-child(4) {
-  font-size: 11px;
-  font-weight: 500;
-  color: #17a2b8;
-  font-style: italic;
 }
 
 /* =========================
@@ -1758,7 +1892,6 @@ html, body {
     padding-left: 35px;
   }
 
-  /* Mobile table responsiveness */
   .revenue-revenue-table,
   .revenue-remittance-table {
     min-width: 700px;
@@ -1789,13 +1922,11 @@ html, body {
     font-size: 9px;
   }
 
-  /* Date & Time column mobile adjustments */
   .revenue-revenue-table td:nth-child(2) {
     font-size: 9px;
     max-width: 120px;
   }
 
-  /* Direction column mobile adjustments */
   .revenue-revenue-table td:nth-child(4) {
     font-size: 9px;
     max-width: 140px;
@@ -1817,7 +1948,6 @@ html, body {
     padding: 15px;
   }
 
-  /* Mobile responsiveness for remittance-specific elements */
   .revenue-conductor-summary {
     padding: 10px;
     margin-bottom: 15px;
@@ -1837,7 +1967,6 @@ html, body {
     margin-bottom: 15px;
   }
 
-  /* Mobile summary tables */
   .revenue-summary-tables-section {
     grid-template-columns: 1fr;
   }
@@ -1870,7 +1999,6 @@ html, body {
     font-size: 16px;
   }
 
-  /* Ultra-mobile adjustments for remittance */
   .revenue-conductor-summary-stats {
     flex-direction: column;
     gap: 8px;
@@ -1891,810 +2019,9 @@ html, body {
 }
 
 /* =========================
-   REMITTANCE PRINT STYLES
-   ========================= */
-
-/* Remittance Print Media Query */
-@media print {
-  /* Page setup specifically for remittance */
-  @page {
-    size: legal landscape; /* Changed to legal size for more width */
-    margin: 0.3in 0.2in 0.3in 0.2in; /* top right bottom left - smaller margins for more content space */
-    orphans: 2;
-    widows: 2;
-  }
-
-  /* Global print reset for remittance only */
-  .revenue-remittance-print-container * {
-    -webkit-print-color-adjust: exact !important;
-    color-adjust: exact !important;
-    box-sizing: border-box;
-  }
-
-  /* Page setup for remittance */
-  .revenue-remittance-print-container {
-    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
-    font-size: 9pt !important;
-    line-height: 1.1 !important;
-    color: #000 !important;
-    background: white !important;
-    padding: 0.1in !important; /* Small internal padding to complement reduced margins */
-    margin: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    overflow: visible !important;
-    page-break-inside: auto;
-    box-sizing: border-box !important;
-  }
-
-  /* Hide screen-only elements for remittance */
-  .revenue-remittance-print-container .revenue-menu-item,
-  .revenue-remittance-print-container .revenue-filters,
-  .revenue-remittance-print-container .revenue-daily-controls,
-  .revenue-remittance-print-container .revenue-charts-section {
-    display: none !important;
-  }
-
-  /* Show print-only elements for remittance */
-  .revenue-remittance-print-container .revenue-print-header,
-  .revenue-remittance-print-container .revenue-print-footer,
-  .revenue-remittance-print-container .revenue-print-summary {
-    display: block !important;
-  }
-
-  /* ===== REMITTANCE PRINT HEADER ===== */
-  .revenue-remittance-print-container .revenue-print-header {
-    display: flex !important;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 12px !important;
-    padding-bottom: 8px !important;
-    border-bottom: 2px solid #000 !important;
-    page-break-inside: avoid;
-  }
-
-  .revenue-remittance-print-container .revenue-company-info h1 {
-    margin: 0 !important;
-    font-size: 14pt !important;
-    font-weight: bold !important;
-    color: #000 !important;
-  }
-
-  .revenue-remittance-print-container .revenue-company-info p {
-    margin: 2px 0 0 0 !important;
-    font-size: 10pt !important;
-    color: #000 !important;
-  }
-
-  .revenue-remittance-print-container .revenue-report-info {
-    text-align: right !important;
-  }
-
-  .revenue-remittance-print-container .revenue-report-info p {
-    margin: 1px 0 !important;
-    font-size: 8pt !important;
-    color: #000 !important;
-  }
-
-  /* ===== REMITTANCE SUMMARY CARDS ===== */
-  .revenue-remittance-print-container .revenue-daily-summary-card-container {
-    background: white !important;
-    border: 1px solid #000 !important;
-    border-radius: 0 !important;
-    padding: 8px !important;
-    margin: 8px 0 12px 0 !important;
-    page-break-inside: avoid;
-  }
-
-  .revenue-remittance-print-container .revenue-daily-header-pattern {
-    display: none !important;
-  }
-
-  .revenue-remittance-print-container .revenue-summary-cards {
-    display: grid !important;
-    grid-template-columns: repeat(4, 1fr) !important;
-    gap: 6px !important;
-    margin: 0 !important;
-  }
-
-  .revenue-remittance-print-container .revenue-summary-card {
-    background: #f5f5f5 !important;
-    border: 1px solid #333 !important;
-    border-radius: 0 !important;
-    padding: 6px !important;
-    text-align: center !important;
-    box-shadow: none !important;
-  }
-
-  .revenue-remittance-print-container .revenue-card-title {
-    font-size: 7pt !important;
-    color: #000 !important;
-    margin: 0 0 3px 0 !important;
-    font-weight: bold !important;
-    text-transform: uppercase;
-  }
-
-  .revenue-remittance-print-container .revenue-card-value {
-    font-size: 9pt !important;
-    color: #000 !important;
-    font-weight: bold !important;
-    margin: 0 !important;
-  }
-
-  /* ===== REMITTANCE CONTENT AREA ===== */
-  .revenue-remittance-print-container .revenue-content-area {
-    overflow: visible !important;
-    height: auto !important;
-  }
-
-  .revenue-remittance-print-container .revenue-daily-container {
-    overflow: visible !important;
-    height: auto !important;
-    min-height: auto !important;
-    max-height: none !important;
-  }
-
-  /* ===== REMITTANCE BREAKDOWN SECTIONS ===== */
-  .revenue-remittance-print-container .revenue-breakdown-section {
-    background: white !important;
-    border: none !important;
-    border-radius: 0 !important;
-    padding: 0 !important;
-    margin: 8px 0 0 0 !important;
-    box-shadow: none !important;
-    min-height: auto !important;
-    page-break-inside: avoid;
-    overflow: visible !important;
-  }
-
-  .revenue-remittance-print-container .revenue-breakdown-title {
-    font-size: 11pt !important;
-    color: #000 !important;
-    margin: 0 0 8px 0 !important;
-    font-weight: bold !important;
-    text-align: center !important;
-    border-bottom: 1px solid #000 !important;
-    padding-bottom: 4px !important;
-    page-break-after: avoid;
-  }
-
-  .revenue-remittance-print-container .revenue-section-container {
-    background: #f8f8f8 !important;
-    border: 1px solid #000 !important;
-    border-radius: 0 !important;
-    padding: 6px !important;
-    margin: 0 0 8px 0 !important;
-    min-height: auto !important;
-    page-break-inside: avoid;
-    overflow: visible !important;
-  }
-
-  .revenue-remittance-print-container .revenue-section-title {
-    font-size: 9pt !important;
-    color: #000 !important;
-    margin: 0 0 6px 0 !important;
-    font-weight: bold !important;
-    page-break-after: avoid;
-  }
-
-  /* ===== REMITTANCE TABLE CONTAINERS ===== */
-  .revenue-remittance-print-container .revenue-table-container {
-    overflow: visible !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
-    margin: 0 !important;
-    min-height: auto !important;
-    max-height: none !important;
-    height: auto !important;
-    width: 100% !important;
-  }
-
-  /* ===== REMITTANCE TABLES ===== */
-  .revenue-remittance-print-container .revenue-revenue-table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-    font-size: 6pt !important;
-    border: 1px solid #000 !important;
-    table-layout: fixed !important;
-    margin: 0 !important;
-    page-break-inside: auto;
-  }
-
-  .revenue-remittance-print-container .revenue-revenue-table th,
-  .revenue-remittance-print-container .revenue-revenue-table td {
-    border: 1px solid #000 !important;
-    padding: 2px 4px !important;
-    color: #000 !important;
-    vertical-align: top !important;
-    word-wrap: break-word !important;
-    overflow-wrap: break-word !important;
-    font-size: 6pt !important;
-    line-height: 1.1 !important;
-  }
-
-  .revenue-remittance-print-container .revenue-revenue-table th {
-    background: #e0e0e0 !important;
-    font-weight: bold !important;
-    text-align: center !important;
-    font-size: 6pt !important;
-    padding: 3px 2px !important;
-  }
-
-  /* REMITTANCE: Print column widths for 6-column layout */
-  .revenue-remittance-print-container .revenue-revenue-table th:nth-child(1),
-  .revenue-remittance-print-container .revenue-revenue-table td:nth-child(1) {
-    width: 8% !important; /* Trip # - made smaller */
-  }
-
-  .revenue-remittance-print-container .revenue-revenue-table th:nth-child(2),
-  .revenue-remittance-print-container .revenue-revenue-table td:nth-child(2) {
-    width: 25% !important; /* Date & Time - increased */
-  }
-
-  .revenue-remittance-print-container .revenue-revenue-table th:nth-child(3),
-  .revenue-remittance-print-container .revenue-revenue-table td:nth-child(3) {
-    width: 25% !important; /* Direction - increased */
-  }
-
-  .revenue-remittance-print-container .revenue-revenue-table th:nth-child(4),
-  .revenue-remittance-print-container .revenue-revenue-table td:nth-child(4) {
-    width: 18% !important; /* Ticket Type - increased */
-  }
-
-  .revenue-remittance-print-container .revenue-revenue-table th:nth-child(5),
-  .revenue-remittance-print-container .revenue-revenue-table td:nth-child(5) {
-    width: 12% !important; /* Passengers - made smaller */
-  }
-
-  .revenue-remittance-print-container .revenue-revenue-table th:nth-child(6),
-  .revenue-remittance-print-container .revenue-revenue-table td:nth-child(6) {
-    width: 12% !important; /* Revenue - made smaller */
-  }
-
-  /* Main remittance table (first table) different layout */
-  .revenue-remittance-print-container .revenue-breakdown-section:first-of-type .revenue-revenue-table th:nth-child(1),
-  .revenue-remittance-print-container .revenue-breakdown-section:first-of-type .revenue-revenue-table td:nth-child(1) {
-    width: 15% !important; /* Conductor ID */
-  }
-
-  .revenue-remittance-print-container .revenue-breakdown-section:first-of-type .revenue-revenue-table th:nth-child(2),
-  .revenue-remittance-print-container .revenue-breakdown-section:first-of-type .revenue-revenue-table td:nth-child(2) {
-    width: 10% !important; /* Trip Number - made smaller */
-  }
-
-  .revenue-remittance-print-container .revenue-breakdown-section:first-of-type .revenue-revenue-table th:nth-child(3),
-  .revenue-remittance-print-container .revenue-breakdown-section:first-of-type .revenue-revenue-table td:nth-child(3) {
-    width: 30% !important; /* Date & Time - increased */
-  }
-
-  .revenue-remittance-print-container .revenue-breakdown-section:first-of-type .revenue-revenue-table th:nth-child(4),
-  .revenue-remittance-print-container .revenue-breakdown-section:first-of-type .revenue-revenue-table td:nth-child(4) {
-    width: 30% !important; /* Trip Direction - increased */
-  }
-
-  .revenue-remittance-print-container .revenue-breakdown-section:first-of-type .revenue-revenue-table th:nth-child(5),
-  .revenue-remittance-print-container .revenue-breakdown-section:first-of-type .revenue-revenue-table td:nth-child(5) {
-    width: 7% !important; /* Tickets - made smaller */
-  }
-
-  .revenue-remittance-print-container .revenue-breakdown-section:first-of-type .revenue-revenue-table th:nth-child(6),
-  .revenue-remittance-print-container .revenue-breakdown-section:first-of-type .revenue-revenue-table td:nth-child(6) {
-    width: 8% !important; /* Revenue - made smaller */
-  }
-
-  /* Special styling for content */
-  .revenue-remittance-print-container .revenue-trip-id {
-    font-weight: bold !important;
-    text-align: center !important;
-    font-size: 6pt !important;
-  }
-
-  .revenue-remittance-print-container .revenue-route-text {
-    font-size: 6pt !important;
-    font-weight: 500 !important;
-  }
-
-  .revenue-remittance-print-container .revenue-trip-direction {
-    font-size: 6pt !important;
-    font-style: italic !important;
-    line-height: 1.0 !important;
-  }
-
-  .revenue-remittance-print-container .revenue-fare-amount {
-    font-weight: bold !important;
-    text-align: right !important;
-    font-size: 6pt !important;
-  }
-
-  /* Total rows styling */
-  .revenue-remittance-print-container .revenue-total-row,
-  .revenue-remittance-print-container .revenue-conductor-total-row {
-    background-color: #e8e8e8 !important;
-    font-weight: bold !important;
-  }
-
-  .revenue-remittance-print-container .revenue-total-row td,
-  .revenue-remittance-print-container .revenue-conductor-total-row td {
-    font-weight: bold !important;
-    padding: 3px 4px !important;
-    font-size: 6pt !important;
-  }
-
-  /* ===== REMITTANCE PRINT SUMMARY ===== */
-  .revenue-remittance-print-container .revenue-print-summary {
-    margin-top: 10px !important;
-    padding-top: 8px !important;
-    border-top: 1px solid #000 !important;
-    page-break-inside: avoid;
-  }
-
-  .revenue-remittance-print-container .revenue-print-summary h3 {
-    font-size: 10pt !important;
-    color: #000 !important;
-    margin: 0 0 6px 0 !important;
-    font-weight: bold !important;
-    text-align: center !important;
-  }
-
-  .revenue-remittance-print-container .revenue-breakdown-summary {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 3px !important;
-  }
-
-  .revenue-remittance-print-container .revenue-breakdown-item {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    padding: 2px 0 !important;
-    border-bottom: 1px solid #ccc !important;
-    font-size: 8pt !important;
-  }
-
-  .revenue-remittance-print-container .revenue-breakdown-item:last-child {
-    border-bottom: 2px solid #000 !important;
-    font-weight: bold !important;
-    margin-top: 3px !important;
-    padding-top: 3px !important;
-  }
-
-  .revenue-remittance-print-container .revenue-breakdown-label {
-    color: #000 !important;
-  }
-
-  .revenue-remittance-print-container .revenue-breakdown-value {
-    color: #000 !important;
-    font-weight: bold !important;
-  }
-
-  /* ===== REMITTANCE PRINT FOOTER ===== */
-  .revenue-remittance-print-container .revenue-print-footer {
-    display: flex !important;
-    justify-content: space-between;
-    align-items: center !important;
-    margin-top: 15px !important;
-    padding-top: 8px !important;
-    border-top: 1px solid #000 !important;
-    font-size: 7pt !important;
-    color: #000 !important;
-    page-break-inside: avoid;
-  }
-
-  .revenue-remittance-print-container .revenue-print-footer p {
-    margin: 0 !important;
-    color: #000 !important;
-  }
-
-  /* Empty state styling for remittance */
-  .revenue-remittance-print-container .revenue-empty-state {
-    background: #f0f0f0 !important;
-    border: 1px solid #ccc !important;
-    padding: 10px !important;
-    text-align: center !important;
-    margin: 0 !important;
-    border-radius: 0 !important;
-  }
-
-  .revenue-remittance-print-container .revenue-empty-state h3 {
-    font-size: 8pt !important;
-    color: #000 !important;
-    margin: 0 0 3px 0 !important;
-  }
-
-  .revenue-remittance-print-container .revenue-empty-state p {
-    font-size: 7pt !important;
-    color: #000 !important;
-    margin: 0 !important;
-  }
-
-  /* Remove page breaks for better flow */
-  .revenue-remittance-print-container .revenue-breakdown-section:not(:last-child) {
-    page-break-after: auto;
-  }
-
-  /* Ensure all content fits properly */
-  .revenue-remittance-print-container {
-    height: auto !important;
-    overflow: visible !important;
-  }
-}
-
-/* =========================
-   MONTHLY REVENUE TABLE STYLES
-   ========================= */
-
-/* Monthly Revenue Daily Breakdown Table - Unique Styles */
-.revenue-monthly-breakdown-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-  margin: 0;
-  table-layout: fixed;
-  border: 1px solid #dee2e6;
-}
-
-.revenue-monthly-breakdown-table thead tr {
-  background-color: #f8f9fa;
-}
-
-.revenue-monthly-breakdown-table th {
-  padding: 10px 8px;
-  text-align: center;
-  border: 1px solid #dee2e6;
-  font-weight: 600;
-  color: #495057;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  background-color: #f8f9fa;
-  vertical-align: middle;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.revenue-monthly-breakdown-table td {
-  padding: 8px 6px;
-  border: 1px solid #e9ecef;
-  color: #495057;
-  font-size: 12px;
-  vertical-align: middle;
-  text-align: center;
-  line-height: 1.3;
-}
-
-.revenue-monthly-breakdown-table tbody tr:hover {
-  background-color: #f8f9fa;
-}
-
-/* Column width specifications for Monthly Revenue Daily Breakdown */
-.revenue-monthly-breakdown-table th:nth-child(1),
-.revenue-monthly-breakdown-table td:nth-child(1) {
-  width: 12%;
-  min-width: 90px;
-  text-align: center;
-  font-weight: 600;
-  color: #2c3e50;
-}
-
-.revenue-monthly-breakdown-table th:nth-child(2),
-.revenue-monthly-breakdown-table td:nth-child(2) {
-  width: 15%;
-  min-width: 100px;
-  text-align: right;
-}
-
-.revenue-monthly-breakdown-table th:nth-child(3),
-.revenue-monthly-breakdown-table td:nth-child(3) {
-  width: 11%;
-  min-width: 80px;
-  text-align: center;
-  font-weight: 500;
-}
-
-.revenue-monthly-breakdown-table th:nth-child(4),
-.revenue-monthly-breakdown-table td:nth-child(4) {
-  width: 15%;
-  min-width: 95px;
-  text-align: right;
-}
-
-.revenue-monthly-breakdown-table th:nth-child(5),
-.revenue-monthly-breakdown-table td:nth-child(5) {
-  width: 15%;
-  min-width: 95px;
-  text-align: right;
-}
-
-.revenue-monthly-breakdown-table th:nth-child(6),
-.revenue-monthly-breakdown-table td:nth-child(6) {
-  width: 15%;
-  min-width: 95px;
-  text-align: right;
-}
-
-.revenue-monthly-breakdown-table th:nth-child(7),
-.revenue-monthly-breakdown-table td:nth-child(7) {
-  width: 12%;
-  min-width: 85px;
-  text-align: right;
-}
-
-/* Revenue amounts in monthly breakdown table */
-.revenue-monthly-breakdown-table .revenue-fare-amount {
-  font-weight: 600;
-  color: #28a745;
-  text-align: right;
-}
-
-/* Responsive adjustments for monthly breakdown table */
-@media (max-width: 768px) {
-  .revenue-monthly-breakdown-table {
-    font-size: 10px;
-    table-layout: auto;
-  }
-
-  .revenue-monthly-breakdown-table th {
-    padding: 6px 4px;
-    font-size: 9px;
-  }
-
-  .revenue-monthly-breakdown-table td {
-    padding: 6px 4px;
-    font-size: 10px;
-  }
-
-  .revenue-monthly-breakdown-table th:nth-child(n),
-  .revenue-monthly-breakdown-table td:nth-child(n) {
-    min-width: 70px;
-  }
-}
-
-@media (max-width: 480px) {
-  .revenue-monthly-breakdown-table {
-    font-size: 9px;
-  }
-
-  .revenue-monthly-breakdown-table th {
-    padding: 4px 3px;
-    font-size: 8px;
-  }
-
-  .revenue-monthly-breakdown-table td {
-    padding: 4px 3px;
-    font-size: 9px;
-  }
-
-  .revenue-monthly-breakdown-table th:nth-child(n),
-  .revenue-monthly-breakdown-table td:nth-child(n) {
-    min-width: 60px;
-  }
-}
-
-/* Monthly revenue table container - unique styles for MonthlyRevenue component */
-.revenue-monthly-table-container {
-  overflow: visible;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  margin: 10px 0;
-  max-width: 100%;
-  width: 100%;
-  background: white;
-  min-height: auto;
-  display: flex;
-  justify-content: flex-start;
-  align-items: flex-start;
-}
-
-/* Force monthly breakdown section to align left */
-.revenue-monthly-container .revenue-breakdown-section {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: flex-start !important;
-  justify-content: flex-start !important;
-  text-align: left !important;
-}
-
-/* Force monthly breakdown title to align left */
-.revenue-monthly-container .revenue-breakdown-title {
-  text-align: left !important;
-}
-
-/* Force monthly table container to align left */
-.revenue-monthly-container .revenue-table-container {
-  display: flex !important;
-  justify-content: flex-start !important;
-  align-items: flex-start !important;
-  width: 100% !important;
-}
-
-/* Monthly revenue table - unique styles for MonthlyRevenue component */
-.revenue-monthly-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-  margin: 0;
-  table-layout: auto;
-  border: 1px solid #dee2e6;
-}
-
-/* Monthly table responsive column widths */
-.revenue-monthly-table th:nth-child(1),
-.revenue-monthly-table td:nth-child(1) {
-  width: auto; /* Date - auto width */
-  min-width: 80px;
-  text-align: center;
-}
-
-.revenue-monthly-table th:nth-child(2),
-.revenue-monthly-table td:nth-child(2) {
-  width: auto; /* Total Revenue - auto width */
-  min-width: 90px;
-  text-align: right;
-}
-
-.revenue-monthly-table th:nth-child(3),
-.revenue-monthly-table td:nth-child(3) {
-  width: auto; /* Passengers - auto width */
-  min-width: 70px;
-  text-align: center;
-}
-
-.revenue-monthly-table th:nth-child(4) {
-  width: auto; /* Conductor header - auto width */
-  min-width: 80px;
-  text-align: right;
-}
-
-.revenue-monthly-table td:nth-child(4) {
-  width: auto; /* Conductor data - auto width */
-  min-width: 80px;
-  text-align: right;
-}
-
-.revenue-monthly-table th:nth-child(5) {
-  width: auto; /* Pre-booking header - auto width */
-  min-width: 85px;
-  text-align: right;
-}
-
-.revenue-monthly-table td:nth-child(5) {
-  width: auto; /* Pre-booking data - auto width */
-  min-width: 85px;
-  text-align: right;
-}
-
-.revenue-monthly-table th:nth-child(6) {
-  width: auto; /* Pre-ticketing header - auto width */
-  min-width: 85px;
-  text-align: right;
-}
-
-.revenue-monthly-table td:nth-child(6) {
-  width: auto; /* Pre-ticketing data - auto width */
-  min-width: 85px;
-  text-align: right;
-}
-
-.revenue-monthly-table th:nth-child(7) {
-  width: auto; /* Avg Fare header - auto width */
-  min-width: 80px;
-  text-align: right;
-}
-
-.revenue-monthly-table td:nth-child(7) {
-  width: auto; /* Avg Fare data - auto width */
-  min-width: 80px;
-  text-align: right;
-}
-
-.revenue-monthly-table thead tr {
-  background-color: #f8f9fa;
-}
-
-.revenue-monthly-table th {
-  padding: 8px 6px;
-  text-align: left;
-  border: 1px solid #dee2e6;
-  font-weight: 600;
-  color: #495057;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  background-color: #f8f9fa;
-  vertical-align: middle;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.revenue-monthly-table td {
-  padding: 8px 6px;
-  border: 1px solid #e9ecef;
-  color: #495057;
-  font-size: 12px;
-  vertical-align: top;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  line-height: 1.3;
-}
-
-.revenue-monthly-table tbody tr:hover {
-  background-color: #f8f9fa;
-}
-
-.revenue-monthly-table tbody tr:last-child td {
-  border-bottom: 1px solid #dee2e6;
-}
-
-/* Date formatting for monthly table */
-.revenue-monthly-table td:nth-child(1) {
-  font-weight: 600;
-  color: #2c3e50;
-  text-align: center;
-  font-size: 11px;
-}
-
-/* Revenue amounts in monthly table */
-.revenue-monthly-table .revenue-fare-amount {
-  font-weight: 600;
-  color: #28a745;
-  text-align: right;
-  font-size: 12px;
-}
-
-/* Passenger count styling */
-.revenue-monthly-table td:nth-child(3) {
-  font-weight: 500;
-  text-align: center;
-}
-
-/* Responsive adjustments for monthly table */
-@media (max-width: 768px) {
-  .revenue-monthly-table {
-    font-size: 10px;
-  }
-  
-  .revenue-monthly-table th {
-    padding: 6px 4px;
-    font-size: 9px;
-  }
-  
-  .revenue-monthly-table td {
-    padding: 6px 4px;
-    font-size: 10px;
-  }
-  
-  .revenue-monthly-table th:nth-child(n),
-  .revenue-monthly-table td:nth-child(n) {
-    min-width: 60px;
-  }
-}
-
-@media (max-width: 480px) {
-  .revenue-monthly-table {
-    font-size: 9px;
-  }
-  
-  .revenue-monthly-table th {
-    padding: 4px 3px;
-    font-size: 8px;
-  }
-  
-  .revenue-monthly-table td {
-    padding: 4px 3px;
-    font-size: 9px;
-  }
-  
-  .revenue-monthly-table th:nth-child(n),
-  .revenue-monthly-table td:nth-child(n) {
-    min-width: 50px;
-  }
-}
-
-/* =========================
    SCROLLBAR ENHANCEMENTS
    ========================= */
 
-/* Global scrollbar styling */
 * {
   scrollbar-width: thin;
   scrollbar-color: #ccc #f1f1f1;
@@ -2717,4 +2044,135 @@ html, body {
 
 *::-webkit-scrollbar-thumb:hover {
   background: #999;
+}
+
+/* =========================
+   MONTHLY REVENUE TABLE STYLES (Matches Daily Revenue Design)
+   ========================= */
+
+.monthly-revenue-breakdown-section {
+  margin: 30px 0;
+  padding: 0;
+  width: 100%;
+}
+
+.monthly-revenue-breakdown-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 15px;
+  padding-left: 0;
+}
+
+.monthly-revenue-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 8px;
+}
+
+.monthly-revenue-daily-table {
+  width: 100%;
+  border-collapse: collapse !important;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  table-layout: fixed;
+  border: 1px solid #dee2e6;
+}
+
+/* Header styling - Matches daily revenue */
+.monthly-revenue-daily-table thead tr th {
+  background-color: #f8f9fa;
+  color: #495057;
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 10px 8px;
+  text-align: center;
+  border: 1px solid #dee2e6;
+  vertical-align: middle;
+  line-height: 1.2;
+}
+
+/* Column specific header alignment */
+.monthly-revenue-date-col {
+  width: 12%;
+  text-align: left !important;
+}
+
+.monthly-revenue-amount-col {
+  width: 12.5%;
+  text-align: center !important;
+}
+
+.monthly-revenue-count-col {
+  width: 10%;
+  text-align: center !important;
+}
+
+/* Body cells */
+.monthly-revenue-daily-table tbody td {
+  padding: 8px 6px;
+  border: 1px solid #e9ecef;
+  color: #495057;
+  font-size: 11px;
+  vertical-align: middle;
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* Hover effect on rows */
+.monthly-revenue-table-row:hover {
+  background-color: #f8f9fa;
+  transition: background-color 0.2s ease;
+}
+
+/* Date cell styling */
+.monthly-revenue-date-cell {
+  font-weight: 600;
+  color: #2c3e50;
+  text-align: left !important;
+  font-size: 11px;
+}
+
+/* Amount cells styling */
+.monthly-revenue-amount-cell {
+  font-weight: 700;
+  color: #28a745;
+  text-align: right !important;
+  font-size: 11px;
+}
+
+/* Specific color for Conductor, Pre-booking, and Pre-ticketing columns */
+.monthly-revenue-amount-cell:nth-child(4),
+.monthly-revenue-amount-cell:nth-child(5),
+.monthly-revenue-amount-cell:nth-child(6) {
+  color: #17a2b8 !important;
+}
+
+/* Count cell styling */
+.monthly-revenue-count-cell {
+  font-weight: 600;
+  color: #495057;
+  text-align: center;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .monthly-revenue-daily-table {
+    font-size: 9px;
+    min-width: 700px;
+  }
+
+  .monthly-revenue-daily-table thead tr th {
+    font-size: 8px;
+    padding: 8px 6px;
+  }
+
+  .monthly-revenue-daily-table tbody td {
+    padding: 6px 4px;
+    font-size: 9px;
+  }
 }

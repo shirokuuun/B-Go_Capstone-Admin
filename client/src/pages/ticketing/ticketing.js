@@ -1,4 +1,4 @@
-import { getFirestore, collection, getDocs, doc, getDoc, query, orderBy, limit as limitQuery, updateDoc, deleteDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, doc, getDoc, query, orderBy, limit as limitQuery, updateDoc, deleteDoc, serverTimestamp, onSnapshot, writeBatch } from 'firebase/firestore';
 import { auth } from '/src/firebase/firebase.js';
 import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 
@@ -1115,11 +1115,12 @@ export const updateTicketStatus = async (conductorId, ticketId, newStatus) => {
 
 /**
  * Delete a ticket from dailyTrips (handles both regular tickets and prebookings)
+ * OPTIMIZED VERSION with automatic cleanup of empty collections and AUDIT LOGGING
  * @param {string} conductorId - Conductor ID
  * @param {string} ticketId - Ticket ID to delete
  * @returns {Promise<boolean>} Success status
  */
-export const deletePreTicket = async (conductorId, ticketId) => {
+export const deleteTicket = async (conductorId, ticketId) => {
   try {
     // Check if current user is superadmin before attempting delete
     if (!auth.currentUser) {
@@ -1137,26 +1138,395 @@ export const deletePreTicket = async (conductorId, ticketId) => {
 
     // Check if user is superadmin
     if (adminData.role !== 'superadmin' || adminData.isSuperAdmin !== true) {
-      throw new Error('Access denied: Only superadmin users can delete tickets. You are logged in as a regular admin.');
+      throw new Error('Access denied: Only superadmin users can delete tickets.');
     }
 
-    // Find the ticket first to get its location and data for logging
-    const ticket = await getPreTicketById(conductorId, ticketId);
+    // OPTIMIZATION: Try to find ticket from cache first before querying Firestore
+    let ticket = null;
+    let foundInCache = false;
 
-    // Check if it's a prebooking ticket and delete from appropriate path
+    // Check if we have cached ticket data for this conductor
+    const cacheKey = ticketingDataCache.getCacheKey(conductorId, 50);
+    if (ticketingDataCache.ticketCache.has(cacheKey)) {
+      const cachedTickets = ticketingDataCache.ticketCache.get(cacheKey);
+      if (Array.isArray(cachedTickets)) {
+        ticket = cachedTickets.find(t => t.id === ticketId);
+        foundInCache = !!ticket;
+      }
+    }
+
+    // If not in cache, fetch from Firestore
+    if (!foundInCache) {
+      try {
+        ticket = await getPreTicketById(conductorId, ticketId);
+      } catch (error) {
+        // If ticket not found, it may already be deleted
+        if (error.message.includes('not found')) {
+          console.warn(`Ticket ${ticketId} not found - may already be deleted`);
+          // Invalidate cache to refresh the view
+          ticketingDataCache.invalidateCache(conductorId, 50);
+          ticketingDataCache.invalidateCache(null, 50);
+          return true; // Consider it successful
+        }
+        throw error;
+      }
+    }
+
+    if (!ticket) {
+      // Ticket not found in cache or Firestore
+      console.warn(`Ticket ${ticketId} not found`);
+      ticketingDataCache.invalidateCache(conductorId, 50);
+      ticketingDataCache.invalidateCache(null, 50);
+      return true;
+    }
+
+    // Store date and trip info for cleanup
+    const dateId = ticket.date;
+    const tripId = ticket.tripId;
+    
+    // Store ticket data for audit log before deletion
+    const ticketForAudit = {
+      ticketId: ticketId,
+      conductorId: conductorId,
+      conductorName: ticket.conductor?.name || 'Unknown Conductor',
+      ticketType: ticket.documentType || ticket.ticketType || 'conductor',
+      route: ticket.route || `${ticket.from} → ${ticket.to}`,
+      direction: ticket.direction || 'Unknown Direction',
+      amount: ticket.amount || 0,
+      quantity: ticket.quantity || 0,
+      tripDate: ticket.date || 'Unknown Date',
+      tripId: ticket.tripId || 'Unknown Trip',
+      fromLocation: ticket.from || 'Unknown',
+      toLocation: ticket.to || 'Unknown',
+      fromKm: ticket.fromKm || 0,
+      toKm: ticket.toKm || 0
+    };
+
+    // Delete from appropriate path based on ticket type
     if (ticket.documentType === 'preBooking' || ticket.ticketType === 'preBooking' || ticket.source === 'preBookings') {
       // Delete from prebooking path
-      const preBookingRef = doc(db, 'conductors', conductorId, 'dailyTrips', ticket.date, ticket.tripId, 'preBookings', 'preBookings', ticketId);
+      const preBookingRef = doc(db, 'conductors', conductorId, 'dailyTrips', dateId, tripId, 'preBookings', 'preBookings', ticketId);
       await deleteDoc(preBookingRef);
     } else {
       // Delete from regular tickets path
-      const ticketRef = doc(db, 'conductors', conductorId, 'dailyTrips', ticket.date, ticket.tripId, 'tickets', 'tickets', ticketId);
+      const ticketRef = doc(db, 'conductors', conductorId, 'dailyTrips', dateId, tripId, 'tickets', 'tickets', ticketId);
       await deleteDoc(ticketRef);
+    }
+
+    // AUDIT LOGGING - Log the ticket deletion activity
+    try {
+      await logActivity(
+        ACTIVITY_TYPES.TICKET_DELETE,
+        `Ticket deleted: ${ticketForAudit.fromLocation} → ${ticketForAudit.toLocation} (₱${ticketForAudit.amount})`,
+        {
+          ticketId: ticketForAudit.ticketId,
+          conductorId: ticketForAudit.conductorId,
+          conductorName: ticketForAudit.conductorName,
+          ticketType: ticketForAudit.ticketType,
+          route: ticketForAudit.route,
+          direction: ticketForAudit.direction,
+          amount: ticketForAudit.amount,
+          quantity: ticketForAudit.quantity,
+          tripDate: ticketForAudit.tripDate,
+          tripId: ticketForAudit.tripId,
+          fromLocation: ticketForAudit.fromLocation,
+          toLocation: ticketForAudit.toLocation,
+          distance: `${ticketForAudit.fromKm} km → ${ticketForAudit.toKm} km`,
+          deletedAt: new Date().toISOString(),
+          deletedBy: adminData.name || adminData.email || 'Unknown Admin'
+        },
+        'info' // Severity level
+      );
+    } catch (logError) {
+      console.error(' Failed to log ticket deletion:', logError);
+      // Don't fail the deletion if logging fails
+    }
+
+    // OPTIMIZATION: Invalidate cache immediately after delete
+    ticketingDataCache.invalidateCache(conductorId, 50);
+    ticketingDataCache.invalidateCache(null, 50);
+    
+    // Also clear conductors cache to update counts
+    ticketingDataCache.conductorsCache = null;
+    ticketingDataCache.conductorsCacheTime = null;
+
+    // AUTOMATIC CLEANUP: Check and delete empty collections
+    try {
+      await cleanupEmptyCollections(conductorId, dateId, tripId);
+    } catch (cleanupError) {
+      console.warn('Cleanup warning (non-critical):', cleanupError);
+      // Don't fail the deletion if cleanup has issues
     }
 
     return true;
   } catch (error) {
+    // Don't throw errors for "not found" - it means already deleted
+    if (error.message.includes('not found') || error.message.includes('Ticket not found')) {
+      console.warn(`Ticket ${ticketId} not found - may already be deleted`);
+      // Still invalidate cache
+      ticketingDataCache.invalidateCache(conductorId, 50);
+      ticketingDataCache.invalidateCache(null, 50);
+      return true;
+    }
     console.error('Error deleting ticket:', error);
+    throw error;
+  }
+};
+
+/**
+ * Check if a trip collection is empty (no tickets and no prebookings)
+ * @param {string} conductorId - Conductor ID
+ * @param {string} dateId - Date ID
+ * @param {string} tripName - Trip name
+ * @returns {Promise<boolean>} True if trip is empty
+ */
+const isTripEmpty = async (conductorId, dateId, tripName) => {
+  try {
+    // Check tickets subcollection
+    const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
+    const ticketsSnapshot = await getDocs(ticketsRef);
+    
+    if (ticketsSnapshot.docs.length > 0) {
+      return false; // Has tickets
+    }
+
+    // Check prebookings subcollection
+    const preBookingsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'preBookings', 'preBookings');
+    const preBookingsSnapshot = await getDocs(preBookingsRef);
+    
+    if (preBookingsSnapshot.docs.length > 0) {
+      return false; // Has prebookings
+    }
+
+    return true; // Trip is empty
+  } catch (error) {
+    console.error(`Error checking if trip ${tripName} is empty:`, error);
+    return false; // Don't delete if there's an error
+  }
+};
+
+/**
+ * Delete an empty trip collection and its subcollections
+ * @param {string} conductorId - Conductor ID
+ * @param {string} dateId - Date ID
+ * @param {string} tripName - Trip name
+ * @returns {Promise<boolean>} True if successfully deleted
+ */
+const deleteEmptyTrip = async (conductorId, dateId, tripName) => {
+  try {
+    // Delete tickets subcollection documents (if any remain)
+    const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
+    const ticketsSnapshot = await getDocs(ticketsRef);
+    
+    const deletePromises = [];
+    
+    ticketsSnapshot.docs.forEach(doc => {
+      deletePromises.push(deleteDoc(doc.ref));
+    });
+
+    // Delete prebookings subcollection documents (if any remain)
+    const preBookingsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'preBookings', 'preBookings');
+    const preBookingsSnapshot = await getDocs(preBookingsRef);
+    
+    preBookingsSnapshot.docs.forEach(doc => {
+      deletePromises.push(deleteDoc(doc.ref));
+    });
+
+    // Wait for all subcollection documents to be deleted
+    await Promise.all(deletePromises);
+
+    // Delete tickets collection document
+    try {
+      const ticketsCollectionRef = doc(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets');
+      await deleteDoc(ticketsCollectionRef);
+    } catch (e) {
+      // May not exist, that's ok
+    }
+
+    // Delete prebookings collection document
+    try {
+      const preBookingsCollectionRef = doc(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'preBookings');
+      await deleteDoc(preBookingsCollectionRef);
+    } catch (e) {
+      // May not exist, that's ok
+    }
+
+    // Delete the trip collection document itself
+    try {
+      const tripRef = doc(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName);
+      await deleteDoc(tripRef);
+    } catch (e) {
+      // May not exist, that's ok
+    }
+
+    // Remove trip from date document (the map field)
+    const dateDocRef = doc(db, 'conductors', conductorId, 'dailyTrips', dateId);
+    const dateDoc = await getDoc(dateDocRef);
+    
+    if (dateDoc.exists()) {
+      const dateData = dateDoc.data();
+      const updates = { ...dateData };
+      delete updates[tripName]; // Remove the trip map field
+      
+      // Update the date document to remove trip field
+      try {
+        await updateDoc(dateDocRef, updates);
+      } catch (e) {
+        console.warn('Could not update date document:', e);
+      }
+    }
+
+    console.log(` Deleted empty trip: ${tripName} from ${dateId}`);
+    return true;
+  } catch (error) {
+    console.error(`Error deleting empty trip ${tripName}:`, error);
+    return false;
+  }
+};
+
+/**
+ * Check if a date document has any trips left
+ * @param {string} conductorId - Conductor ID
+ * @param {string} dateId - Date ID
+ * @returns {Promise<boolean>} True if date has no trips
+ */
+const isDateEmpty = async (conductorId, dateId) => {
+  try {
+    const dateDocRef = doc(db, 'conductors', conductorId, 'dailyTrips', dateId);
+    const dateDoc = await getDoc(dateDocRef);
+    
+    if (!dateDoc.exists()) {
+      return true; // Date doesn't exist, consider empty
+    }
+
+    const dateData = dateDoc.data();
+    
+    // Check if there are any trip map fields (fields starting with "trip")
+    const hasTripMaps = Object.keys(dateData).some(key => key.startsWith('trip'));
+    
+    return !hasTripMaps; // Empty if no trip maps
+  } catch (error) {
+    console.error(`Error checking if date ${dateId} is empty:`, error);
+    return false;
+  }
+};
+
+/**
+ * Delete an empty date document
+ * @param {string} conductorId - Conductor ID
+ * @param {string} dateId - Date ID
+ * @returns {Promise<boolean>} True if successfully deleted
+ */
+const deleteEmptyDate = async (conductorId, dateId) => {
+  try {
+    const dateDocRef = doc(db, 'conductors', conductorId, 'dailyTrips', dateId);
+    await deleteDoc(dateDocRef);
+    console.log(` Deleted empty date: ${dateId}`);
+    return true;
+  } catch (error) {
+    console.error(`Error deleting empty date ${dateId}:`, error);
+    return false;
+  }
+};
+
+/**
+ * MAIN CLEANUP FUNCTION: Clean up empty trips and dates after ticket deletion
+ * Call this after deleting tickets
+ * @param {string} conductorId - Conductor ID
+ * @param {string} dateId - Date ID (optional, will check all dates if not provided)
+ * @param {string} tripName - Trip name (optional, will check all trips if not provided)
+ * @returns {Promise<Object>} Cleanup results
+ */
+export const cleanupEmptyCollections = async (conductorId, dateId = null, tripName = null) => {
+  try {
+    console.log(` Starting cleanup for conductor ${conductorId}...`);
+    
+    const results = {
+      tripsDeleted: 0,
+      datesDeleted: 0,
+      errors: []
+    };
+
+    // If specific trip provided, check only that trip
+    if (dateId && tripName) {
+      const isEmpty = await isTripEmpty(conductorId, dateId, tripName);
+      if (isEmpty) {
+        const deleted = await deleteEmptyTrip(conductorId, dateId, tripName);
+        if (deleted) {
+          results.tripsDeleted++;
+          
+          // Check if date is now empty
+          const dateEmpty = await isDateEmpty(conductorId, dateId);
+          if (dateEmpty) {
+            const dateDeleted = await deleteEmptyDate(conductorId, dateId);
+            if (dateDeleted) {
+              results.datesDeleted++;
+            }
+          }
+        }
+      }
+      return results;
+    }
+
+    // If specific date provided, check all trips in that date
+    if (dateId) {
+      const tripNames = await getAllTripNames(conductorId, dateId);
+      
+      for (const trip of tripNames) {
+        const isEmpty = await isTripEmpty(conductorId, dateId, trip);
+        if (isEmpty) {
+          const deleted = await deleteEmptyTrip(conductorId, dateId, trip);
+          if (deleted) {
+            results.tripsDeleted++;
+          }
+        }
+      }
+
+      // Check if date is now empty
+      const dateEmpty = await isDateEmpty(conductorId, dateId);
+      if (dateEmpty) {
+        const dateDeleted = await deleteEmptyDate(conductorId, dateId);
+        if (dateDeleted) {
+          results.datesDeleted++;
+        }
+      }
+      
+      return results;
+    }
+
+    // Otherwise, check all dates and trips for this conductor
+    const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
+    const dailyTripsSnapshot = await getDocs(dailyTripsRef);
+    
+    for (const dateDoc of dailyTripsSnapshot.docs) {
+      const date = dateDoc.id;
+      const tripNames = await getAllTripNames(conductorId, date);
+      
+      for (const trip of tripNames) {
+        const isEmpty = await isTripEmpty(conductorId, date, trip);
+        if (isEmpty) {
+          const deleted = await deleteEmptyTrip(conductorId, date, trip);
+          if (deleted) {
+            results.tripsDeleted++;
+          }
+        }
+      }
+
+      // Check if date is now empty
+      const dateEmpty = await isDateEmpty(conductorId, date);
+      if (dateEmpty) {
+        const dateDeleted = await deleteEmptyDate(conductorId, date);
+        if (dateDeleted) {
+          results.datesDeleted++;
+        }
+      }
+    }
+
+    console.log(`Cleanup complete: ${results.tripsDeleted} trips deleted, ${results.datesDeleted} dates deleted`);
+    return results;
+    
+  } catch (error) {
+    console.error('Error in cleanup:', error);
     throw error;
   }
 };

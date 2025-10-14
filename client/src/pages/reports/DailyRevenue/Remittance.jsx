@@ -10,7 +10,8 @@ import {
   formatDate,
   formatTime,
   getAllConductorDetails,
-  formatTicketType
+  calculateTripDiscountBreakdown,
+  forceRefreshRemittanceCache
 } from './Remittance.js';
 import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
 import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
@@ -18,7 +19,6 @@ import './DailyRevenue.css';
 
 const RemittanceReport = () => {
   const [selectedDate, setSelectedDate] = useState('');
-  const [selectedTicketType, setSelectedTicketType] = useState('');
   const [selectedTripDirection, setSelectedTripDirection] = useState('');
   const [selectedConductor, setSelectedConductor] = useState('');
   const [loading, setLoading] = useState(false);
@@ -60,7 +60,7 @@ const RemittanceReport = () => {
   // Apply filters when filter values or data changes
   useEffect(() => {
     applyFilters();
-  }, [remittanceData, selectedTicketType, selectedTripDirection, selectedConductor]);
+  }, [remittanceData, selectedTripDirection, selectedConductor]);
 
   // Function to extract unique trip directions from data
   const extractTripDirections = (data) => {
@@ -88,25 +88,6 @@ const RemittanceReport = () => {
   const applyFilters = () => {
     let filtered = [...remittanceData];
 
-    // Apply ticket type filter
-    if (selectedTicketType) {
-      filtered = filtered.filter(trip => {
-        const type = trip.documentType || '';
-        
-        switch (selectedTicketType) {
-          case 'conductor':
-            // Conductor ticket is the default/fallback - anything that's not pre-ticket or pre-booking
-            return !(type === 'preTicket' || type === 'preBooking');
-          case 'pre-book':
-            return type === 'preBooking';
-          case 'pre-ticket':
-            return type === 'preTicket';
-          default:
-            return true;
-        }
-      });
-    }
-
     // Apply trip direction filter
     if (selectedTripDirection) {
       filtered = filtered.filter(trip => trip.tripDirection === selectedTripDirection);
@@ -118,11 +99,11 @@ const RemittanceReport = () => {
     }
 
     setFilteredRemittanceData(filtered);
-    
+
     // Recalculate summary and grouped data based on filtered data
     const filteredSummary = calculateRemittanceSummary(filtered);
     const filteredGrouped = groupRemittanceByconductor(filtered);
-    
+
     setSummary(filteredSummary);
     setGroupedData(filteredGrouped);
   };
@@ -198,13 +179,15 @@ const RemittanceReport = () => {
       // Create a new workbook
       const workbook = XLSX.utils.book_new();
 
+      // Filter to only show trips with tickets
+      const tripsWithTickets = filteredRemittanceData.filter(trip => trip.ticketCount > 0);
+
       // Create summary data
       const summaryData = [
         ['B-Go Bus Transportation - Daily Trips Remittance Report'],
         [''],
         ['Report Date:', selectedDate ? formatDate(selectedDate) : 'All Dates'],
         ['Trip Direction:', selectedTripDirection || 'All Directions'],
-        ['Ticket Type:', selectedTicketType || 'All Types'],
         ['Conductor:', selectedConductor || 'All Conductors'],
         ['Generated:', new Date().toLocaleString()],
         [''],
@@ -299,15 +282,15 @@ const RemittanceReport = () => {
 
       XLSX.utils.book_append_sheet(workbook, summaryWS, 'Summary');
 
-      // Create main remittance data
-      if (filteredRemittanceData.length > 0) {
+      // Create main remittance data with discount breakdown
+      if (tripsWithTickets.length > 0) {
         const mainTableData = [
           ['Daily Trips Remittance Summary'],
           [''],
-          ['Conductor ID', 'Bus #', 'Trip Number', 'Date & Time', 'Trip Direction', 'Tickets', 'Revenue']
+          ['Conductor ID', 'Bus #', 'Trip Number', 'Date & Time', 'Trip Direction', 'Tickets', 'Regular', 'PWD', 'Senior', 'Student', 'Revenue']
         ];
 
-        filteredRemittanceData.forEach(trip => {
+        tripsWithTickets.forEach(trip => {
           const dateTime = (() => {
             try {
               const dateStr = trip.date ? formatDate(trip.date) : 'N/A';
@@ -318,6 +301,9 @@ const RemittanceReport = () => {
             }
           })();
 
+          // Calculate discount breakdown for this trip
+          const breakdown = calculateTripDiscountBreakdown(trip);
+
           mainTableData.push([
             trip.conductorId,
             conductorData[trip.conductorId]?.busNumber || 'N/A',
@@ -325,15 +311,34 @@ const RemittanceReport = () => {
             dateTime,
             trip.tripDirection,
             trip.ticketCount,
+            `₱${breakdown.regular.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `₱${breakdown.pwd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `₱${breakdown.senior.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `₱${breakdown.student.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             `₱${trip.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
           ]);
         });
 
+        // Calculate totals for discount breakdown
+        const totalBreakdown = tripsWithTickets.reduce((acc, trip) => {
+          const breakdown = calculateTripDiscountBreakdown(trip);
+          return {
+            regular: acc.regular + breakdown.regular,
+            pwd: acc.pwd + breakdown.pwd,
+            senior: acc.senior + breakdown.senior,
+            student: acc.student + breakdown.student
+          };
+        }, { regular: 0, pwd: 0, senior: 0, student: 0 });
+
         // Add total row
-        const totalRevenue = filteredRemittanceData.reduce((sum, trip) => sum + trip.totalRevenue, 0);
+        const totalRevenue = tripsWithTickets.reduce((sum, trip) => sum + trip.totalRevenue, 0);
         mainTableData.push([
-          '', '', '', '', `TOTAL (${filteredRemittanceData.length} trips):`,
-          filteredRemittanceData.reduce((sum, trip) => sum + trip.ticketCount, 0),
+          '', '', '', '', `TOTAL (${tripsWithTickets.length} trips):`,
+          tripsWithTickets.reduce((sum, trip) => sum + trip.ticketCount, 0),
+          `₱${totalBreakdown.regular.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          `₱${totalBreakdown.pwd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          `₱${totalBreakdown.senior.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          `₱${totalBreakdown.student.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           `₱${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         ]);
 
@@ -358,7 +363,7 @@ const RemittanceReport = () => {
         };
 
         // Header row formatting
-        const headerCols = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+        const headerCols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'];
         headerCols.forEach(col => {
           const cellRef = col + '3';
           if (mainWS[cellRef]) {
@@ -378,7 +383,7 @@ const RemittanceReport = () => {
 
         // Data rows formatting
         const dataStartRow = 4;
-        const dataEndRow = dataStartRow + filteredRemittanceData.length - 1;
+        const dataEndRow = dataStartRow + tripsWithTickets.length - 1;
         for (let row = dataStartRow; row <= dataEndRow; row++) {
           headerCols.forEach((col, index) => {
             const cellRef = col + row;
@@ -391,7 +396,7 @@ const RemittanceReport = () => {
                 right: { style: "thin", color: { rgb: "000000" } }
               },
               alignment: { 
-                horizontal: index === 5 || index === 6 ? "right" : "center", 
+                horizontal: index >= 5 ? "right" : "center", 
                 vertical: "center" 
               }
             };
@@ -413,7 +418,7 @@ const RemittanceReport = () => {
               right: { style: "medium", color: { rgb: "000000" } }
             },
             alignment: { 
-              horizontal: index === 5 || index === 6 ? "right" : "center", 
+              horizontal: index >= 5 ? "right" : "center", 
               vertical: "center" 
             }
           };
@@ -427,33 +432,45 @@ const RemittanceReport = () => {
           { wch: 20 }, // Date & Time
           { wch: 25 }, // Trip Direction
           { wch: 10 }, // Tickets
+          { wch: 12 }, // Regular
+          { wch: 12 }, // PWD
+          { wch: 12 }, // Senior
+          { wch: 12 }, // Student
           { wch: 15 }  // Revenue
         ];
 
         // Merge cells for title
-        mainWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 6, r: 0 } }];
+        mainWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 10, r: 0 } }];
 
         XLSX.utils.book_append_sheet(workbook, mainWS, 'Main Report');
       }
 
-      // Create detailed breakdown by conductor
+      // Create detailed breakdown by conductor (only for conductors with tickets)
       if (Object.keys(groupedData).length > 0) {
-        Object.entries(groupedData).forEach(([conductorId, trips]) => {
-          const conductorSummary = trips.conductorSummary || {
-            totalTrips: trips.length,
-            totalRevenue: trips.reduce((sum, trip) => sum + trip.totalRevenue, 0),
-            totalPassengers: trips.reduce((sum, trip) => sum + trip.totalPassengers, 0),
-            totalTickets: trips.reduce((sum, trip) => sum + (trip.ticketCount || 0), 0)
-          };
+        Object.entries(groupedData)
+          .filter(([conductorId, trips]) => {
+            // Only include conductors that have trips with tickets
+            return trips.some(trip => trip.conductorId && trip.ticketCount > 0);
+          })
+          .forEach(([conductorId, trips]) => {
+            // Filter to only trips with tickets
+            const tripsWithTicketsForConductor = trips.filter(trip => trip.conductorId && trip.ticketCount > 0);
+            
+            const conductorSummary = {
+              totalTrips: tripsWithTicketsForConductor.length,
+              totalRevenue: tripsWithTicketsForConductor.reduce((sum, trip) => sum + trip.totalRevenue, 0),
+              totalPassengers: tripsWithTicketsForConductor.reduce((sum, trip) => sum + trip.totalPassengers, 0),
+              totalTickets: tripsWithTicketsForConductor.reduce((sum, trip) => sum + (trip.ticketCount || 0), 0)
+            };
 
           const conductorSheetData = [
             [`Conductor: ${conductorId} - Bus #${conductorData[conductorId]?.busNumber || 'N/A'}`],
             [`${conductorSummary.totalTrips} trips, ₱${conductorSummary.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}, ${conductorSummary.totalTickets} tickets`],
             [''],
-            ['Trip #', 'Date & Time', 'Direction', 'Ticket Type', 'Passengers', 'Revenue']
+            ['Trip #', 'Date & Time', 'Direction', 'Passengers', 'Regular', 'PWD', 'Senior', 'Student', 'Revenue']
           ];
 
-          trips.filter(trip => trip.conductorId).forEach(trip => {
+            tripsWithTicketsForConductor.forEach(trip => {
             const dateTime = (() => {
               try {
                 const dateStr = trip.date ? formatDate(trip.date) : 'N/A';
@@ -464,20 +481,41 @@ const RemittanceReport = () => {
               }
             })();
 
+              // Calculate discount breakdown for this trip
+              const breakdown = calculateTripDiscountBreakdown(trip);
+
             conductorSheetData.push([
               trip.tripNumber,
               dateTime,
               trip.tripDirection,
-              formatTicketType(trip.documentType),
               trip.totalPassengers || 0,
+                `₱${breakdown.regular.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                `₱${breakdown.pwd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                `₱${breakdown.senior.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                `₱${breakdown.student.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
               `₱${trip.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
             ]);
           });
 
+            // Calculate totals for discount breakdown
+            const conductorTotalBreakdown = tripsWithTicketsForConductor.reduce((acc, trip) => {
+              const breakdown = calculateTripDiscountBreakdown(trip);
+              return {
+                regular: acc.regular + breakdown.regular,
+                pwd: acc.pwd + breakdown.pwd,
+                senior: acc.senior + breakdown.senior,
+                student: acc.student + breakdown.student
+              };
+            }, { regular: 0, pwd: 0, senior: 0, student: 0 });
+
           // Add conductor total
           conductorSheetData.push([
-            '', '', '', `Conductor ${conductorId} Total:`,
+            '', '', `Conductor ${conductorId} Total:`,
             conductorSummary.totalPassengers,
+              `₱${conductorTotalBreakdown.regular.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+              `₱${conductorTotalBreakdown.pwd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+              `₱${conductorTotalBreakdown.senior.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+              `₱${conductorTotalBreakdown.student.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             `₱${conductorSummary.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
           ]);
 
@@ -517,7 +555,7 @@ const RemittanceReport = () => {
           }
 
           // Header row formatting
-          const conductorHeaderCols = ['A', 'B', 'C', 'D', 'E', 'F'];
+          const conductorHeaderCols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
           conductorHeaderCols.forEach(col => {
             const cellRef = col + '4';
             if (conductorWS[cellRef]) {
@@ -537,8 +575,7 @@ const RemittanceReport = () => {
 
           // Data rows formatting
           const conductorDataStartRow = 5;
-          const conductorTrips = trips.filter(trip => trip.conductorId);
-          const conductorDataEndRow = conductorDataStartRow + conductorTrips.length - 1;
+            const conductorDataEndRow = conductorDataStartRow + tripsWithTicketsForConductor.length - 1;
           
           for (let row = conductorDataStartRow; row <= conductorDataEndRow; row++) {
             conductorHeaderCols.forEach((col, index) => {
@@ -551,9 +588,9 @@ const RemittanceReport = () => {
                   left: { style: "thin", color: { rgb: "000000" } },
                   right: { style: "thin", color: { rgb: "000000" } }
                 },
-                alignment: { 
-                  horizontal: index === 4 || index === 5 ? "right" : "center", 
-                  vertical: "center" 
+                alignment: {
+                  horizontal: index >= 3 ? "right" : "center",
+                  vertical: "center"
                 }
               };
             });
@@ -573,9 +610,9 @@ const RemittanceReport = () => {
                 left: { style: "medium", color: { rgb: "17A2B8" } },
                 right: { style: "medium", color: { rgb: "17A2B8" } }
               },
-              alignment: { 
-                horizontal: index === 4 || index === 5 ? "right" : "center", 
-                vertical: "center" 
+              alignment: {
+                horizontal: index >= 3 ? "right" : "center",
+                vertical: "center"
               }
             };
           });
@@ -585,15 +622,18 @@ const RemittanceReport = () => {
             { wch: 12 }, // Trip #
             { wch: 20 }, // Date & Time
             { wch: 25 }, // Direction
-            { wch: 15 }, // Ticket Type
             { wch: 12 }, // Passengers
+            { wch: 12 }, // Regular
+            { wch: 12 }, // PWD
+            { wch: 12 }, // Senior
+            { wch: 12 }, // Student
             { wch: 15 }  // Revenue
           ];
 
           // Merge cells for title and summary
           conductorWS['!merges'] = [
-            { s: { c: 0, r: 0 }, e: { c: 5, r: 0 } }, // Title
-            { s: { c: 0, r: 1 }, e: { c: 5, r: 1 } }  // Summary
+            { s: { c: 0, r: 0 }, e: { c: 8, r: 0 } }, // Title
+            { s: { c: 0, r: 1 }, e: { c: 8, r: 1 } }  // Summary
           ];
 
           XLSX.utils.book_append_sheet(workbook, conductorWS, `Conductor ${conductorId}`);
@@ -617,18 +657,21 @@ const RemittanceReport = () => {
             reportType: 'Daily Trips Remittance',
             dateFilter: selectedDate || 'All Dates',
             tripDirectionFilter: selectedTripDirection || 'All Directions',
-            ticketTypeFilter: selectedTicketType || 'All Types',
             conductorFilter: selectedConductor || 'All Conductors',
             totalTrips: summary?.totalTrips || 0,
             totalRevenue: summary?.totalRevenue || 0,
             totalPassengers: summary?.totalPassengers || 0,
             totalTickets: summary?.totalTickets || 0,
-            uniqueTrips: filteredRemittanceData.length,
-            conductorsCount: Object.keys(groupedData).length,
+            uniqueTrips: tripsWithTickets.length,
+            conductorsCount: Object.entries(groupedData).filter(([_, trips]) => 
+              trips.some(trip => trip.conductorId && trip.ticketCount > 0)
+            ).length,
             sheetsCreated: {
               summary: true,
-              mainReport: filteredRemittanceData.length > 0,
-              conductorBreakdowns: Object.keys(groupedData).length
+              mainReport: tripsWithTickets.length > 0,
+              conductorBreakdowns: Object.entries(groupedData).filter(([_, trips]) => 
+                trips.some(trip => trip.conductorId && trip.ticketCount > 0)
+              ).length
             }
           },
           'info'
@@ -647,10 +690,6 @@ const RemittanceReport = () => {
     setSelectedDate(e.target.value);
   };
 
-  const handleTicketTypeChange = (e) => {
-    setSelectedTicketType(e.target.value);
-  };
-
   const handleTripDirectionChange = (e) => {
     setSelectedTripDirection(e.target.value);
   };
@@ -663,8 +702,26 @@ const RemittanceReport = () => {
     setShowValidation(!showValidation);
   };
 
-  const handleRefresh = () => {
-    handleLoadRemittanceData();
+  const handleRefresh = async () => {
+    setLoading(true);
+    try {
+      // Force cache refresh by invalidating cache first
+      if (selectedDate) {
+        await forceRefreshRemittanceCache(selectedDate);
+      } else {
+        // Refresh all dates
+        for (const date of availableDates) {
+          await forceRefreshRemittanceCache(date);
+        }
+      }
+
+      // Reload data
+      await handleLoadRemittanceData();
+    } catch (error) {
+      console.error('Error refreshing remittance data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading || summary === null) {
@@ -690,7 +747,6 @@ const RemittanceReport = () => {
         <div className="revenue-report-info">
           <p><strong>Report Date:</strong> {selectedDate ? formatDate(selectedDate) : 'All Dates'}</p>
           {selectedTripDirection && <p><strong>Trip Direction:</strong> {selectedTripDirection}</p>}
-          {selectedTicketType && <p><strong>Ticket Type:</strong> {selectedTicketType}</p>}
           {selectedConductor && <p><strong>Conductor:</strong> {selectedConductor}</p>}
           <p><strong>Generated:</strong> {new Date().toLocaleString()}</p>
           <p><strong>Total Trips:</strong> {summary.totalTrips}</p>
@@ -732,20 +788,6 @@ const RemittanceReport = () => {
         </div>
 
         <div className="revenue-filter-group">
-          <label className="revenue-filter-label">Ticket Type</label>
-          <select
-            value={selectedTicketType}
-            onChange={handleTicketTypeChange}
-            className="revenue-filter-select"
-          >
-            <option value="">All Ticket Types</option>
-            <option value="conductor">Conductor Ticket</option>
-            <option value="pre-book">Pre-Booking</option>
-            <option value="pre-ticket">Pre-Ticketing</option>
-          </select>
-        </div>
-
-        <div className="revenue-filter-group">
           <label className="revenue-filter-label">Conductor</label>
           <select
             value={selectedConductor}
@@ -764,11 +806,10 @@ const RemittanceReport = () => {
         {/* Clear Filters Button */}
         <div className="revenue-filter-group">
           <label className="revenue-filter-label">&nbsp;</label>
-          <button 
+          <button
             onClick={() => {
               setSelectedDate('');
               setSelectedRoute('');
-              setSelectedTicketType('');
               setSelectedConductor('');
             }}
             className="revenue-filter-btn"
@@ -856,26 +897,35 @@ const RemittanceReport = () => {
             
             {filteredRemittanceData.length > 0 ? (
               <div className="revenue-table-container">
-                <table className="revenue-revenue-table revenue-remittance-breakdown-table">
+                <table className="revenue-remittance-base-table revenue-remittance-summary-table">
                   <thead>
                     <tr>
-                      <th>Conductor ID</th>
-                      <th style={{ width: '20px', fontSize: '12px' }}>Bus #</th>
-                      <th style={{ width: '40px', fontSize: '12px' }}>Trip #</th>
-                      <th>Date & Time</th>
-                      <th>Trip Direction</th>
-                      <th style={{ width: '30px', fontSize: '12px' }}>Tickets</th>
-                      <th style={{ width: '30px', fontSize: '12px' }}>Revenue</th>
+                      <th rowSpan={2}>Conductor ID</th>
+                      <th rowSpan={2}>Bus #</th>
+                      <th rowSpan={2}>Trip #</th>
+                      <th rowSpan={2}>Date & Time</th>
+                      <th rowSpan={2}>Trip Direction</th>
+                      <th rowSpan={2}>Tickets</th>
+                      <th colSpan={4} style={{ textAlign: 'center', backgroundColor: '#f8f9fa', color: '#495057', fontSize: '12px', padding: '10px 8px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Discount Breakdown</th>
+                      <th rowSpan={2}>Revenue</th>
+                    </tr>
+                    <tr>
+                      <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>Reg</th>
+                      <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>PWD</th>
+                      <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>Sen</th>
+                      <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>Std</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredRemittanceData
                       .filter(trip => trip.ticketCount > 0) // Only show trips with tickets
-                      .map((trip, index) => (
+                      .map((trip, index) => {
+                        const breakdown = calculateTripDiscountBreakdown(trip);
+                        return (
                       <tr key={index}>
-                        <td className="revenue-trip-id">{trip.conductorId}</td>
-                        <td className="revenue-trip-id" style={{ width: '60px', fontSize: '12px', textAlign: 'center', padding: '8px 4px' }}>{conductorData[trip.conductorId]?.busNumber || 'N/A'}</td>
-                        <td className="revenue-trip-id" style={{ width: '10px', fontSize: '12px', textAlign: 'center', padding: '8px 4px' }}>{trip.tripNumber}</td>
+                        <td>{trip.conductorId}</td>
+                        <td style={{ textAlign: 'center' }}>{conductorData[trip.conductorId]?.busNumber || 'N/A'}</td>
+                        <td style={{ textAlign: 'center' }}>{trip.tripNumber}</td>
                         <td>
                           {(() => {
                             try {
@@ -888,21 +938,50 @@ const RemittanceReport = () => {
                             }
                           })()}
                         </td>
-                        <td className="revenue-trip-direction">{trip.tripDirection}</td>
-                        <td style={{ textAlign: 'center', width: '40px', fontSize: '12px', padding: '8px 4px' }}>{trip.ticketCount}</td>
-                        <td className="revenue-fare-amount" style={{ width: '70px', fontSize: '12px', padding: '8px 4px' }}>{formatCurrency(trip.totalRevenue)}</td>
+                        <td>{trip.tripDirection}</td>
+                        <td style={{ textAlign: 'center' }}>{trip.ticketCount}</td>
+                        <td>{formatCurrency(breakdown.regular)}</td>
+                        <td>{formatCurrency(breakdown.pwd)}</td>
+                        <td>{formatCurrency(breakdown.senior)}</td>
+                        <td>{formatCurrency(breakdown.student)}</td>
+                        <td className="revenue-fare-amount">{formatCurrency(trip.totalRevenue)}</td>
                       </tr>
-                    ))}
+                        );
+                    })}
                     {/* Total Row */}
-                    <tr style={{ backgroundColor: '#f8f9fa', fontWeight: 'bold', borderTop: '2px solid #dee2e6' }}>
-                      <td colSpan="5" style={{ textAlign: 'right', padding: '12px', fontSize: '14px' }}>
-                        <strong>TOTAL ({filteredRemittanceData.filter(trip => trip.ticketCount > 0).length} trips):</strong>
+                    <tr>
+                      <td colSpan="5" style={{ textAlign: 'right', fontWeight: 'bold' }}>
+                        TOTAL ({filteredRemittanceData.filter(trip => trip.ticketCount > 0).length} trips):
                       </td>
-                      <td style={{ textAlign: 'center', width: '40px', fontSize: '12px', padding: '12px 4px' }}>
-                        <strong>{filteredRemittanceData.filter(trip => trip.ticketCount > 0).reduce((sum, trip) => sum + trip.ticketCount, 0)}</strong>
+                      <td style={{ textAlign: 'center', fontWeight: 'bold' }}>
+                        {filteredRemittanceData.filter(trip => trip.ticketCount > 0).reduce((sum, trip) => sum + trip.ticketCount, 0)}
                       </td>
-                      <td className="revenue-fare-amount" style={{ width: '70px', fontSize: '12px', padding: '12px 4px' }}>
-                        <strong>{formatCurrency(filteredRemittanceData.filter(trip => trip.ticketCount > 0).reduce((sum, trip) => sum + trip.totalRevenue, 0))}</strong>
+                      <td style={{ textAlign: 'center', fontWeight: 'bold' }}>
+                        {formatCurrency(filteredRemittanceData.filter(trip => trip.ticketCount > 0).reduce((sum, trip) => {
+                          const breakdown = calculateTripDiscountBreakdown(trip);
+                          return sum + breakdown.regular;
+                        }, 0))}
+                      </td>
+                      <td style={{ textAlign: 'center', fontWeight: 'bold' }}>
+                        {formatCurrency(filteredRemittanceData.filter(trip => trip.ticketCount > 0).reduce((sum, trip) => {
+                          const breakdown = calculateTripDiscountBreakdown(trip);
+                          return sum + breakdown.pwd;
+                        }, 0))}
+                      </td>
+                      <td style={{ textAlign: 'center', fontWeight: 'bold' }}>
+                        {formatCurrency(filteredRemittanceData.filter(trip => trip.ticketCount > 0).reduce((sum, trip) => {
+                          const breakdown = calculateTripDiscountBreakdown(trip);
+                          return sum + breakdown.senior;
+                        }, 0))}
+                      </td>
+                      <td style={{ textAlign: 'center', fontWeight: 'bold' }}>
+                        {formatCurrency(filteredRemittanceData.filter(trip => trip.ticketCount > 0).reduce((sum, trip) => {
+                          const breakdown = calculateTripDiscountBreakdown(trip);
+                          return sum + breakdown.student;
+                        }, 0))}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: 'bold' }}>
+                        {formatCurrency(filteredRemittanceData.filter(trip => trip.ticketCount > 0).reduce((sum, trip) => sum + trip.totalRevenue, 0))}
                       </td>
                     </tr>
                   </tbody>
@@ -917,7 +996,7 @@ const RemittanceReport = () => {
                     'No remittance data available. Please check if there are any available dates or try refreshing.'
                   }
                 </p>
-                {(selectedTicketType || selectedTripDirection || selectedConductor) && (
+                {(selectedTripDirection || selectedConductor) && (
                   <p style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
                     Try removing some filters to see more results.
                   </p>
@@ -931,85 +1010,125 @@ const RemittanceReport = () => {
             <div className="revenue-breakdown-section">
               <h3 className="revenue-breakdown-title">Detailed Breakdown by Conductor</h3>
               
-              {Object.entries(groupedData).map(([conductorId, trips]) => {
-                const conductorSummary = trips.conductorSummary || {
-                  totalTrips: trips.length,
-                  totalRevenue: trips.reduce((sum, trip) => sum + trip.totalRevenue, 0),
-                  totalPassengers: trips.reduce((sum, trip) => sum + trip.totalPassengers, 0),
-                  totalTickets: trips.reduce((sum, trip) => sum + (trip.ticketCount || 0), 0)
-                };
+              {Object.entries(groupedData)
+                .filter(([conductorId, trips]) => {
+                  // Only show conductors that have trips with tickets
+                  return trips.some(trip => trip.conductorId && trip.ticketCount > 0);
+                })
+                .map(([conductorId, trips]) => {
+                  // Recalculate summary based only on trips with tickets
+                  const tripsWithTickets = trips.filter(trip => trip.conductorId && trip.ticketCount > 0);
+                  const conductorSummary = {
+                    totalTrips: tripsWithTickets.length,
+                    totalRevenue: tripsWithTickets.reduce((sum, trip) => sum + trip.totalRevenue, 0),
+                    totalPassengers: tripsWithTickets.reduce((sum, trip) => sum + trip.totalPassengers, 0),
+                    totalTickets: tripsWithTickets.reduce((sum, trip) => sum + (trip.ticketCount || 0), 0)
+                  };
 
-                return (
-                  <div key={conductorId} className="revenue-section-container">
-                    <h4 className="revenue-section-title revenue-section-conductor">
-                      Conductor: {conductorId} - Bus #{conductorData[conductorId]?.busNumber || 'N/A'}
-                      <span style={{ marginLeft: '10px', fontSize: '14px', fontWeight: 'normal' }}>
-                        ({conductorSummary.totalTrips} trips, {formatCurrency(conductorSummary.totalRevenue)}, {conductorSummary.totalTickets} tickets)
-                      </span>
-                    </h4>
-                    
-                    <div className="revenue-table-container">
-                      <table className="revenue-revenue-table revenue-remittance-breakdown-table">
-                        <thead>
-                          <tr>
-                            <th style={{width: '10px'}}>Trip #</th>
-                            <th style={{width: '35px'}}>Date & Time</th>
-                            <th style={{width: '30px'}}>Direction</th>
-                            <th style={{width: '30px'}}>Ticket Type</th>
-                            <th style={{ width: '20px' }}>Passengers</th>
-                            <th style={{ width: '25px' }}>Revenue</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {trips.filter(trip => trip.conductorId && trip.ticketCount > 0).map((trip, tripIndex) => (
-                            <tr key={tripIndex}>
-                              <td className="revenue-trip-id">
-                                {trip.tripNumber}
+                  return (
+                    <div key={conductorId} className="revenue-section-container">
+                      <h4 className="revenue-section-title revenue-section-conductor">
+                        Conductor: {conductorId} - Bus #{conductorData[conductorId]?.busNumber || 'N/A'}
+                        <span style={{ marginLeft: '10px', fontSize: '14px', fontWeight: 'normal' }}>
+                          ({conductorSummary.totalTrips} trips, {formatCurrency(conductorSummary.totalRevenue)}, {conductorSummary.totalTickets} tickets)
+                        </span>
+                      </h4>
+                      
+                      <div className="revenue-table-container">
+                        <table className="revenue-remittance-base-table revenue-remittance-conductor-table">
+                          <thead>
+                            <tr>
+                              <th rowSpan={2}>Trip #</th>
+                              <th rowSpan={2}>Date & Time</th>
+                              <th rowSpan={2}>Direction</th>
+                              <th rowSpan={2}>Passengers</th>
+                              <th colSpan={4} style={{ textAlign: 'center', backgroundColor: '#f8f9fa', color: '#495057', fontSize: '12px', padding: '10px 8px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Discount Breakdown</th>
+                              <th rowSpan={2}>Revenue</th>
+                            </tr>
+                            <tr>
+                              <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>Reg</th>
+                              <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>PWD</th>
+                              <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>Sen</th>
+                              <th style={{ fontSize: '12px', backgroundColor: '#f8f9fa', padding: '10px 8px' }}>Std</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {tripsWithTickets.map((trip, tripIndex) => {
+                              const breakdown = calculateTripDiscountBreakdown(trip);
+                              return (
+                              <tr key={tripIndex}>
+                                <td style={{ textAlign: 'center' }}>
+                                  {trip.tripNumber}
+                                </td>
+                                <td>
+                                  {(() => {
+                                    try {
+                                      const dateStr = trip.date ? formatDate(trip.date) : 'N/A';
+                                      const timeStr = trip.startTime ? formatTime(trip.startTime) : 'N/A';
+                                      return `${dateStr} ${timeStr}`;
+                                    } catch (error) {
+                                      return `${trip.date || 'N/A'} ${trip.startTime ? formatTime(trip.startTime) : 'N/A'}`;
+                                    }
+                                  })()}
+                                </td>
+                                <td>
+                                  {trip.tripDirection}
+                                </td>
+                                <td style={{ textAlign: 'center' }}>
+                                  {trip.totalPassengers || 0}
+                                </td>
+                                <td>{formatCurrency(breakdown.regular)}</td>
+                                <td>{formatCurrency(breakdown.pwd)}</td>
+                                <td>{formatCurrency(breakdown.senior)}</td>
+                                <td>{formatCurrency(breakdown.student)}</td>
+                                <td className="revenue-fare-amount">
+                                  {formatCurrency(trip.totalRevenue)}
+                                </td>
+                              </tr>
+                              );
+                            })}
+                            {/* Conductor Total Row - FIXED VERSION */}
+                            <tr className="revenue-conductor-total-row">
+                              <td colSpan="3">
+                                Conductor {conductorId} Total:
                               </td>
                               <td>
-                                {(() => {
-                                  try {
-                                    // Use trip.date for the date part and trip.startTime for the time part
-                                    const dateStr = trip.date ? formatDate(trip.date) : 'N/A';
-                                    const timeStr = trip.startTime ? formatTime(trip.startTime) : 'N/A';
-                                    return `${dateStr} ${timeStr}`;
-                                  } catch (error) {
-                                    return `${trip.date || 'N/A'} ${trip.startTime ? formatTime(trip.startTime) : 'N/A'}`;
-                                  }
-                                })()}
-                              </td>
-                              <td className="revenue-trip-direction">
-                                {trip.tripDirection}
+                                {conductorSummary.totalPassengers}
                               </td>
                               <td>
-                                {formatTicketType(trip.documentType)}
+                                {formatCurrency(tripsWithTickets.reduce((sum, trip) => {
+                                  const breakdown = calculateTripDiscountBreakdown(trip);
+                                  return sum + breakdown.regular;
+                                }, 0))}
                               </td>
-                              <td style={{ textAlign: 'center', width: '120px' }}>
-                                {trip.totalPassengers || 0}
+                              <td>
+                                {formatCurrency(tripsWithTickets.reduce((sum, trip) => {
+                                  const breakdown = calculateTripDiscountBreakdown(trip);
+                                  return sum + breakdown.pwd;
+                                }, 0))}
                               </td>
-                              <td className="revenue-fare-amount" style={{ width: '100px' }}>
-                                {formatCurrency(trip.totalRevenue)}
+                              <td>
+                                {formatCurrency(tripsWithTickets.reduce((sum, trip) => {
+                                  const breakdown = calculateTripDiscountBreakdown(trip);
+                                  return sum + breakdown.senior;
+                                }, 0))}
+                              </td>
+                              <td>
+                                {formatCurrency(tripsWithTickets.reduce((sum, trip) => {
+                                  const breakdown = calculateTripDiscountBreakdown(trip);
+                                  return sum + breakdown.student;
+                                }, 0))}
+                              </td>
+                              <td>
+                                {formatCurrency(conductorSummary.totalRevenue)}
                               </td>
                             </tr>
-                          ))}
-                          {/* Conductor Total Row */}
-                          <tr style={{ backgroundColor: '#e8f4f8', fontWeight: 'bold', borderTop: '2px solid #17a2b8' }}>
-                            <td colSpan="4" style={{ textAlign: 'right', padding: '12px', fontSize: '14px' }}>
-                              <strong>Conductor {conductorId} Total:</strong>
-                            </td>
-                            <td style={{ textAlign: 'center', width: '120px', padding: '12px' }}>
-                              <strong>{conductorSummary.totalPassengers}</strong>
-                            </td>
-                            <td className="revenue-fare-amount" style={{ width: '100px', padding: '12px' }}>
-                              <strong>{formatCurrency(conductorSummary.totalRevenue)}</strong>
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           )}
 

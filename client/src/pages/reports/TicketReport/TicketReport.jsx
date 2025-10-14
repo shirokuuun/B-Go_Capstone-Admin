@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell } from 'recharts';
-import { 
+import {
   getTicketAnalyticsData,
   getDemandPatternsData,
   getRoutePerformanceData,
   getTicketTypeData,
   getAvailableTimeRanges,
-  getAvailableRoutes
+  getAvailableRoutes,
+  getDiscountRevenueData
 } from './TicketReport.js';
 import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
 import { logActivity, ACTIVITY_TYPES } from "/src/pages/settings/auditService.js";
@@ -34,7 +35,8 @@ const TicketReport = () => {
   const [analyticsData, setAnalyticsData] = useState({
     demandPatterns: {},
     routePerformance: [],
-    ticketTypes: []
+    ticketTypes: [],
+    discountRevenue: []
   });
 
   useEffect(() => {
@@ -62,16 +64,18 @@ const TicketReport = () => {
   const loadAnalyticsData = async () => {
     setLoading(true);
     try {
-      const [demand, routes, tickets] = await Promise.all([
+      const [demand, routes, tickets, discounts] = await Promise.all([
         getDemandPatternsData(selectedTimeRange, selectedRoute, selectedTicketType),
         getRoutePerformanceData(selectedTimeRange, selectedRoute, selectedTicketType),
-        getTicketTypeData(selectedTimeRange, selectedRoute, selectedTicketType)
+        getTicketTypeData(selectedTimeRange, selectedRoute, selectedTicketType),
+        getDiscountRevenueData(selectedTimeRange, selectedRoute, selectedTicketType)
       ]);
 
       setAnalyticsData({
         demandPatterns: demand,
         routePerformance: routes,
-        ticketTypes: tickets
+        ticketTypes: tickets,
+        discountRevenue: discounts
       });
 
     } catch (error) {
@@ -612,6 +616,60 @@ const TicketReport = () => {
                   <div className="ticket-empty-icon">📊</div>
                   <h3>No Ticket Type Data</h3>
                   <p>No ticket type performance data available for the selected filters.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Revenue by Discount Type */}
+          <div className="ticket-card">
+            <div className="ticket-card-header">
+              <div className="ticket-card-title">
+                Revenue by Discount Type
+              </div>
+            </div>
+            <div className="ticket-card-content">
+              {analyticsData.discountRevenue?.length > 0 ? (
+                <div className="ticket-discount-revenue-wrapper">
+                  <table className="ticket-discount-revenue-table">
+                    <thead>
+                      <tr>
+                        <th className="ticket-discount-header">Discount Type</th>
+                        <th className="ticket-discount-header">Passengers</th>
+                        <th className="ticket-discount-header">Revenue</th>
+                        <th className="ticket-discount-header">Percentage</th>
+                        <th className="ticket-discount-header">Avg Fare</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analyticsData.discountRevenue.map((discount, index) => (
+                        <tr key={index} className="ticket-discount-row">
+                          <td className="ticket-discount-type-cell">
+                            <div
+                              className="ticket-discount-indicator"
+                              style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                            ></div>
+                            {discount.type}
+                          </td>
+                          <td className="ticket-discount-count-cell">{discount.passengers}</td>
+                          <td className="ticket-discount-amount-cell">₱{discount.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="ticket-discount-percentage-cell">
+                            <div className="ticket-discount-bar-container">
+                              <div className="ticket-discount-bar-fill" style={{ width: `${discount.percentage}%`, backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}></div>
+                            </div>
+                            <span className="ticket-discount-percentage-text">{discount.percentage}%</span>
+                          </td>
+                          <td className="ticket-discount-avg-cell">₱{discount.avgFare.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="ticket-empty-state">
+                  <div className="ticket-empty-icon">💰</div>
+                  <h3>No Discount Revenue Data</h3>
+                  <p>No discount revenue data available for the selected filters.</p>
                 </div>
               )}
             </div>
