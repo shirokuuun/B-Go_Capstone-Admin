@@ -11,6 +11,7 @@ import { IoSettings, IoWarning  } from "react-icons/io5";
 import { useState, useEffect, useCallback } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '/src/firebase/firebase.js';
+import { signupAdmin } from '/src/pages/auth/authService.js';
 import {
   fetchCurrentUserData,
   changeUserPassword,
@@ -185,6 +186,19 @@ const formatLogDescription = (description) => {
   const [adminUsersLoading, setAdminUsersLoading] = useState(false);
   const [adminUsersUnsubscribe, setAdminUsersUnsubscribe] = useState(null);
   const [isAdminUsersExpanded, setIsAdminUsersExpanded] = useState(false);
+
+  // Admin registration modal state (superadmin only)
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [registerFormData, setRegisterFormData] = useState({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    firstName: '',
+    lastName: '',
+    role: 'admin'
+  });
+  const [registerLoading, setRegisterLoading] = useState(false);
+  const [registerError, setRegisterError] = useState('');
 
   // Backup system state (superadmin only)
   const [isBackupExpanded, setIsBackupExpanded] = useState(false);
@@ -587,6 +601,77 @@ const formatLogDescription = (description) => {
     }
   };
 
+  // Admin registration handlers
+  const handleRegisterInputChange = (field, value) => {
+    setRegisterFormData(prev => ({ ...prev, [field]: value }));
+    setRegisterError('');
+  };
+
+  const handleRegisterSubmit = async (e) => {
+    e.preventDefault();
+    setRegisterError('');
+
+    // Validation
+    if (registerFormData.password !== registerFormData.confirmPassword) {
+      setRegisterError('Passwords do not match');
+      return;
+    }
+
+    if (registerFormData.password.length < 6) {
+      setRegisterError('Password must be at least 6 characters');
+      return;
+    }
+
+    if (!registerFormData.firstName || !registerFormData.lastName) {
+      setRegisterError('First name and last name are required');
+      return;
+    }
+
+    try {
+      setRegisterLoading(true);
+      const name = `${registerFormData.firstName} ${registerFormData.lastName}`;
+
+      await signupAdmin({
+        name,
+        email: registerFormData.email,
+        password: registerFormData.password,
+        role: registerFormData.role
+      });
+
+      // Reset form and close modal
+      setRegisterFormData({
+        email: '',
+        password: '',
+        confirmPassword: '',
+        firstName: '',
+        lastName: '',
+        role: 'admin'
+      });
+      setShowRegisterModal(false);
+      setMessage('Admin user registered successfully');
+
+      // Refresh admin users list
+      setupAdminUsersListener();
+    } catch (err) {
+      setRegisterError(err.message || 'Failed to register admin user');
+    } finally {
+      setRegisterLoading(false);
+    }
+  };
+
+  const handleCloseRegisterModal = () => {
+    setShowRegisterModal(false);
+    setRegisterFormData({
+      email: '',
+      password: '',
+      confirmPassword: '',
+      firstName: '',
+      lastName: '',
+      role: 'admin'
+    });
+    setRegisterError('');
+  };
+
   // Setup admin users subscription (superadmin only)
   const setupAdminUsersListener = () => {
     if (adminUsersUnsubscribe) {
@@ -594,7 +679,7 @@ const formatLogDescription = (description) => {
     }
 
     setAdminUsersLoading(true);
-    
+
     const unsubscribe = subscribeToAdminUsers(
       (users) => {
         setAdminUsers(users);
@@ -1246,6 +1331,19 @@ const formatLogDescription = (description) => {
             {/* Admin Users Tab Content */}
             {adminTab === 'users' && (
               <div className="admin-users-tab">
+                {/* Register New Admin Button (Superadmin Only) */}
+                {userData.role === 'superadmin' && (
+                  <div className="settings-register-button-container">
+                    <button
+                      onClick={() => setShowRegisterModal(true)}
+                      className="settings-register-admin-button"
+                    >
+                      <FaPlusCircle />
+                      Register New Admin
+                    </button>
+                  </div>
+                )}
+
                 <div className="settings-admin-users-stats">
                   <div className="settings-admin-users-pattern"></div>
                   <div className="settings-stat-item">
@@ -2265,6 +2363,111 @@ const formatLogDescription = (description) => {
           </div>
         )}
 
+        {/* Register Admin Modal */}
+        {showRegisterModal && (
+          <div className="settings-modal-overlay" onClick={handleCloseRegisterModal}>
+            <div className="settings-modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="settings-modal-header">
+                <h3>Register New Admin</h3>
+                <button onClick={handleCloseRegisterModal} className="settings-modal-close">×</button>
+              </div>
+
+              <form onSubmit={handleRegisterSubmit} className="settings-register-form">
+                <div className="settings-form-row">
+                  <div className="settings-form-group">
+                    <label>First Name</label>
+                    <input
+                      type="text"
+                      value={registerFormData.firstName}
+                      onChange={(e) => handleRegisterInputChange('firstName', e.target.value)}
+                      required
+                      placeholder="Enter first name"
+                    />
+                  </div>
+                  <div className="settings-form-group">
+                    <label>Last Name</label>
+                    <input
+                      type="text"
+                      value={registerFormData.lastName}
+                      onChange={(e) => handleRegisterInputChange('lastName', e.target.value)}
+                      required
+                      placeholder="Enter last name"
+                    />
+                  </div>
+                </div>
+
+                <div className="settings-form-group">
+                  <label>Email</label>
+                  <input
+                    type="email"
+                    value={registerFormData.email}
+                    onChange={(e) => handleRegisterInputChange('email', e.target.value)}
+                    required
+                    placeholder="Enter email address"
+                  />
+                </div>
+
+                <div className="settings-form-row">
+                  <div className="settings-form-group">
+                    <label>Password</label>
+                    <input
+                      type="password"
+                      value={registerFormData.password}
+                      onChange={(e) => handleRegisterInputChange('password', e.target.value)}
+                      required
+                      placeholder="Minimum 6 characters"
+                      minLength="6"
+                    />
+                  </div>
+                  <div className="settings-form-group">
+                    <label>Confirm Password</label>
+                    <input
+                      type="password"
+                      value={registerFormData.confirmPassword}
+                      onChange={(e) => handleRegisterInputChange('confirmPassword', e.target.value)}
+                      required
+                      placeholder="Re-enter password"
+                    />
+                  </div>
+                </div>
+
+                <div className="settings-form-group">
+                  <label>Role</label>
+                  <select
+                    value={registerFormData.role}
+                    onChange={(e) => handleRegisterInputChange('role', e.target.value)}
+                    required
+                  >
+                    <option value="admin">Admin</option>
+                    <option value="superadmin">Superadmin</option>
+                  </select>
+                </div>
+
+                {registerError && (
+                  <div className="settings-error-message">{registerError}</div>
+                )}
+
+                <div className="settings-modal-footer">
+                  <button
+                    type="button"
+                    onClick={handleCloseRegisterModal}
+                    className="settings-button-secondary"
+                    disabled={registerLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="settings-button-primary"
+                    disabled={registerLoading}
+                  >
+                    {registerLoading ? 'Registering...' : 'Register Admin'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

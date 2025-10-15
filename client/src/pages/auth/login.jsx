@@ -1,6 +1,8 @@
-import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { loginAdmin } from "/src/pages/auth/authService.js";
+import { auth } from "/src/firebase/firebase.js";
+import { onAuthStateChanged } from "firebase/auth";
 import Silk from "/src/components/Silk/Silk.jsx";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import "./login.css";
@@ -13,13 +15,23 @@ function Login() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        navigate("/admin", { replace: true });
+      }
+    });
+
+    return () => unsubscribe();
+  }, [navigate]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
 
     try {
       await loginAdmin(email, password);
-      navigate("/admin");
+      navigate("/admin", { replace: true });
     } catch (err) {
       setError(err.message);
     }
@@ -72,9 +84,6 @@ function Login() {
             <button type="submit">Login</button>
             <p className="error">{error || "\u00A0"}</p>
           </form>
-          <div className="login-footer">
-            <p>Don't have an Admin account? <Link to="/signup">Register here</Link></p>
-          </div>
         </div>
         <div className="login-box right">
           <img

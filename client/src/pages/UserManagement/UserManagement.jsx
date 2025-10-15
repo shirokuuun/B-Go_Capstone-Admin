@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '/src/firebase/firebase.js';
 import { fetchCurrentUserData } from '/src/pages/settings/settings.js';
-import { fetchAllUsers, deleteUser, fetchUserById, subscribeToUsers } from './UserManagement.js';
+import { fetchAllUsers, deleteUser, fetchUserById, subscribeToUsers, bulkDeleteUsers } from './UserManagement.js';
 import { MdDeleteForever } from "react-icons/md";
 import './UserManagement.css';
 
@@ -24,6 +24,10 @@ const UserManagement = () => {
   const [userRole, setUserRole] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  // Bulk selection states
+  const [selectedUsers, setSelectedUsers] = useState(new Set());
+  const [isSelectMode, setIsSelectMode] = useState(false);
 
   // Authentication and role checking useEffect
   useEffect(() => {
@@ -117,15 +121,15 @@ const UserManagement = () => {
     }
 
     const confirmMessage = `⚠️ SUPER ADMIN ACTION ⚠️\n\nAre you sure you want to delete this user?\n\nName: ${user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.name || user.displayName || 'Unknown User'}\nEmail: ${user.email || 'No email'}\nID: ${user.id}\n\nThis action cannot be undone and will be logged in the activity logs.`;
-    
+
     const confirmed = window.confirm(confirmMessage);
-    
+
     if (confirmed) {
       try {
         setActionLoading(true);
         const result = await deleteUser(user.id, currentUser);
         setUsers(users.filter(u => u.id !== user.id));
-        
+
         // Show detailed feedback based on deletion result
         if (result && result.success) {
           const alertMessage = `✅ ${result.message}\n\n${result.details}\n\nThis action has been logged in the activity logs.`;
@@ -139,6 +143,80 @@ const UserManagement = () => {
       } finally {
         setActionLoading(false);
       }
+    }
+  };
+
+  // Bulk selection handlers
+  const toggleSelectMode = () => {
+    setIsSelectMode(!isSelectMode);
+    setSelectedUsers(new Set());
+  };
+
+  const toggleUserSelection = (userId) => {
+    const newSelection = new Set(selectedUsers);
+    if (newSelection.has(userId)) {
+      newSelection.delete(userId);
+    } else {
+      newSelection.add(userId);
+    }
+    setSelectedUsers(newSelection);
+  };
+
+  const selectAllUsers = () => {
+    const sorted = sortUsers(users);
+    const allUserIds = new Set(sorted.map(user => user.id));
+    setSelectedUsers(allUserIds);
+  };
+
+  const deselectAllUsers = () => {
+    setSelectedUsers(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    if (!isSuperAdmin) {
+      alert('Access denied. Only super administrators can delete users.');
+      return;
+    }
+
+    if (selectedUsers.size === 0) {
+      alert('Please select users to delete.');
+      return;
+    }
+
+    const confirmMessage = `SUPER ADMIN BULK DELETE\n\nAre you sure you want to delete ${selectedUsers.size} user(s)?\n\nThis action cannot be undone and will be logged in the activity logs.`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      const result = await bulkDeleteUsers(selectedUsers, currentUser);
+
+      // Remove successfully deleted users from the list
+      const failedUserIds = result.errors.map(e => e.userId);
+      setUsers(users.filter(u => !selectedUsers.has(u.id) || failedUserIds.includes(u.id)));
+      setSelectedUsers(new Set());
+      setIsSelectMode(false);
+
+      // Show summary
+      let message = `Bulk delete completed:\nSuccessfully deleted: ${result.successCount} user(s)`;
+      if (result.failCount > 0) {
+        message += `\nFailed: ${result.failCount} user(s)`;
+        if (result.errors.length > 0) {
+          const errorMessages = result.errors.slice(0, 5).map(e => `User ${e.userId}: ${e.error}`);
+          message += `\n\nErrors:\n${errorMessages.join('\n')}`;
+          if (result.errors.length > 5) {
+            message += `\n... and ${result.errors.length - 5} more`;
+          }
+        }
+      }
+      alert(message);
+    } catch (err) {
+      setError(err.message);
+      alert('Failed to delete users: ' + err.message);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -287,7 +365,7 @@ const UserManagement = () => {
       <div className="usermgmt-header">
         <div className="usermgmt-sort-section">
           <label className="usermgmt-sort-label">Sort by:</label>
-          <select 
+          <select
             className="usermgmt-sort-select"
             value={`${sortBy}-${sortOrder}`}
             onChange={(e) => {
@@ -309,7 +387,94 @@ const UserManagement = () => {
             Total Users: {users.length}
           </p>
         </div>
+        {isSuperAdmin && users.length > 0 && (
+          <button
+            onClick={toggleSelectMode}
+            className={`settings-admin-select-btn ${isSelectMode ? 'active' : ''}`}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '8px',
+              border: isSelectMode ? '2px solid #dc3545' : '2px solid #007c91',
+              backgroundColor: isSelectMode ? '#dc3545' : '#007c91',
+              color: 'white',
+              cursor: 'pointer',
+              fontWeight: '600',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            {isSelectMode ? 'Cancel Select' : 'Select Users'}
+          </button>
+        )}
       </div>
+
+      {/* Bulk Actions Bar */}
+      {isSelectMode && (
+        <div className="usermgmt-bulk-actions-bar" style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '15px 20px',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '8px',
+          marginBottom: '20px',
+          border: '1px solid #dee2e6'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: '600', color: '#2c3e50' }}>
+              {selectedUsers.size} of {users.length} selected
+            </span>
+            <button
+              onClick={selectAllUsers}
+              className="settings-admin-select-all-btn"
+              style={{
+                padding: '6px 12px',
+                fontSize: '14px',
+                borderRadius: '6px',
+                border: '1px solid #007c91',
+                backgroundColor: 'white',
+                color: '#007c91',
+                cursor: 'pointer',
+                fontWeight: '500'
+              }}
+            >
+              Select All
+            </button>
+            <button
+              onClick={deselectAllUsers}
+              className="settings-admin-deselect-all-btn"
+              style={{
+                padding: '6px 12px',
+                fontSize: '14px',
+                borderRadius: '6px',
+                border: '1px solid #6c757d',
+                backgroundColor: 'white',
+                color: '#6c757d',
+                cursor: 'pointer',
+                fontWeight: '500'
+              }}
+            >
+              Deselect All
+            </button>
+          </div>
+          <button
+            onClick={handleBulkDelete}
+            disabled={selectedUsers.size === 0 || actionLoading}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              borderRadius: '6px',
+              border: 'none',
+              backgroundColor: selectedUsers.size === 0 || actionLoading ? '#ccc' : '#dc3545',
+              color: 'white',
+              cursor: selectedUsers.size === 0 || actionLoading ? 'not-allowed' : 'pointer',
+              fontWeight: '600',
+              opacity: selectedUsers.size === 0 || actionLoading ? 0.6 : 1
+            }}
+          >
+            Delete Selected ({selectedUsers.size})
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="usermgmt-error">
@@ -335,11 +500,35 @@ const UserManagement = () => {
           ) : (
             <div className="usermgmt-user-list">
               {getSortedUsers().map((user) => (
-                <div 
-                  key={user.id} 
-                  className={`usermgmt-user-item ${selectedUser && selectedUser.id === user.id ? 'active' : ''}`}
-                  onClick={() => handleViewUser(user.id)}
+                <div
+                  key={user.id}
+                  className={`usermgmt-user-item ${selectedUser && selectedUser.id === user.id ? 'active' : ''} ${isSelectMode ? 'selectable' : ''} ${selectedUsers.has(user.id) ? 'selected' : ''}`}
+                  onClick={isSelectMode ? () => toggleUserSelection(user.id) : () => handleViewUser(user.id)}
+                  style={{
+                    cursor: isSelectMode ? 'pointer' : 'default',
+                    backgroundColor: selectedUsers.has(user.id) ? '#e3f2fd' : '',
+                    border: selectedUsers.has(user.id) ? '2px solid #2196f3' : ''
+                  }}
                 >
+                  {isSelectMode && (
+                    <div className="usermgmt-user-checkbox" style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      marginRight: '10px'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.has(user.id)}
+                        onChange={() => toggleUserSelection(user.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          width: '20px',
+                          height: '20px',
+                          cursor: 'pointer'
+                        }}
+                      />
+                    </div>
+                  )}
                   <div className="usermgmt-user-item-main">
                     {(() => {
                       // Find any profile image field
@@ -390,21 +579,33 @@ const UserManagement = () => {
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={isSuperAdmin ? (e) => {
-                      e.stopPropagation();
-                      handleDeleteClick(user);
-                    } : undefined}
-                    className={`settings-admin-delete-btn ${!isSuperAdmin ? 'disabled' : ''}`}
-                    disabled={actionLoading || !isSuperAdmin}
-                    title={isSuperAdmin ? `Delete ${user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.name || user.displayName || user.email}` : "Delete not allowed for admin users"}
-                    style={{
-                      color: !isSuperAdmin ? '#999' : '',
-                      cursor: !isSuperAdmin ? 'not-allowed' : 'pointer'
-                    }}
-                  >
-                    <MdDeleteForever />
-                  </button>
+                  {!isSelectMode && (
+                    <button
+                      onClick={isSuperAdmin ? (e) => {
+                        e.stopPropagation();
+                        handleDeleteClick(user);
+                      } : undefined}
+                      className={`settings-admin-delete-btn ${!isSuperAdmin ? 'disabled' : ''}`}
+                      disabled={actionLoading || !isSuperAdmin}
+                      title={isSuperAdmin ? `Delete ${user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.name || user.displayName || user.email}` : "Delete not allowed for admin users"}
+                      style={{
+                        color: !isSuperAdmin ? '#999' : '',
+                        cursor: !isSuperAdmin ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      <MdDeleteForever />
+                    </button>
+                  )}
+                  {isSelectMode && (
+                    <div style={{
+                      padding: '5px 10px',
+                      color: '#6c757d',
+                      fontStyle: 'italic',
+                      fontSize: '12px'
+                    }}>
+                      Click to select
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -194,3 +194,42 @@ export const deleteUser = async (userId, adminInfo = null) => {
     throw new Error("Failed to delete user: " + error.message);
   }
 };
+
+/**
+ * Deletes multiple users in bulk (superadmin only).
+ * @param {Set<string>} userIds - Set of user IDs to delete.
+ * @param {Object} adminInfo - Current admin information for role checking and logging.
+ * @returns {Promise<Object>} Object containing success/fail counts and errors.
+ */
+export const bulkDeleteUsers = async (userIds, adminInfo = null) => {
+  // Check if admin has superadmin role
+  if (!adminInfo || adminInfo.role !== 'superadmin') {
+    throw new Error('Access denied. Only super administrators can delete users.');
+  }
+
+  if (!userIds || userIds.size === 0) {
+    throw new Error('No users selected for deletion.');
+  }
+
+  let successCount = 0;
+  let failCount = 0;
+  const errors = [];
+
+  for (const userId of userIds) {
+    try {
+      await deleteUser(userId, adminInfo);
+      successCount++;
+    } catch (error) {
+      failCount++;
+      errors.push({ userId, error: error.message });
+      console.error(`Failed to delete user ${userId}:`, error);
+    }
+  }
+
+  return {
+    successCount,
+    failCount,
+    errors,
+    totalAttempted: userIds.size
+  };
+};
