@@ -970,6 +970,170 @@ const convertToCSV = (data) => {
   return csv;
 };
 
+// Helper function to parse discount breakdown from ticket (similar to Remittance.js)
+const parseTicketDiscountBreakdown = (ticket) => {
+  const breakdown = {
+    regular: 0,
+    pwd: 0,
+    senior: 0,
+    student: 0
+  };
+
+  const quantity = ticket.quantity || 0;
+  const discountBreakdown = ticket.discountBreakdown || [];
+  const farePerPassenger = ticket.farePerPassenger || ticket.passengerFares || [];
+
+  // Calculate REVENUE for each type using farePerPassenger array
+  if (farePerPassenger.length > 0 && discountBreakdown.length > 0) {
+    discountBreakdown.forEach((desc, index) => {
+      if (index >= farePerPassenger.length) return;
+
+      let fareType = 'regular';
+      let fare = parseFloat(farePerPassenger[index]) || 0;
+
+      if (typeof desc === 'string') {
+        const lowerDesc = desc.toLowerCase();
+        if (lowerDesc.includes('pwd')) {
+          fareType = 'pwd';
+        } else if (lowerDesc.includes('senior')) {
+          fareType = 'senior';
+        } else if (lowerDesc.includes('student')) {
+          fareType = 'student';
+        } else {
+          fareType = 'regular';
+        }
+      } else if (typeof desc === 'object' && desc !== null) {
+        const type = (desc.type || 'Regular').toLowerCase();
+        if (desc.fare !== undefined) {
+          fare = parseFloat(desc.fare) || 0;
+        }
+        if (type.includes('pwd')) {
+          fareType = 'pwd';
+        } else if (type.includes('senior')) {
+          fareType = 'senior';
+        } else if (type.includes('student')) {
+          fareType = 'student';
+        } else {
+          fareType = 'regular';
+        }
+      }
+
+      breakdown[fareType] += fare;
+    });
+  } else if (farePerPassenger.length > 0) {
+    farePerPassenger.forEach(fare => {
+      breakdown.regular += parseFloat(fare) || 0;
+    });
+  } else {
+    const totalFare = parseFloat(ticket.totalFare || ticket.amount) || 0;
+    breakdown.regular = totalFare;
+  }
+
+  return breakdown;
+};
+
+// Get discount revenue breakdown (Regular, Student, PWD, Senior)
+export const getDiscountRevenueData = async (timeRange, route, ticketType = '') => {
+  try {
+    console.log('=== DISCOUNT REVENUE: getDiscountRevenueData START ===');
+
+    // Get analytics data to access raw trip data
+    const analyticsData = await getTicketAnalyticsData(timeRange, route, ticketType);
+    const { rawData } = analyticsData;
+
+    // Combine all trip data
+    const allTrips = [...rawData.conductorTrips, ...rawData.preBookingTrips, ...rawData.preTicketing];
+
+    console.log('Total trips for discount analysis:', allTrips.length);
+
+    if (allTrips.length === 0) {
+      return [];
+    }
+
+    // Initialize discount totals
+    const discountTotals = {
+      regular: { revenue: 0, passengers: 0 },
+      pwd: { revenue: 0, passengers: 0 },
+      senior: { revenue: 0, passengers: 0 },
+      student: { revenue: 0, passengers: 0 }
+    };
+
+    // Process each ticket to extract discount breakdown
+    allTrips.forEach(ticket => {
+      const breakdown = parseTicketDiscountBreakdown(ticket);
+
+      // Count passengers for each type from discountBreakdown
+      const discountBreakdown = ticket.discountBreakdown || [];
+      const passengerCounts = { regular: 0, pwd: 0, senior: 0, student: 0 };
+
+      if (discountBreakdown.length > 0) {
+        discountBreakdown.forEach(desc => {
+          let fareType = 'regular';
+          if (typeof desc === 'string') {
+            const lowerDesc = desc.toLowerCase();
+            if (lowerDesc.includes('pwd')) fareType = 'pwd';
+            else if (lowerDesc.includes('senior')) fareType = 'senior';
+            else if (lowerDesc.includes('student')) fareType = 'student';
+          } else if (typeof desc === 'object' && desc !== null) {
+            const type = (desc.type || 'Regular').toLowerCase();
+            if (type.includes('pwd')) fareType = 'pwd';
+            else if (type.includes('senior')) fareType = 'senior';
+            else if (type.includes('student')) fareType = 'student';
+          }
+          passengerCounts[fareType]++;
+        });
+      } else {
+        // If no breakdown, assume all passengers are regular
+        passengerCounts.regular = ticket.quantity || 0;
+      }
+
+      // Add to totals
+      discountTotals.regular.revenue += breakdown.regular;
+      discountTotals.regular.passengers += passengerCounts.regular;
+
+      discountTotals.pwd.revenue += breakdown.pwd;
+      discountTotals.pwd.passengers += passengerCounts.pwd;
+
+      discountTotals.senior.revenue += breakdown.senior;
+      discountTotals.senior.passengers += passengerCounts.senior;
+
+      discountTotals.student.revenue += breakdown.student;
+      discountTotals.student.passengers += passengerCounts.student;
+    });
+
+    console.log('Discount totals:', discountTotals);
+
+    // Calculate total revenue for percentages
+    const totalRevenue = Object.values(discountTotals).reduce((sum, d) => sum + d.revenue, 0);
+
+    // Convert to array format, filtering out types with no revenue
+    const discountArray = [
+      { type: 'Regular', ...discountTotals.regular },
+      { type: 'PWD', ...discountTotals.pwd },
+      { type: 'Senior Citizen', ...discountTotals.senior },
+      { type: 'Student', ...discountTotals.student }
+    ]
+      .filter(discount => discount.revenue > 0)
+      .map(discount => ({
+        type: discount.type,
+        revenue: Math.round(discount.revenue * 100) / 100,
+        passengers: discount.passengers,
+        percentage: totalRevenue > 0 ? Math.round((discount.revenue / totalRevenue) * 100) : 0,
+        avgFare: discount.passengers > 0 ? Math.round((discount.revenue / discount.passengers) * 100) / 100 : 0
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+
+    console.log('=== DISCOUNT REVENUE: getDiscountRevenueData END ===');
+    console.log('Returning discount array:', discountArray);
+
+    return discountArray;
+
+  } catch (error) {
+    console.error('=== ERROR in getDiscountRevenueData ===', error);
+    return [];
+  }
+};
+
 // Performance metrics calculation
 export const calculatePerformanceMetrics = (data) => {
   if (!data || !Array.isArray(data) || data.length === 0) {

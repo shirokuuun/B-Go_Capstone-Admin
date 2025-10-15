@@ -552,6 +552,124 @@
 }
 
 /* =========================
+   DISCOUNT REVENUE TABLE
+   ========================= */
+
+.ticket-discount-revenue-wrapper {
+  overflow-x: auto;
+  border-radius: 8px;
+  background: white;
+}
+
+.ticket-discount-revenue-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 600px;
+}
+
+.ticket-discount-revenue-table thead {
+  background: #f8f9fa;
+}
+
+.ticket-discount-header {
+  padding: 14px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #2c3e50;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 12px;
+  border-bottom: 2px solid #dee2e6;
+  white-space: nowrap;
+}
+
+.ticket-discount-row {
+  transition: background-color 0.2s ease;
+}
+
+.ticket-discount-row:hover {
+  background: #f8f9fa;
+}
+
+.ticket-discount-row:not(:last-child) {
+  border-bottom: 1px solid #e9ecef;
+}
+
+.ticket-discount-type-cell {
+  padding: 14px 16px;
+  font-weight: 600;
+  color: #2c3e50;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ticket-discount-indicator {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ticket-discount-count-cell,
+.ticket-discount-amount-cell,
+.ticket-discount-avg-cell {
+  padding: 14px 16px;
+  color: #495057;
+  font-size: 14px;
+}
+
+.ticket-discount-percentage-cell {
+  padding: 14px 16px;
+  min-width: 200px;
+}
+
+.ticket-discount-bar-container {
+  position: relative;
+  height: 8px;
+  background: #e9ecef;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.ticket-discount-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.ticket-discount-percentage-text {
+  font-weight: 600;
+  font-size: 13px;
+  color: #007c91;
+}
+
+/* Responsive for discount table */
+@media (max-width: 768px) {
+  .ticket-discount-revenue-wrapper {
+    border-radius: 0;
+    margin: -24px;
+    margin-top: 0;
+  }
+
+  .ticket-discount-revenue-table {
+    min-width: 500px;
+  }
+
+  .ticket-discount-header,
+  .ticket-discount-row td {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .ticket-discount-percentage-cell {
+    min-width: 150px;
+  }
+}
+
+/* =========================
    TICKET TYPE PERFORMANCE
    ========================= */
 
