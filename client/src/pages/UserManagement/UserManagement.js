@@ -120,7 +120,8 @@ export const fetchUserById = async (userId) => {
 };
 
 /**
- * Deletes a user using Firebase Admin SDK via API endpoint (superadmin only).
+ * Deletes a user directly from Firestore (superadmin only).
+ * Note: This only deletes the Firestore profile, NOT the Firebase Auth account.
  * @param {string} userId - The user ID to delete.
  * @param {Object} adminInfo - Current admin information for role checking and logging.
  * @returns {Promise<void>}
@@ -135,36 +136,19 @@ export const deleteUser = async (userId, adminInfo = null) => {
     // Get user data before deletion for activity logging
     const userDocRef = doc(db, "users", userId);
     const userDocSnap = await getDoc(userDocRef);
-    
+
     if (!userDocSnap.exists()) {
       throw new Error("User not found");
     }
 
     const userData = userDocSnap.data();
-    const userName = userData.firstName && userData.lastName 
+    const userName = userData.firstName && userData.lastName
       ? `${userData.firstName} ${userData.lastName}`
       : userData.name || userData.displayName || 'Unknown User';
     const userEmail = userData.email || 'No email';
 
-    // Get API base URL from environment or use default
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || window.location.origin;
-
-    // Call the server API endpoint to delete user using Firebase Admin SDK
-    const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        adminInfo: adminInfo
-      })
-    });
-
-    const result = await response.json();
-
-    if (!response.ok || !result.success) {
-      throw new Error(result.error || 'Failed to delete user via API');
-    }
+    // Delete the user document from Firestore
+    await deleteDoc(userDocRef);
 
     // Log the deletion activity
     const cleanUserData = {};
@@ -178,9 +162,7 @@ export const deleteUser = async (userId, adminInfo = null) => {
     if (userData.emailVerified !== undefined) cleanUserData.emailVerified = userData.emailVerified;
     if (userData.idVerificationStatus !== undefined) cleanUserData.idVerificationStatus = userData.idVerificationStatus;
 
-    const logMessage = result.authDeleted 
-      ? `Deleted user completely: ${userName} (${userEmail}) - Auth and Firestore deleted`
-      : `Deleted user profile: ${userName} (${userEmail}) - Profile deleted, Auth deletion failed`;
+    const logMessage = `Deleted user profile: ${userName} (${userEmail}) - Profile deleted from Firestore (Auth account remains)`;
 
     await logActivity(
       ACTIVITY_TYPES.USER_DELETE,
@@ -192,21 +174,19 @@ export const deleteUser = async (userId, adminInfo = null) => {
         deletedUserData: cleanUserData,
         adminName: adminInfo?.name || 'Unknown Admin',
         adminEmail: adminInfo?.email || 'Unknown Email',
-        authDeleted: result.authDeleted,
-        authError: result.authError || null,
-        deletionType: result.authDeleted ? 'complete' : 'profile-only',
+        authDeleted: false,
+        deletionType: 'profile-only',
+        deletionMethod: 'client-side',
+        note: 'Firebase Auth account was not deleted (requires Admin SDK)',
         deletedAt: new Date().toISOString()
       }
     );
 
     return {
       success: true,
-      authDeleted: result.authDeleted,
-      authError: result.authError,
-      message: result.authDeleted 
-        ? 'User deleted completely from both Auth and Firestore'
-        : 'User profile deleted, Auth deletion failed but account disabled',
-      details: result.message
+      authDeleted: false,
+      message: 'User profile deleted successfully. Note: Firebase Auth account still exists.',
+      details: 'User can no longer access the app as their profile was deleted.'
     };
 
   } catch (error) {
