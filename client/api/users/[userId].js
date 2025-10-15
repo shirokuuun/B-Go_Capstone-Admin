@@ -14,7 +14,7 @@ if (!admin.apps.length) {
   });
 }
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -24,21 +24,22 @@ module.exports = async (req, res) => {
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
   );
 
-  // Handle OPTIONS request
+  // Handle OPTIONS request for CORS preflight
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
   // Only allow DELETE method
   if (req.method !== 'DELETE') {
+    console.log(`Method not allowed: ${req.method}`);
     return res.status(405).json({
       success: false,
-      error: 'Method not allowed'
+      error: `Method ${req.method} not allowed. Use DELETE.`
     });
   }
 
   try {
+    // Get userId from URL path parameter
     const { userId } = req.query;
     const { adminInfo } = req.body;
 
@@ -92,9 +93,9 @@ module.exports = async (req, res) => {
 
   } catch (error) {
     console.error('Error deleting user:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to delete user: ' + error.message
     });
   }
-};
+}

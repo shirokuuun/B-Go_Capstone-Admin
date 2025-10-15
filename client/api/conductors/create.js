@@ -14,7 +14,7 @@ if (!admin.apps.length) {
   });
 }
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -24,17 +24,16 @@ module.exports = async (req, res) => {
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
   );
 
-  // Handle OPTIONS request
+  // Handle OPTIONS request for CORS preflight
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
   // Only allow POST method
   if (req.method !== 'POST') {
     return res.status(405).json({
       success: false,
-      error: 'Method not allowed'
+      error: `Method ${req.method} not allowed. Use POST.`
     });
   }
 
@@ -78,7 +77,7 @@ module.exports = async (req, res) => {
 
     await db.collection('conductors').doc(documentId).set(conductorData);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: 'Conductor created successfully',
       conductorId: documentId,
@@ -97,10 +96,10 @@ module.exports = async (req, res) => {
       errorMessage = 'Password is too weak';
     }
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: errorMessage,
       details: error.message
     });
   }
-};
+}
