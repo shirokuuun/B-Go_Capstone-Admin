@@ -150,7 +150,7 @@ export const deleteUser = async (userId, adminInfo = null) => {
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || window.location.origin;
 
     // Call the server API endpoint to delete user using Firebase Admin SDK
-    const response = await fetch(`${API_BASE_URL}/api/users/delete/${userId}`, {
+    const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',

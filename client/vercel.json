@@ -1,17 +1,15 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "functions": {
+    "api/**/*.js": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  },
   "rewrites": [
     {
-      "source": "/api/users/delete/:userId",
-      "destination": "/api/delete-user"
-    },
-    {
-      "source": "/api/conductors/create",
-      "destination": "/api/create-conductor"
-    },
-    {
-      "source": "/((?!assets|vite\\.svg|api).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
