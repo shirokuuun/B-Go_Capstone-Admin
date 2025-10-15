@@ -146,8 +146,11 @@ export const deleteUser = async (userId, adminInfo = null) => {
       : userData.name || userData.displayName || 'Unknown User';
     const userEmail = userData.email || 'No email';
 
+    // Get API base URL from environment or use default
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+
     // Call the server API endpoint to delete user using Firebase Admin SDK
-    const response = await fetch(`http://localhost:3000/api/users/delete/${userId}`, {
+    const response = await fetch(`${API_BASE_URL}/api/users/delete/${userId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
