@@ -29,5 +29,9 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
 
-export { auth, db, storage, analytics };
+// Secondary app instance for creating users without affecting current session
+const secondaryApp = initializeApp(firebaseConfig, "Secondary");
+const secondaryAuth = getAuth(secondaryApp);
+
+export { auth, db, storage, analytics, secondaryAuth };
 export default app;

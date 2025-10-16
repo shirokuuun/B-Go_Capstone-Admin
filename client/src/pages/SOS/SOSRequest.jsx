@@ -2,7 +2,7 @@ import '/src/pages/SOS/SOSRequest.css';
 import { useState, useEffect } from 'react';
 import { listenToSOSRequests, updateSOSStatus, deleteSOSRequest } from '/src/pages/SOS/FetchSOS.js';
 import { RiArrowDropDownLine } from "react-icons/ri";
-import { MdDelete } from "react-icons/md";
+import { MdDelete, MdImage, MdClose, MdChevronLeft, MdChevronRight } from "react-icons/md";
 import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 
 function SOSRequest() {
@@ -13,6 +13,13 @@ function SOSRequest() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedPendingId, setSelectedPendingId] = useState(null);
   const [updating, setUpdating] = useState(false);
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // Bulk selection states
+  const [selectedSOS, setSelectedSOS] = useState(new Set());
+  const [isSelectMode, setIsSelectMode] = useState(false);
 
   useEffect(() => {
     const unsubscribe = listenToSOSRequests((data) => {
@@ -166,6 +173,91 @@ function SOSRequest() {
     }
   };
 
+  const handleOpenImageModal = (imageUrls) => {
+    if (imageUrls && imageUrls.length > 0) {
+      setSelectedImages(imageUrls);
+      setCurrentImageIndex(0);
+      setImageModalOpen(true);
+    }
+  };
+
+  const handleCloseImageModal = () => {
+    setImageModalOpen(false);
+    setSelectedImages([]);
+    setCurrentImageIndex(0);
+  };
+
+  const handleNextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % selectedImages.length);
+  };
+
+  const handlePrevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + selectedImages.length) % selectedImages.length);
+  };
+
+  // Bulk selection handlers
+  const toggleSelectMode = () => {
+    setIsSelectMode(!isSelectMode);
+    setSelectedSOS(new Set());
+  };
+
+  const toggleSOSSelection = (sosId) => {
+    const newSelection = new Set(selectedSOS);
+    if (newSelection.has(sosId)) {
+      newSelection.delete(sosId);
+    } else {
+      newSelection.add(sosId);
+    }
+    setSelectedSOS(newSelection);
+  };
+
+  const selectAllSOS = () => {
+    const allSOSIds = new Set(filteredData.map(sos => sos.id));
+    setSelectedSOS(allSOSIds);
+  };
+
+  const deselectAllSOS = () => {
+    setSelectedSOS(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedSOS.size === 0) {
+      alert('Please select SOS requests to delete.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete ${selectedSOS.size} selected SOS request${selectedSOS.size > 1 ? 's' : ''}?\n\nThis action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setUpdating(true);
+    try {
+      const sosIds = Array.from(selectedSOS);
+      let deletedCount = 0;
+
+      for (const sosId of sosIds) {
+        const result = await deleteSOSRequest(sosId);
+        if (result.success) {
+          deletedCount++;
+        }
+      }
+
+      // Update the local state
+      const updatedSosData = sosData.filter(sos => !selectedSOS.has(sos.id));
+      setSosData(updatedSosData);
+      setSelectedSOS(new Set());
+      setIsSelectMode(false);
+
+      alert(`Successfully deleted ${deletedCount} of ${sosIds.length} SOS request(s).`);
+    } catch (error) {
+      console.error('Error deleting SOS requests:', error);
+      alert('Failed to delete SOS requests. Please try again.');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const statusCounts = getStatusCounts();
   const pendingRequests = getPendingRequests();
 
@@ -197,6 +289,20 @@ function SOSRequest() {
                 </div>
                 <p className="pending-description"><strong>Route:</strong> {sos.route}</p>
                 <p className="pending-description"><strong>Location:</strong> {sos.location?.lat}, {sos.location?.lng}</p>
+                {sos.imageUrls && sos.imageUrls.length > 0 && (
+                  <p className="pending-description">
+                    <strong>Images:</strong>
+                    <button
+                      className="view-images-btn-small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenImageModal(sos.imageUrls);
+                      }}
+                    >
+                      <MdImage /> View {sos.imageUrls.length} {sos.imageUrls.length === 1 ? 'Image' : 'Images'}
+                    </button>
+                  </p>
+                )}
                 <p className="pending-time">{new Date(sos.timestamp?.seconds * 1000).toLocaleString()}</p>
 
                 {selectedPendingId === sos.id && (
@@ -263,8 +369,44 @@ function SOSRequest() {
                   <RiArrowDropDownLine className="select-icon" />
                 </div>
               </div>
+
+              {filteredData.length > 0 && (
+                <div className="custom-select">
+                  <label className="filter-label">&nbsp;</label>
+                  <button
+                    onClick={toggleSelectMode}
+                    className={`sos-select-mode-btn ${isSelectMode ? 'active' : ''}`}
+                  >
+                    {isSelectMode ? 'Cancel Select' : 'Select Requests'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Bulk Actions Bar */}
+          {isSelectMode && (
+            <div className="sos-bulk-actions-bar">
+              <div className="sos-bulk-actions-left">
+                <span className="sos-bulk-selected-count">
+                  {selectedSOS.size} of {filteredData.length} selected
+                </span>
+                <button onClick={selectAllSOS} className="sos-bulk-btn">
+                  Select All
+                </button>
+                <button onClick={deselectAllSOS} className="sos-bulk-btn">
+                  Deselect All
+                </button>
+              </div>
+              <button
+                onClick={handleBulkDelete}
+                className="sos-bulk-delete-btn"
+                disabled={selectedSOS.size === 0 || updating}
+              >
+                Delete Selected ({selectedSOS.size})
+              </button>
+            </div>
+          )}
 
           <div className="sos-request-list">
             {filteredData.length === 0 ? (
@@ -276,26 +418,94 @@ function SOSRequest() {
               </div>
             ) : (
               filteredData.map((sos) => (
-                <div key={sos.id} className={`sos-card ${getStatusClass(sos.status)}`}>
+                <div
+                  key={sos.id}
+                  className={`sos-card ${getStatusClass(sos.status)} ${isSelectMode ? 'selectable' : ''} ${selectedSOS.has(sos.id) ? 'selected' : ''}`}
+                  onClick={isSelectMode ? () => toggleSOSSelection(sos.id) : undefined}
+                >
+                  {isSelectMode && (
+                    <div className="sos-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={selectedSOS.has(sos.id)}
+                        onChange={() => toggleSOSSelection(sos.id)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  )}
+
                   <div className="sos-card-header">
                     <h3>{sos.emergencyType}</h3>
-                    <MdDelete
-                      className="sos-delete-icon"
-                      onClick={() => handleDeleteSOS(sos.id)}
-                      title="Delete SOS request"
-                    />
+                    {!isSelectMode && (
+                      <MdDelete
+                        className="sos-delete-icon"
+                        onClick={() => handleDeleteSOS(sos.id)}
+                        title="Delete SOS request"
+                      />
+                    )}
                   </div>
                   <p><strong>Description:</strong> {sos.description}</p>
                   <p><strong>Status:</strong> {sos.status}</p>
                   <p><strong>Route:</strong> {sos.route}</p>
                   <p><strong>Location:</strong> {sos.location?.lat}, {sos.location?.lng}</p>
                   <p><strong>Submitted:</strong> {new Date(sos.timestamp?.seconds * 1000).toLocaleString()}</p>
+                  {sos.imageUrls && sos.imageUrls.length > 0 && (
+                    <div className="sos-images-section">
+                      <button
+                        className="view-images-btn"
+                        onClick={(e) => {
+                          if (isSelectMode) e.stopPropagation();
+                          handleOpenImageModal(sos.imageUrls);
+                        }}
+                      >
+                        <MdImage /> View {sos.imageUrls.length} {sos.imageUrls.length === 1 ? 'Image' : 'Images'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))
             )}
           </div>
         </div>
       </div>
+
+      {/* Image Modal */}
+      {imageModalOpen && (
+        <div className="image-modal-overlay" onClick={handleCloseImageModal}>
+          <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="image-modal-close" onClick={handleCloseImageModal}>
+              <MdClose />
+            </button>
+
+            <div className="image-modal-body">
+              {selectedImages.length > 1 && (
+                <button className="image-nav-btn prev" onClick={handlePrevImage}>
+                  <MdChevronLeft />
+                </button>
+              )}
+
+              <div className="image-container">
+                <img
+                  src={selectedImages[currentImageIndex]}
+                  alt={`SOS Image ${currentImageIndex + 1}`}
+                  className="modal-image"
+                />
+                {selectedImages.length > 1 && (
+                  <div className="image-counter">
+                    {currentImageIndex + 1} / {selectedImages.length}
+                  </div>
+                )}
+              </div>
+
+              {selectedImages.length > 1 && (
+                <button className="image-nav-btn next" onClick={handleNextImage}>
+                  <MdChevronRight />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import {
   signOut,
 } from "firebase/auth";
 import { doc, setDoc, getDoc, collection, query, where, getDocs, updateDoc, deleteDoc } from "firebase/firestore";
-import { auth, db } from "/src/firebase/firebase.js";
+import { auth, db, secondaryAuth } from "/src/firebase/firebase.js";
 import { logActivity, ACTIVITY_TYPES } from "/src/pages/settings/auditService.js";
 
 /**
@@ -110,69 +110,85 @@ const reactivateDeletedAdmin = async (email, name) => {
 
 /**
  * Signs up an admin user and stores additional data in Firestore.
+ * Uses a secondary auth instance to avoid logging out the current user.
  * @param {Object} data - The user data.
  * @param {string} data.name
  * @param {string} data.email
  * @param {string} data.password
+ * @param {string} data.role - The role to assign ('admin' or 'superadmin')
  * @returns {Promise<Object>} The created Firebase user.
  */
-export const signupAdmin = async ({ name, email, password }) => {
+export const signupAdmin = async ({ name, email, password, role = 'admin' }) => {
+  // Get current user info before creating a new one
+  const currentUser = auth.currentUser;
+  const currentUserUid = currentUser?.uid;
+
   try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    // Create the new admin user using secondary auth instance
+    // This prevents logging out the current user
+    const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
     const user = userCredential.user;
 
-  // Regular admin permissions (NO delete permissions)
-  const regularAdminPermissions = [
-    'read_all_users',
-    'write_all_users',
-    // NO 'delete_all_users' - only superadmin can delete
-    'manage_buses',
-    'manage_routes', 
-    'manage_conductors',
-    // NO 'delete_conductors' - only superadmin can delete
-    'view_all_reservations',
-    // NO 'delete_reservations' - only superadmin can delete
-    'manage_system_settings',
-    'view_analytics',
-    'manage_trips',
-    'scan_tickets', // Can help with conductor tasks
-    'update_booking_status',
-    'view_payments',
-    'manage_notifications'
-    // NO 'manage_admins' - only superadmin can manage other admins
-    // NO 'delete_any_data' - only superadmin can delete
-    // NO 'system_override' - only superadmin has override powers
-  ];
+    // Regular admin permissions (NO delete permissions)
+    const regularAdminPermissions = [
+      'read_all_users',
+      'write_all_users',
+      // NO 'delete_all_users' - only superadmin can delete
+      'manage_buses',
+      'manage_routes',
+      'manage_conductors',
+      // NO 'delete_conductors' - only superadmin can delete
+      'view_all_reservations',
+      // NO 'delete_reservations' - only superadmin can delete
+      'manage_system_settings',
+      'view_analytics',
+      'manage_trips',
+      'scan_tickets', // Can help with conductor tasks
+      'update_booking_status',
+      'view_payments',
+      'manage_notifications'
+      // NO 'manage_admins' - only superadmin can manage other admins
+      // NO 'delete_any_data' - only superadmin can delete
+      // NO 'system_override' - only superadmin has override powers
+    ];
+
+    // Determine if this should be a superadmin
+    const isSuperAdminRole = role === 'superadmin';
 
     await setDoc(doc(db, "Admin", user.uid), {
       uid: user.uid,
       name,
       email,
-      // role field omitted until verified by superadmin
-      isSuperAdmin: false, // Explicitly not superadmin
-      permissions: regularAdminPermissions, //NEW: Explicit permissions
+      role: role, // Set role directly based on input
+      isSuperAdmin: isSuperAdminRole,
+      permissions: regularAdminPermissions,
       isActive: true,
-      isVerified: false, // NEW: Require verification by superadmin
-      verificationStatus: "pending", // NEW: pending, verified, rejected
+      isVerified: true, // No verification needed when created by superadmin
+      verificationStatus: "verified",
       createdAt: new Date(),
-      createdBy: "system", // Track who created this admin
+      createdBy: currentUserUid || "system",
+      verifiedAt: new Date(),
+      verifiedBy: currentUserUid || "system"
     });
+
+    // Sign out the newly created user from the secondary auth instance
+    await signOut(secondaryAuth);
 
     return user;
   } catch (error) {
     // Handle the specific case of email already in use
     if (error.code === 'auth/email-already-in-use') {
       console.log('Email already in use, attempting to reactivate deleted account...');
-      
+
       // Try to reactivate a deleted admin account
       const reactivatedUser = await reactivateDeletedAdmin(email, name);
-      
+
       if (reactivatedUser) {
         // Successfully reactivated! Return the user object
         console.log('Successfully reactivated deleted admin account');
         return reactivatedUser;
       }
-      
+
       // No deleted account found, throw helpful error
       throw new Error(
         'This email is already registered in Firebase Authentication. ' +
@@ -180,7 +196,7 @@ export const signupAdmin = async ({ name, email, password }) => {
         'Please use a different email address or contact an administrator to resolve this manually.'
       );
     }
-    
+
     // Re-throw the original error for other cases
     throw error;
   }
