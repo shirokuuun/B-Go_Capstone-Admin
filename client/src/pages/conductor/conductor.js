@@ -154,12 +154,10 @@ class ConductorService {
       for (const change of changes) {
         const docData = change.doc.data();
 
-        // Skip deleted conductors
+        // Handle deleted conductors - remove them from cache regardless of change type
         if (docData.status === 'deleted') {
-          if (change.type !== 'removed') {
-            await this.removeFromConductorsCache(change.doc.id);
-            hasChanges = true;
-          }
+          await this.removeFromConductorsCache(change.doc.id);
+          hasChanges = true;
           continue;
         }
 
@@ -167,11 +165,11 @@ class ConductorService {
           await this.addToConductorsCache(change.doc);
           hasChanges = true;
         }
-        if (change.type === 'modified') {
+        else if (change.type === 'modified') {
           await this.updateConductorsCache(change.doc);
           hasChanges = true;
         }
-        if (change.type === 'removed') {
+        else if (change.type === 'removed') {
           await this.removeFromConductorsCache(change.doc.id);
           hasChanges = true;
         }
@@ -197,6 +195,20 @@ class ConductorService {
     if (!this.conductorsCache) return;
 
     const conductorData = doc.data();
+
+    // Skip deleted conductors
+    if (conductorData.status === 'deleted') {
+      return;
+    }
+
+    // Check if conductor already exists in cache to prevent duplicates
+    const existingIndex = this.conductorsCache.findIndex(c => c.id === doc.id);
+    if (existingIndex !== -1) {
+      // Update existing instead of adding duplicate
+      await this.updateConductorsCache(doc);
+      return;
+    }
+
     const tripsCount = await this.getConductorTripsCount(doc.id);
 
     const newConductor = {
@@ -212,6 +224,13 @@ class ConductorService {
     if (!this.conductorsCache) return;
 
     const conductorData = doc.data();
+
+    // If conductor is deleted, remove it from cache
+    if (conductorData.status === 'deleted') {
+      await this.removeFromConductorsCache(doc.id);
+      return;
+    }
+
     const index = this.conductorsCache.findIndex(c => c.id === doc.id);
 
     if (index !== -1) {
@@ -228,6 +247,9 @@ class ConductorService {
         ...conductorData,
         tripsCount: tripsCount
       };
+    } else {
+      // Conductor not in cache, add it
+      await this.addToConductorsCache(doc);
     }
   }
 

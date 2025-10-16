@@ -420,7 +420,18 @@ const Ticketing = () => {
   };
 
   const getEffectiveTicketType = (ticket) => {
-    return ticket.documentType || ticket.ticketType || 'conductor';
+    // Check source field first (most reliable)
+    if (ticket.source === 'preBookings') return 'preBooking';
+    if (ticket.source === 'preTickets') return 'preTicket';
+    if (ticket.source === 'regular') return 'conductor';
+
+    // Fallback to documentType or ticketType
+    const type = ticket.documentType || ticket.ticketType;
+    if (type === 'preBooking') return 'preBooking';
+    if (type === 'preTicket') return 'preTicket';
+
+    // Default to conductor for any other case
+    return 'conductor';
   };
 
   const getUniqueOptions = (tickets, field) => {

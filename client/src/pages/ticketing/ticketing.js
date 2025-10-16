@@ -227,10 +227,11 @@ class TicketingDataCacheService {
       const tripPromises = tripNames.map(async (tripName) => {
         const tripTickets = [];
         try {
-          // Fetch both regular tickets and prebookings in parallel
-          const [ticketsSnapshot, preBookingTickets] = await Promise.all([
+          // Fetch regular tickets, prebookings, and pre-tickets in parallel
+          const [ticketsSnapshot, preBookingTickets, preTickets] = await Promise.all([
             getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets')),
-            this.fetchPreBookingTicketsOptimized(conductorId, dateId, tripName)
+            this.fetchPreBookingTicketsOptimized(conductorId, dateId, tripName),
+            this.fetchPreTicketsOptimized(conductorId, dateId, tripName)
           ]);
 
           // Get trip direction once
@@ -242,8 +243,9 @@ class TicketingDataCacheService {
               const ticketData = ticketDoc.data();
               const ticketId = ticketDoc.id;
 
-              // Skip prebooking tickets from regular path to avoid duplication
-              if (ticketData.documentType === 'preBooking' || ticketData.ticketType === 'preBooking') {
+              // Skip prebooking and preTicket tickets from regular path to avoid duplication
+              if (ticketData.documentType === 'preBooking' || ticketData.ticketType === 'preBooking' ||
+                  ticketData.documentType === 'preTicket' || ticketData.ticketType === 'preTicket') {
                 return;
               }
 
@@ -276,6 +278,11 @@ class TicketingDataCacheService {
           // Add prebooking tickets
           if (preBookingTickets.length > 0) {
             tripTickets.push(...preBookingTickets);
+          }
+
+          // Add pre-tickets
+          if (preTickets.length > 0) {
+            tripTickets.push(...preTickets);
           }
         } catch (error) {
           // Continue processing other trips
@@ -391,6 +398,80 @@ class TicketingDataCacheService {
       return preBookingTickets;
     } catch (error) {
       console.warn(`Error fetching prebooking tickets for ${conductorId}/${dateId}/${tripName}:`, error);
+      return [];
+    }
+  }
+
+  // Optimized pre-ticketing fetching
+  async fetchPreTicketsOptimized(conductorId, dateId, tripName) {
+    try {
+      const preTicketsPath = `conductors/${conductorId}/dailyTrips/${dateId}/${tripName}/preTickets/preTickets`;
+      const preTicketsRef = collection(db, preTicketsPath);
+      const preTicketsSnapshot = await getDocs(preTicketsRef);
+
+      if (preTicketsSnapshot.docs.length === 0) {
+        return [];
+      }
+
+      // Get trip direction once
+      const tripDirection = await getTripDirection(conductorId, dateId, tripName);
+
+      const preTickets = [];
+
+      preTicketsSnapshot.forEach(preTicketDoc => {
+        const preTicketData = preTicketDoc.data();
+        const preTicketId = preTicketDoc.id;
+
+        // Parse qrData if it's a string
+        let parsedQrData = null;
+        if (preTicketData.qrData) {
+          try {
+            if (typeof preTicketData.qrData === 'string') {
+              parsedQrData = JSON.parse(preTicketData.qrData);
+            } else if (typeof preTicketData.qrData === 'object') {
+              parsedQrData = preTicketData.qrData;
+            }
+          } catch (parseError) {
+            console.warn(`Failed to parse qrData for ticket ${preTicketId}:`, parseError);
+          }
+        }
+
+        // Use parsedQrData as the primary data source, with fallbacks
+        const sourceData = parsedQrData || preTicketData;
+
+        preTickets.push({
+          id: preTicketId,
+          conductorId: conductorId,
+          tripId: tripName,
+          date: dateId,
+          amount: sourceData.amount || sourceData.totalFare || 0,
+          quantity: sourceData.quantity || preTicketData.quantity || 1,
+          from: sourceData.from || preTicketData.from || '',
+          to: sourceData.to || preTicketData.to || '',
+          fromKm: sourceData.fromKm || preTicketData.startKm || preTicketData.fromKm || 0,
+          toKm: sourceData.toKm || preTicketData.endKm || preTicketData.toKm || 0,
+          route: `${sourceData.from || preTicketData.from || ''} → ${sourceData.to || preTicketData.to || ''}`,
+          direction: tripDirection || sourceData.direction || preTicketData.direction || '',
+          timestamp: preTicketData.timestamp || preTicketData.scannedAt,
+          discountBreakdown: sourceData.discountBreakdown || preTicketData.discountBreakdown || [],
+          status: preTicketData.active !== undefined ? (preTicketData.active ? 'active' : 'inactive') : 'active',
+          ticketType: 'preTicket',
+          documentType: 'preTicket',
+          scannedAt: preTicketData.scannedAt,
+          scannedBy: preTicketData.scannedBy,
+          time: preTicketData.timestamp ? new Date(preTicketData.timestamp.seconds * 1000).toLocaleTimeString() : '',
+          dateFormatted: preTicketData.timestamp ? new Date(preTicketData.timestamp.seconds * 1000).toLocaleDateString() : dateId,
+          qrData: preTicketData.qrData,
+          qrDataParsed: parsedQrData,
+          fareTypes: sourceData.fareTypes || preTicketData.fareTypes,
+          passengerFares: sourceData.passengerFares || preTicketData.passengerFares || [],
+          source: 'preTickets'
+        });
+      });
+
+      return preTickets;
+    } catch (error) {
+      console.warn(`Error fetching pre-tickets for ${conductorId}/${dateId}/${tripName}:`, error);
       return [];
     }
   }
@@ -684,6 +765,79 @@ const fetchPreBookingTickets = async (conductorId, dateId, tripName) => {
 };
 
 /**
+ * Fetch pre-tickets from the dedicated pre-tickets path
+ * Similar to daily revenue implementation
+ */
+const fetchPreTickets = async (conductorId, dateId, tripName) => {
+  try {
+    const preTicketsPath = `conductors/${conductorId}/dailyTrips/${dateId}/${tripName}/preTickets/preTickets`;
+    const preTicketsRef = collection(db, preTicketsPath);
+    const preTicketsSnapshot = await getDocs(preTicketsRef);
+
+    const preTickets = [];
+
+    for (const preTicketDoc of preTicketsSnapshot.docs) {
+      const preTicketData = preTicketDoc.data();
+      const preTicketId = preTicketDoc.id;
+
+      // Parse qrData if it's a string
+      let parsedQrData = null;
+      if (preTicketData.qrData) {
+        try {
+          if (typeof preTicketData.qrData === 'string') {
+            parsedQrData = JSON.parse(preTicketData.qrData);
+          } else if (typeof preTicketData.qrData === 'object') {
+            parsedQrData = preTicketData.qrData;
+          }
+        } catch (parseError) {
+          console.warn(`Failed to parse qrData for ticket ${preTicketId}:`, parseError);
+        }
+      }
+
+      // Use parsedQrData as the primary data source, with fallbacks
+      const sourceData = parsedQrData || preTicketData;
+
+      // Get trip direction for this trip
+      const tripDirection = await getTripDirection(conductorId, dateId, tripName);
+
+      preTickets.push({
+        id: preTicketId,
+        conductorId: conductorId,
+        tripId: tripName,
+        date: dateId,
+        amount: sourceData.amount || sourceData.totalFare || 0,
+        quantity: sourceData.quantity || preTicketData.quantity || 1,
+        from: sourceData.from || preTicketData.from || '',
+        to: sourceData.to || preTicketData.to || '',
+        fromKm: sourceData.fromKm || preTicketData.startKm || preTicketData.fromKm || 0,
+        toKm: sourceData.toKm || preTicketData.endKm || preTicketData.toKm || 0,
+        route: `${sourceData.from || preTicketData.from || ''} → ${sourceData.to || preTicketData.to || ''}`,
+        direction: tripDirection || sourceData.direction || preTicketData.direction || '',
+        timestamp: preTicketData.timestamp || preTicketData.scannedAt,
+        discountBreakdown: sourceData.discountBreakdown || preTicketData.discountBreakdown || [],
+        status: preTicketData.active !== undefined ? (preTicketData.active ? 'active' : 'inactive') : 'active',
+        ticketType: 'preTicket',
+        documentType: 'preTicket',
+        scannedAt: preTicketData.scannedAt,
+        scannedBy: preTicketData.scannedBy,
+        time: preTicketData.timestamp ? new Date(preTicketData.timestamp.seconds * 1000).toLocaleTimeString() : '',
+        dateFormatted: preTicketData.timestamp ? new Date(preTicketData.timestamp.seconds * 1000).toLocaleDateString() : dateId,
+        qrData: preTicketData.qrData,
+        qrDataParsed: parsedQrData,
+        fareTypes: sourceData.fareTypes || preTicketData.fareTypes,
+        passengerFares: sourceData.passengerFares || preTicketData.passengerFares || [],
+        source: 'preTickets'
+      });
+    }
+
+    return preTickets;
+  } catch (error) {
+    console.error(`Error fetching pre-tickets for ${conductorId}/${dateId}/${tripName}:`, error);
+    return [];
+  }
+};
+
+/**
  * Get all conductors who have tickets in dailyTrips (all ticket types)
  * CACHED: Uses optimized caching service for improved performance
  * @returns {Promise<Array>} Array of conductor objects with ticket counts
@@ -879,26 +1033,25 @@ export const getPreTicketingStats = async () => {
         
         for (const tripName of tripNames) {
           try {
-            // Fetch both regular tickets and prebookings in parallel
-            const [ticketsSnapshot, preBookingTickets] = await Promise.all([
+            // Fetch regular tickets, prebookings, and pre-tickets in parallel
+            const [ticketsSnapshot, preBookingTickets, preTicketsList] = await Promise.all([
               getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets')),
-              fetchPreBookingTickets(conductorId, dateId, tripName)
+              fetchPreBookingTickets(conductorId, dateId, tripName),
+              fetchPreTickets(conductorId, dateId, tripName)
             ]);
 
-            // Count if this trip has any tickets (regular or prebooking)
-            if (ticketsSnapshot.docs.length > 0 || preBookingTickets.length > 0) {
+            // Count if this trip has any tickets (regular, prebooking, or pre-tickets)
+            if (ticketsSnapshot.docs.length > 0 || preBookingTickets.length > 0 || preTicketsList.length > 0) {
               totalTrips++;
             }
 
-            // Count regular tickets and pre-tickets (skip prebookings to avoid duplication)
+            // Count regular tickets (skip prebookings and pre-tickets to avoid duplication)
             ticketsSnapshot.forEach(ticketDoc => {
               const ticketData = ticketDoc.data();
 
-              // Count tickets by type - prioritize documentType for pre-tickets
-              if (ticketData.documentType === 'preTicket') {
-                preTickets++;
-                totalTickets++;
-                conductorHasTickets = true;
+              // Count tickets by type - skip preTicket and preBooking as they're fetched separately
+              if (ticketData.documentType === 'preTicket' || ticketData.ticketType === 'preTicket') {
+                // Skip - pre-tickets from regular path (will be counted from dedicated path)
               } else if (ticketData.documentType === 'preBooking' || ticketData.ticketType === 'preBooking') {
                 // Skip prebooking tickets from regular path to avoid duplication
                 // They will be counted from the dedicated prebooking path
@@ -913,6 +1066,13 @@ export const getPreTicketingStats = async () => {
             // Count prebooking tickets from dedicated path
             preBookingTickets.forEach(preBookingTicket => {
               preBookings++;
+              totalTickets++;
+              conductorHasTickets = true;
+            });
+
+            // Count pre-tickets from dedicated path
+            preTicketsList.forEach(preTicket => {
+              preTickets++;
               totalTickets++;
               conductorHasTickets = true;
             });
@@ -1569,19 +1729,20 @@ export const subscribeToConductorsWithTickets = (onUpdate) => {
             
             for (const tripName of tripNames) {
               try {
-                // Fetch both regular tickets and prebookings in parallel
-                const [ticketsSnapshot, preBookingTickets] = await Promise.all([
+                // Fetch regular tickets, prebookings, and pre-tickets in parallel
+                const [ticketsSnapshot, preBookingTickets, preTickets] = await Promise.all([
                   getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets')),
-                  fetchPreBookingTickets(conductorId, dateId, tripName)
+                  fetchPreBookingTickets(conductorId, dateId, tripName),
+                  fetchPreTickets(conductorId, dateId, tripName)
                 ]);
 
-                // Count regular tickets and pre-tickets (skip prebookings to avoid duplication)
+                // Count regular tickets (skip prebookings and pre-tickets to avoid duplication)
                 ticketsSnapshot.forEach(ticketDoc => {
                   const ticketData = ticketDoc.data();
 
-                  // Count tickets by type - prioritize documentType for pre-tickets
-                  if (ticketData.documentType === 'preTicket') {
-                    preTicketCount++;
+                  // Count tickets by type - skip preTicket and preBooking as they're fetched separately
+                  if (ticketData.documentType === 'preTicket' || ticketData.ticketType === 'preTicket') {
+                    // Skip - pre-tickets from regular path (will be counted from dedicated path)
                   } else if (ticketData.documentType === 'preBooking' || ticketData.ticketType === 'preBooking') {
                     // Skip prebooking tickets from regular tickets path to avoid duplication
                     // They will be counted from the dedicated prebooking path
@@ -1594,6 +1755,11 @@ export const subscribeToConductorsWithTickets = (onUpdate) => {
                 // Count prebooking tickets from dedicated path
                 preBookingTickets.forEach(preBookingTicket => {
                   preBookingCount++;
+                });
+
+                // Count pre-tickets from dedicated path
+                preTickets.forEach(preTicket => {
+                  preTicketCount++;
                 });
               } catch (error) {
                 continue;
@@ -1661,10 +1827,11 @@ export const subscribeToTicketsByConductor = (conductorId, onUpdate) => {
           
           for (const tripName of tripNames) {
             try {
-              // Fetch both regular tickets and prebookings in parallel
-              const [ticketsSnapshot, preBookingTickets] = await Promise.all([
+              // Fetch regular tickets, prebookings, and pre-tickets in parallel
+              const [ticketsSnapshot, preBookingTickets, preTickets] = await Promise.all([
                 getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets')),
-                fetchPreBookingTickets(conductorId, dateId, tripName)
+                fetchPreBookingTickets(conductorId, dateId, tripName),
+                fetchPreTickets(conductorId, dateId, tripName)
               ]);
 
               // Get trip direction for this trip (used by both regular and prebooking tickets)
@@ -1676,8 +1843,9 @@ export const subscribeToTicketsByConductor = (conductorId, onUpdate) => {
                   const ticketData = ticketDoc.data();
                   const ticketId = ticketDoc.id;
 
-                  // Skip prebooking tickets from regular path to avoid duplication
-                  if (ticketData.documentType === 'preBooking' || ticketData.ticketType === 'preBooking') {
+                  // Skip prebooking and preTicket tickets from regular path to avoid duplication
+                  if (ticketData.documentType === 'preBooking' || ticketData.ticketType === 'preBooking' ||
+                      ticketData.documentType === 'preTicket' || ticketData.ticketType === 'preTicket') {
                     return;
                   }
 
@@ -1709,6 +1877,11 @@ export const subscribeToTicketsByConductor = (conductorId, onUpdate) => {
               // Add prebooking tickets from dedicated path
               if (preBookingTickets.length > 0) {
                 allTickets.push(...preBookingTickets);
+              }
+
+              // Add pre-tickets from dedicated path
+              if (preTickets.length > 0) {
+                allTickets.push(...preTickets);
               }
             } catch (error) {
               continue;

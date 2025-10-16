@@ -873,10 +873,12 @@ const Revenue = () => {
                     <tbody>
                       {revenueData.conductorTrips.map((trip, index) => {
                         const breakdown = parseTicketDiscountBreakdown(trip);
+                        // Extract trip number from tripId (e.g., "trip5" -> "5")
+                        const tripNum = trip.tripId ? trip.tripId.replace(/trip/i, '') : '';
                         return (
                           <tr key={index}>
                             <td className="revenue-trip-id">
-                              {trip.tripId || 'N/A'}
+                              {tripNum ? `TRIP${tripNum}` : 'N/A'}
                             </td>
                             <td>
                               {formatDateTime(trip.date, trip.timestamp)}
@@ -973,10 +975,12 @@ const Revenue = () => {
                   <tbody>
                     {revenueData.preBookingTrips.map((trip, index) => {
                       const breakdown = parseTicketDiscountBreakdown(trip);
+                      // Extract trip number from tripId (e.g., "trip5" -> "5")
+                      const tripNum = trip.tripId ? trip.tripId.replace(/trip/i, '') : '';
                       return (
                         <tr key={index}>
                           <td className="revenue-trip-id">
-                            {trip.tripId || 'N/A'}
+                            {tripNum ? `TRIP${tripNum}` : 'N/A'}
                           </td>
                           <td>
                             {formatDateTime(trip.date, trip.timestamp)}
@@ -1074,10 +1078,12 @@ const Revenue = () => {
                     <tbody>
                       {revenueData.preTicketing.map((trip, index) => {
                         const breakdown = parseTicketDiscountBreakdown(trip);
+                        // Extract trip number from tripId (e.g., "trip5" -> "5")
+                        const tripNum = trip.tripId ? trip.tripId.replace(/trip/i, '') : '';
                         return (
                           <tr key={index}>
                             <td className="revenue-trip-id">
-                              {trip.tripId || 'N/A'}
+                              {tripNum ? `TRIP${tripNum}` : 'N/A'}
                             </td>
                             <td>
                               {formatDateTime(trip.date, trip.timestamp)}

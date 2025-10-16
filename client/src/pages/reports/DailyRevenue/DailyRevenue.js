@@ -645,10 +645,13 @@ class RevenueDataCacheService {
       // Process all trips in parallel instead of sequential
       const tripPromises = tripNames.map(async (tripName) => {
         try {
-          // Get trip direction first if route filtering is enabled
+          // Get trip direction and currentTrip number first if route filtering is enabled
           let tripDirection = null;
+          let currentTripNumber = null;
           if (selectedRoute) {
-            tripDirection = await getTripDirection(conductorId, dateId, tripName);
+            const tripInfo = await getTripInfo(conductorId, dateId, tripName);
+            tripDirection = tripInfo.direction;
+            currentTripNumber = tripInfo.currentTrip;
 
             // Skip this trip if it doesn't match the selected route
             if (tripDirection !== selectedRoute) {
@@ -662,9 +665,11 @@ class RevenueDataCacheService {
 
           if (ticketsSnapshot.docs.length > 0) {
 
-            // If we haven't fetched the trip direction yet, fetch it now for ticket processing
-            if (!tripDirection) {
-              tripDirection = await getTripDirection(conductorId, dateId, tripName);
+            // If we haven't fetched the trip info yet, fetch it now for ticket processing
+            if (!tripDirection || !currentTripNumber) {
+              const tripInfo = await getTripInfo(conductorId, dateId, tripName);
+              tripDirection = tripInfo.direction;
+              currentTripNumber = tripInfo.currentTrip;
             }
 
             const tripTickets = [];
@@ -686,9 +691,13 @@ class RevenueDataCacheService {
               // Process valid tickets - only conductor trips now (pre-booking handled separately)
               if (ticketData.totalFare && ticketData.quantity) {
                 const processedTicket = {
+                  // Include all ticket data first
+                  ...ticketData,
+                  // Then override with our clean values
                   id: ticketId,
                   conductorId: conductorId,
                   tripId: tripName,
+                  currentTrip: currentTripNumber,
                   tripDirection: tripDirection,
                   totalFare: parseFloat(ticketData.totalFare),
                   quantity: ticketData.quantity || 1,
@@ -705,9 +714,7 @@ class RevenueDataCacheService {
                   farePerPassenger: ticketData.farePerPassenger,
                   discountBreakdown: ticketData.discountBreakdown || [],
                   discountList: ticketData.discountList || [],
-                  active: ticketData.active,
-                  // Include all ticket data for comprehensive reporting
-                  ...ticketData
+                  active: ticketData.active
                 };
 
                 // Only process conductor tickets and pre-tickets (pre-booking is handled by separate function)
@@ -756,10 +763,13 @@ class RevenueDataCacheService {
     // Process all trips in parallel
     const tripPromises = tripNames.map(async (tripName) => {
       try {
-        // Get trip direction first if route filtering is enabled
+        // Get trip info first if route filtering is enabled
         let tripDirection = null;
+        let currentTripNumber = null;
         if (selectedRoute) {
-          tripDirection = await getTripDirection(conductorId, dateId, tripName);
+          const tripInfo = await getTripInfo(conductorId, dateId, tripName);
+          tripDirection = tripInfo.direction;
+          currentTripNumber = tripInfo.currentTrip;
 
           // Skip this trip if it doesn't match the selected route
           if (tripDirection !== selectedRoute) {
@@ -772,9 +782,11 @@ class RevenueDataCacheService {
         const preBookingsSnapshot = await getDocs(preBookingsRef);
 
         if (preBookingsSnapshot.docs.length > 0) {
-          // If we haven't fetched the trip direction yet, fetch it now
-          if (!tripDirection) {
-            tripDirection = await getTripDirection(conductorId, dateId, tripName);
+          // If we haven't fetched the trip info yet, fetch it now
+          if (!tripDirection || !currentTripNumber) {
+            const tripInfo = await getTripInfo(conductorId, dateId, tripName);
+            tripDirection = tripInfo.direction;
+            currentTripNumber = tripInfo.currentTrip;
           }
 
           const tripPreBookings = [];
@@ -796,6 +808,7 @@ class RevenueDataCacheService {
                 id: ticketId,
                 conductorId: conductorId,
                 tripId: tripName, // ✅ FIXED: Use tripName directly (e.g., "trip3")
+                currentTrip: currentTripNumber,
                 tripDirection: tripDirection || ticketData.direction,
                 totalFare: parseFloat(ticketData.totalFare),
                 quantity: ticketData.quantity,
@@ -851,10 +864,13 @@ async processPreTicketsForDate(conductorId, dateId, allPreTickets, filterDate = 
     // Process all trips in parallel instead of sequential
     const tripPromises = tripNames.map(async (tripName) => {
       try {
-        // Get trip direction first if route filtering is enabled
+        // Get trip info first if route filtering is enabled
         let tripDirection = null;
+        let currentTripNumber = null;
         if (selectedRoute) {
-          tripDirection = await getTripDirection(conductorId, dateId, tripName);
+          const tripInfo = await getTripInfo(conductorId, dateId, tripName);
+          tripDirection = tripInfo.direction;
+          currentTripNumber = tripInfo.currentTrip;
 
           // Skip this trip if it doesn't match the selected route
           if (tripDirection !== selectedRoute) {
@@ -867,9 +883,11 @@ async processPreTicketsForDate(conductorId, dateId, allPreTickets, filterDate = 
         const preTicketsSnapshot = await getDocs(preTicketsRef);
 
         if (preTicketsSnapshot.docs.length > 0) {
-          // If we haven't fetched the trip direction yet, fetch it now for ticket processing
-          if (!tripDirection) {
-            tripDirection = await getTripDirection(conductorId, dateId, tripName);
+          // If we haven't fetched the trip info yet, fetch it now for ticket processing
+          if (!tripDirection || !currentTripNumber) {
+            const tripInfo = await getTripInfo(conductorId, dateId, tripName);
+            tripDirection = tripInfo.direction;
+            currentTripNumber = tripInfo.currentTrip;
           }
 
           const tripPreTickets = [];
@@ -982,6 +1000,7 @@ async processPreTicketsForDate(conductorId, dateId, allPreTickets, filterDate = 
                 id: ticketId,
                 conductorId: conductorId,
                 tripId: tripName,
+                currentTrip: currentTripNumber,
                 tripDirection: tripDirection || sourceData.direction || ticketData.direction,
                 totalFare: parseFloat(sourceData.amount || sourceData.totalFare || 0),
                 quantity: sourceData.quantity || ticketData.quantity || 1,
@@ -1200,37 +1219,37 @@ export const calculateRevenueMetrics = (conductorTrips, preBookingTrips, preTick
   return revenueDataCache.calculateRevenueMetrics(conductorTrips, preBookingTrips, preTicketing);
 };
 
-// Enhanced function to get trip direction from date document trip map
-const getTripDirection = async (conductorId, dateId, tripName) => {
+// Enhanced function to get trip info (direction and currentTrip) from date document trip map
+const getTripInfo = async (conductorId, dateId, tripName) => {
   try {
     // Get the date document which contains the trip maps
     const dateDocRef = doc(db, `conductors/${conductorId}/dailyTrips/${dateId}`);
     const dateDocSnapshot = await getDoc(dateDocRef);
-    
+
     if (dateDocSnapshot.exists()) {
       const dateData = dateDocSnapshot.data();
-      
+
       // Look for the specific trip map in the date document
       if (dateData[tripName] && typeof dateData[tripName] === 'object') {
         const tripMap = dateData[tripName];
-        
-        if (tripMap.direction && typeof tripMap.direction === 'string') {
-          const direction = tripMap.direction.trim();
-          if (direction.length > 0) {
-            return direction;
-          }
-        }
-        
-        return null;
-      } else {
-        return null;
+
+        return {
+          direction: tripMap.direction && typeof tripMap.direction === 'string' ? tripMap.direction.trim() : null,
+          currentTrip: tripMap.currentTrip || null
+        };
       }
     }
-    
-    return null;
+
+    return { direction: null, currentTrip: null };
   } catch (error) {
-    return null;
+    return { direction: null, currentTrip: null };
   }
+};
+
+// Keep old function for backward compatibility
+const getTripDirection = async (conductorId, dateId, tripName) => {
+  const tripInfo = await getTripInfo(conductorId, dateId, tripName);
+  return tripInfo.direction;
 };
 
 // Prepare chart data with three categories

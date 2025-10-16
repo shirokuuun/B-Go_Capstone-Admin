@@ -282,6 +282,61 @@ const TicketReport = () => {
         XLSX.utils.book_append_sheet(workbook, ticketTypeWS, 'Ticket Types');
       }
 
+      // Create Revenue by Discount Type sheet
+      if (analyticsData.discountRevenue?.length > 0) {
+        const discountRevenueData = [
+          ['Revenue by Discount Type'],
+          [''],
+          ['Discount Type', 'Ticket Count', 'Total Passengers', 'Revenue', 'Average Fare per Passenger', 'Percentage of Total Revenue']
+        ];
+
+        // Calculate total revenue for percentage calculation
+        const totalDiscountRevenue = analyticsData.discountRevenue.reduce((sum, d) => sum + (d.revenue || 0), 0);
+
+        analyticsData.discountRevenue.forEach(discount => {
+          const revenuePercentage = totalDiscountRevenue > 0
+            ? ((discount.revenue / totalDiscountRevenue) * 100).toFixed(2)
+            : 0;
+
+          discountRevenueData.push([
+            discount.type || 'N/A',
+            discount.ticketCount || 0,
+            discount.passengers || 0,
+            `₱${(discount.revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `₱${(discount.averageFare || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `${revenuePercentage}%`
+          ]);
+        });
+
+        // Add total row
+        const totalTickets = analyticsData.discountRevenue.reduce((sum, d) => sum + (d.ticketCount || 0), 0);
+        const totalPassengers = analyticsData.discountRevenue.reduce((sum, d) => sum + (d.passengers || 0), 0);
+
+        discountRevenueData.push([
+          'TOTAL',
+          totalTickets,
+          totalPassengers,
+          `₱${totalDiscountRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          totalPassengers > 0 ? `₱${(totalDiscountRevenue / totalPassengers).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '₱0.00',
+          '100.00%'
+        ]);
+
+        const discountRevenueWS = XLSX.utils.aoa_to_sheet(discountRevenueData);
+
+        discountRevenueWS['!cols'] = [
+          { wch: 20 }, // Discount Type
+          { wch: 15 }, // Ticket Count
+          { wch: 18 }, // Total Passengers
+          { wch: 18 }, // Revenue
+          { wch: 25 }, // Average Fare per Passenger
+          { wch: 28 }  // Percentage of Total Revenue
+        ];
+
+        discountRevenueWS['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 5, r: 0 } }];
+
+        XLSX.utils.book_append_sheet(workbook, discountRevenueWS, 'Discount Revenue');
+      }
+
       // Generate filename
       const timeRangeLabel = availableTimeRanges.find(t => t.value === selectedTimeRange)?.label || selectedTimeRange;
       const filename = `Ticket_Analytics_Report_${timeRangeLabel.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
@@ -309,13 +364,15 @@ const TicketReport = () => {
               ...(analyticsData.demandPatterns.peakHours?.length > 0 ? ['Peak Hours'] : []),
               ...(analyticsData.demandPatterns.seasonalTrends?.length > 0 ? ['Seasonal Trends'] : []),
               ...(analyticsData.routePerformance?.length > 0 ? ['Route Performance'] : []),
-              ...(analyticsData.ticketTypes?.length > 0 ? ['Ticket Types'] : [])
+              ...(analyticsData.ticketTypes?.length > 0 ? ['Ticket Types'] : []),
+              ...(analyticsData.discountRevenue?.length > 0 ? ['Discount Revenue'] : [])
             ],
             dataPoints: {
               peakHours: analyticsData.demandPatterns?.peakHours?.length || 0,
               seasonalTrends: analyticsData.demandPatterns?.seasonalTrends?.length || 0,
               routePerformance: analyticsData.routePerformance?.length || 0,
-              ticketTypes: analyticsData.ticketTypes?.length || 0
+              ticketTypes: analyticsData.ticketTypes?.length || 0,
+              discountRevenue: analyticsData.discountRevenue?.length || 0
             }
           },
           'info'

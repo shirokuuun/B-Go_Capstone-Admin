@@ -139,16 +139,28 @@ export const updateIDVerificationStatus = async (userId, status, adminInfo = nul
     if (status === 'rejected' || status === 'revoked') {
       const idDocRef = doc(db, 'users', userId, 'VerifyID', 'id');
 
-      // Soft revocation - mark as revoked instead of deleting
-      await updateDoc(idDocRef, {
+      // Get the current ID document data to preserve original verification info
+      const idDoc = await getDoc(idDocRef);
+      const idData = idDoc.exists() ? idDoc.data() : null;
+
+      // Prepare update object
+      const updateData = {
         status: status === 'rejected' ? 'rejected' : 'revoked',
         revokedAt: new Date(),
         revokedBy: adminInfo?.name || adminInfo?.email || 'admin',
-        previousStatus: userData?.idVerificationStatus || 'verified',
-        // Keep original verification data for audit trail
-        originalVerifiedAt: userData?.idVerifiedAt || userData?.verifiedAt,
-        originalVerifiedBy: userData?.verifiedBy
-      });
+        previousStatus: idData?.status || userData?.idVerificationStatus || 'verified'
+      };
+
+      // Only add original verification data if it exists
+      if (idData?.verifiedAt || userData?.idVerifiedAt || userData?.verifiedAt) {
+        updateData.originalVerifiedAt = idData?.verifiedAt || userData?.idVerifiedAt || userData?.verifiedAt;
+      }
+      if (idData?.verifiedBy || userData?.verifiedBy) {
+        updateData.originalVerifiedBy = idData?.verifiedBy || userData?.verifiedBy;
+      }
+
+      // Soft revocation - mark as revoked instead of deleting
+      await updateDoc(idDocRef, updateData);
 
       // Update main user doc fields - use 'revoked' status instead of 'pending'
       await updateDoc(userDocRef, {
