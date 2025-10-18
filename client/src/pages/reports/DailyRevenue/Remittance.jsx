@@ -21,14 +21,20 @@ const RemittanceReport = () => {
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTripDirection, setSelectedTripDirection] = useState('');
   const [selectedConductor, setSelectedConductor] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start with loading true
   const [remittanceData, setRemittanceData] = useState([]);
   const [filteredRemittanceData, setFilteredRemittanceData] = useState([]);
   const [availableDates, setAvailableDates] = useState([]);
   const [availableTripDirections, setAvailableTripDirections] = useState([]);
   const [availableConductors, setAvailableConductors] = useState([]);
   const [conductorData, setConductorData] = useState({});
-  const [summary, setSummary] = useState(null);
+  const [summary, setSummary] = useState({
+    totalTrips: 0,
+    totalRevenue: 0,
+    totalPassengers: 0,
+    totalTickets: 0,
+    averageFare: 0
+  }); // Initialize with empty summary instead of null
   const [groupedData, setGroupedData] = useState({});
   const [validationResults, setValidationResults] = useState({ isValid: true, errors: [], warnings: [] });
   const [showValidation, setShowValidation] = useState(false);
@@ -724,7 +730,7 @@ const RemittanceReport = () => {
     }
   };
 
-  if (loading || summary === null) {
+  if (loading) {
     return (
       <div className="revenue-container">
         <div className="revenue-content-area">
@@ -832,7 +838,7 @@ const RemittanceReport = () => {
             fontWeight: '600'
           }}>
             {(() => {
-              if (loading || summary === null) {
+              if (loading) {
                 return 'Loading...';
               }
               if (filteredRemittanceData && filteredRemittanceData.length > 0) {

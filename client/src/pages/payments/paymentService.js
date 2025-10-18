@@ -54,6 +54,7 @@ class PaymentService {
             fullName: data.fullName,
             isRoundTrip: data.isRoundTrip,
             selectedBusIds: data.selectedBusIds,
+            request: data.request || '', // Add request field
             // Keep original reservation data
             originalReservation: data
           };
@@ -243,12 +244,21 @@ class PaymentService {
             if (!conductorSnap.empty) {
               const conductorRef = doc(db, 'conductors', conductorSnap.docs[0].id);
 
-              // Update both busAvailabilityStatus and reservationDetails.status
-              await updateDoc(conductorRef, {
+              // Build update data for conductor
+              const conductorUpdateData = {
                 busAvailabilityStatus: newBusAvailabilityStatus,
                 'reservationDetails.status': newReservationStatus,
                 updatedAt: serverTimestamp()
-              });
+              };
+
+              // Add approval details if this is an approval action
+              if (action === 'approve') {
+                conductorUpdateData['reservationDetails.approvedAt'] = serverTimestamp();
+                conductorUpdateData['reservationDetails.approvedBy'] = 'admin';
+              }
+
+              // Update conductor document
+              await updateDoc(conductorRef, conductorUpdateData);
             }
           } catch (conductorError) {
             console.warn(`Error updating conductor for bus ${busId}:`, conductorError);
@@ -321,7 +331,18 @@ class PaymentService {
   filterPayments(payments, filterStatus, searchTerm) {
     return payments.filter(payment => {
       // Filter by original reservation status, not mapped display status
-      const matchesStatus = filterStatus === 'all' || payment.originalReservation?.status === filterStatus;
+      let matchesStatus = false;
+
+      if (filterStatus === 'all') {
+        matchesStatus = true;
+      } else if (filterStatus === 'receipt_uploaded') {
+        // Show if status is receipt_uploaded OR if receipt exists (receiptUrl or paymentProof)
+        matchesStatus = payment.originalReservation?.status === 'receipt_uploaded' ||
+                       (payment.receiptUrl || payment.paymentProof || payment.receiptUploadedAt);
+      } else {
+        matchesStatus = payment.originalReservation?.status === filterStatus;
+      }
+
       const matchesSearch = searchTerm === '' ||
         payment.bookingReference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         payment.passengerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -189,7 +189,7 @@ function PaymentTransactions() {
               <option value="all">All Status</option>
               <option value="pending">Pending</option>
               <option value="receipt_uploaded">Receipt Uploaded</option>
-              <option value="confirmed">Confirmed</option>
+              <option value="confirmed">Verified</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
             </select>
@@ -258,12 +258,25 @@ function PaymentTransactions() {
                         <div className="detail-row">
                           <strong>Trip Type:</strong> {payment.isRoundTrip ? 'Round Trip' : 'One Way'}
                         </div>
+                        {payment.timestamp && (
+                          <div className="detail-row">
+                            <strong>Requested:</strong> {formatDate(payment.timestamp)}
+                          </div>
+                        )}
                         <div className="detail-row">
                           <strong>Payment Method:</strong> {payment.paymentMethod}
                         </div>
                         {payment.receiptUploadedAt && (
                           <div className="detail-row">
                             <strong>Receipt Uploaded:</strong> {formatDate(payment.receiptUploadedAt)}
+                          </div>
+                        )}
+                        <div className="detail-row">
+                          <strong>Approved At:</strong> {payment.approvedAt ? formatDate(payment.approvedAt) : 'N/A'}
+                        </div>
+                        {payment.approvedBy && (
+                          <div className="detail-row">
+                            <strong>Approved By:</strong> {payment.approvedBy}
                           </div>
                         )}
                         {payment.reference && (

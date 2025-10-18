@@ -3953,6 +3953,55 @@
   background-color: #006478;
 }
 
+/* Password Toggle Button Styles */
+.password-input-container {
+  position: relative;
+  width: 100%;
+  display: block;
+}
+
+.password-input-container input {
+  width: 100%;
+  padding-right: 50px !important;
+  box-sizing: border-box;
+}
+
+.password-toggle-btn {
+  position: absolute !important;
+  right: 15px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  background: none !important;
+  border: none !important;
+  color: #64748b !important;
+  cursor: pointer !important;
+  padding: 6px !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 18px !important;
+  z-index: 10 !important;
+  transition: all 0.2s ease !important;
+}
+
+.password-toggle-btn:hover {
+  color: #334155 !important;
+  transform: translateY(-50%) scale(1.1) !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+
+.password-toggle-btn:active {
+  transform: translateY(-50%) scale(0.95) !important;
+}
+
+.password-toggle-btn:focus {
+  outline: none !important;
+  color: #007A8F !important;
+  box-shadow: none !important;
+}
+
 @media (max-width: 768px) {
   .settings-form-row {
     grid-template-columns: 1fr;

@@ -3,7 +3,7 @@ import Header from '/src/components/HeaderTemplate/header.jsx';
 import { MdDeleteForever, MdBackup, MdCloudDownload, MdRestore  } from "react-icons/md";
 import { FaDownload, FaMagnifyingGlass } from "react-icons/fa6";
 import { MdOutlineSecurity } from "react-icons/md";
-import { FaCheckCircle, FaPlusCircle, FaTimesCircle, FaExclamationTriangle, FaCog, FaUpload, FaFolder } from "react-icons/fa";
+import { FaCheckCircle, FaPlusCircle, FaTimesCircle, FaExclamationTriangle, FaCog, FaUpload, FaFolder, FaEye, FaEyeSlash } from "react-icons/fa";
 import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
 import { RiEdit2Fill } from "react-icons/ri";
 import { HiDatabase } from "react-icons/hi";
@@ -154,6 +154,9 @@ const formatLogDescription = (description) => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -1232,42 +1235,72 @@ const formatLogDescription = (description) => {
             <form onSubmit={handlePasswordChange} className="settings-password-form">
               <div className="settings-form-field">
                 <label className="settings-form-label">Current Password</label>
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  required
-                  className="settings-form-input"
-                  placeholder="Enter current password"
-                  autoComplete="current-password"
-                />
+                <div className="password-input-container">
+                  <input
+                    type={showCurrentPassword ? "text" : "password"}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    required
+                    className="settings-form-input"
+                    placeholder="Enter current password"
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle-btn"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    aria-label={showCurrentPassword ? "Hide password" : "Show password"}
+                  >
+                    {showCurrentPassword ? <FaEyeSlash /> : <FaEye />}
+                  </button>
+                </div>
               </div>
               <div className="settings-form-row">
                 <div className="settings-form-field">
                   <label className="settings-form-label">New Password</label>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    className="settings-form-input"
-                    placeholder="Enter new password"
-                    autoComplete="new-password"
-                  />
+                  <div className="password-input-container">
+                    <input
+                      type={showNewPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      className="settings-form-input"
+                      placeholder="Enter new password"
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle-btn"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      aria-label={showNewPassword ? "Hide password" : "Show password"}
+                    >
+                      {showNewPassword ? <FaEyeSlash /> : <FaEye />}
+                    </button>
+                  </div>
                 </div>
                 <div className="settings-form-field">
                   <label className="settings-form-label">Confirm New Password</label>
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    className="settings-form-input"
-                    placeholder="Confirm new password"
-                    autoComplete="new-password"
-                  />
+                  <div className="password-input-container">
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      className="settings-form-input"
+                      placeholder="Confirm new password"
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle-btn"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                    >
+                      {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="settings-form-actions">

@@ -830,16 +830,17 @@ async getPreTicketDetailsFromNewPath(conductorId, date, tripNumber) {
     // Store the callback
     this.currentCallbacks.set(listenerKey, callback);
 
-    // If we have cached data, return it immediately
-    if (this.remittanceCache.has(date)) {
-      setTimeout(() => {
-        const cachedData = this.remittanceCache.get(date);
-        if (cachedData && typeof callback === 'function') {
-          callback(cachedData);
-        }
-      }, 0);
+    // If we have cached data, return it immediately synchronously
+    const cacheKey = date;
+    if (this.remittanceCache.has(cacheKey) && this.isCacheFresh(cacheKey)) {
+      // Call callback immediately with cached data to prevent "no data" flash
+      const cachedData = this.remittanceCache.get(cacheKey);
+      if (cachedData && typeof callback === 'function') {
+        // Use setTimeout with 0 to allow UI to render
+        setTimeout(() => callback(cachedData), 0);
+      }
     } else {
-      // If no cache, fetch data
+      // If no cache or stale cache, fetch data immediately
       this.getRemittanceData(date)
         .then(data => {
           if (typeof callback === 'function') {

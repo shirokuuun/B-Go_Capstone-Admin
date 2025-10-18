@@ -554,14 +554,28 @@ export const getRoutePerformanceData = async (timeRange, route, ticketType = '')
       .filter(routeData => routeData.revenue > 0)
       .sort((a, b) => b.revenue - a.revenue);
 
+    
+
+    // totalTripsCount - The TOTAL number of trips across ALL routes
+    // numberOfTrips - The number of trips for a SPECIFIC route (calculated below in the map)
+    // Calculate total trips across all routes for percentage calculation
+    const allTrips = [...rawData.conductorTrips, ...rawData.preBookingTrips, ...rawData.preTicketing];
+    const allUniqueTrips = new Set();
+    allTrips.forEach(trip => {
+      if (trip.conductorId && trip.tripId) {
+        const tripDate = trip.date || trip.createdAt || 'unknown-date';
+        allUniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripId}`);
+      }
+    });
+    const totalTripsCount = allUniqueTrips.size > 0 ? allUniqueTrips.size : allTrips.length;
+
     // Convert to route performance format
     const routePerformance = routeRevenueData.map((routeData, index) => {
       const averageFare = routeData.passengers > 0 ? routeData.revenue / routeData.passengers : 0;
-      
-      // Calculate utilization based on capacity usage (more meaningful than revenue comparison)
-      const allTrips = [...rawData.conductorTrips, ...rawData.preBookingTrips, ...rawData.preTicketing];
+
+      // Calculate trip distribution - count actual trips for this route
       const routeTrips = allTrips.filter(trip => trip.tripDirection === routeData.route);
-      
+
       // Group trips by unique trip identifier to count actual trips (not individual tickets)
       // Use the same logic as Daily Revenue Report for consistency
       const uniqueTrips = new Set();
@@ -575,7 +589,11 @@ export const getRoutePerformanceData = async (timeRange, route, ticketType = '')
 
       const numberOfTrips = uniqueTrips.size > 0 ? uniqueTrips.size : routeTrips.length;
       const averagePassengersPerTrip = numberOfTrips > 0 ? routeData.passengers / numberOfTrips : routeData.passengers;
-      const utilization = Math.round((averagePassengersPerTrip / 27) * 100); // Based on 27-passenger capacity
+
+      // Calculate trip distribution percentage (what % of all trips use this route)
+      const tripDistributionPercentage = totalTripsCount > 0
+        ? Math.round((numberOfTrips / totalTripsCount) * 100)
+        : 0;
       
       // Calculate actual revenue per km using ticket distance data
       const calculateActualDistance = () => {
@@ -605,17 +623,17 @@ export const getRoutePerformanceData = async (timeRange, route, ticketType = '')
       };
       
       const actualDistance = calculateActualDistance();
-      const revenuePerKm = routeData.revenue > 0 && actualDistance > 0 
-        ? Math.round((routeData.revenue / actualDistance) * 100) / 100 
+      const revenuePerKm = routeData.revenue > 0 && actualDistance > 0
+        ? Math.round((routeData.revenue / actualDistance) * 100) / 100
         : 0;
-      
+
       return {
         routeName: routeData.route, // This is now the direction field from database
-        utilization: Math.min(utilization, 100), // Cap at 100%
+        tripCount: numberOfTrips, // Actual number of trips for this route
+        tripDistributionPercentage, // Percentage of total trips
         revenuePerKm,
         averageFare: Math.round(averageFare * 100) / 100,
-        averagePassengers: averagePassengersPerTrip > 0 ? Math.round(averagePassengersPerTrip) : routeData.passengers, // Average passengers per trip
-        marketShare: Math.min(utilization, 35) // Estimate market share based on utilization
+        averagePassengers: averagePassengersPerTrip > 0 ? Math.round(averagePassengersPerTrip) : routeData.passengers // Average passengers per trip
       };
     });
 

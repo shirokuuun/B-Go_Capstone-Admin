@@ -929,6 +929,87 @@ const ConductorDetails = ({ conductor }) => {
               {conductorService.getStatusDisplayInfo(conductorService.getBusAvailabilityStatus(conductor)).text}
             </span>
           </div>
+
+          {/* Show reservation details if bus is reserved or confirmed */}
+          {(conductor.busAvailabilityStatus === 'confirmed' || conductor.busAvailabilityStatus === 'reserved') && conductor.reservationDetails && (
+            <>
+              <div className="detail-item">
+                <span className="label">Customer Name:</span>
+                <span className="value">{conductor.reservationDetails.fullName || 'N/A'}</span>
+              </div>
+              <div className="detail-item">
+                <span className="label">Email:</span>
+                <span className="value">{conductor.reservationDetails.email || 'N/A'}</span>
+              </div>
+              <div className="detail-item">
+                <span className="label">Route:</span>
+                <span className="value">
+                  {conductor.reservationDetails.from || 'N/A'} → {conductor.reservationDetails.to || 'N/A'}
+                </span>
+              </div>
+              <div className="detail-item">
+                <span className="label">Departure Date:</span>
+                <span className="value">
+                  {conductor.reservationDetails.departureDate
+                    ? new Date(conductor.reservationDetails.departureDate.seconds * 1000).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })
+                    : 'N/A'}
+                </span>
+              </div>
+              <div className="detail-item">
+                <span className="label">Departure Time:</span>
+                <span className="value">{conductor.reservationDetails.departureTime || 'N/A'}</span>
+              </div>
+              <div className="detail-item">
+                <span className="label">Trip Type:</span>
+                <span className="value">
+                  {conductor.reservationDetails.isRoundTrip ? 'Round Trip' : 'One Way'}
+                </span>
+              </div>
+              <div className="detail-item">
+                <span className="label">Approved At:</span>
+                <span className="value">
+                  {conductor.reservationDetails.approvedAt
+                    ? new Date(conductor.reservationDetails.approvedAt.seconds * 1000).toLocaleString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })
+                    : 'N/A'}
+                </span>
+              </div>
+              {conductor.reservationDetails.approvedBy && (
+                <div className="detail-item">
+                  <span className="label">Approved By:</span>
+                  <span className="value">{conductor.reservationDetails.approvedBy}</span>
+                </div>
+              )}
+              {conductor.reservationDetails.receiptUrl && (
+                <div className="detail-item">
+                  <span className="label">Receipt:</span>
+                  <a
+                    href={conductor.reservationDetails.receiptUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="value"
+                    style={{
+                      color: '#007A8F',
+                      textDecoration: 'underline',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    View Receipt
+                  </a>
+                </div>
+              )}
+            </>
+          )}
+
           {(conductor.busAvailabilityStatus === 'confirmed' || conductor.busAvailabilityStatus === 'reserved') && (
             <div className="detail-item" style={{ marginTop: '16px' }}>
               <button
@@ -941,7 +1022,7 @@ const ConductorDetails = ({ conductor }) => {
           )}
         </div>
 
-        <div className="detail-section">
+        <div className="detail-section detail-section-compact">
           <h3>Trip Statistics</h3>
           <div className="detail-item">
             <span className="label">Total Trips:</span>

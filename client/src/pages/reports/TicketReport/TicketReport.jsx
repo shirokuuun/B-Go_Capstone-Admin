@@ -217,23 +217,23 @@ const TicketReport = () => {
         const routeData = [
           ['Route Performance Analysis'],
           [''],
-          ['Route Name', 'Utilization %', 'Revenue per KM', 'Average Passengers']
+          ['Route Name', 'Trip Distribution', 'Revenue per KM', 'Average Passengers']
         ];
 
         analyticsData.routePerformance.forEach(route => {
           routeData.push([
             route.routeName,
-            `${route.utilization}%`,
+            `${route.tripCount} trips (${route.tripDistributionPercentage}%)`,
             `₱${route.revenuePerKm}`,
             route.averagePassengers
           ]);
         });
 
         const routeWS = XLSX.utils.aoa_to_sheet(routeData);
-        
+
         routeWS['!cols'] = [
           { wch: 25 }, // Route Name
-          { wch: 15 }, // Utilization %
+          { wch: 25 }, // Trip Distribution
           { wch: 15 }, // Revenue per KM
           { wch: 18 }  // Average Passengers
         ];
@@ -584,13 +584,9 @@ const TicketReport = () => {
                       
                       <div className="ticket-route-metrics">
                         <div className="ticket-route-metric">
-                          <div className="ticket-metric-label">Utilization</div>
-                          <div className="ticket-metric-value">{route.utilization}%</div>
-                          <div className="ticket-metric-bar">
-                            <div 
-                              className="ticket-metric-fill" 
-                              style={{ width: `${route.utilization}%` }}
-                            ></div>
+                          <div className="ticket-metric-label">Trip Distribution</div>
+                          <div className="ticket-metric-value">
+                            {route.tripCount} trips ({route.tripDistributionPercentage}%)
                           </div>
                         </div>
 

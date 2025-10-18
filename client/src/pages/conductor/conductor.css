@@ -1395,3 +1395,14 @@ body.modal-open {
     font-size: 0.7rem;
   }
 }
+
+/* Compact section for Trip Statistics */
+.detail-section-compact {
+  min-height: auto !important;
+  max-height: fit-content;
+  flex-shrink: 0;
+}
+
+.detail-section-compact .detail-item {
+  margin-bottom: 8px;
+}

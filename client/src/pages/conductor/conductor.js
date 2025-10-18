@@ -894,10 +894,10 @@ class ConductorService {
 
     const conductorRef = doc(db, 'conductors', conductorId);
 
-    const unsubscribe = onSnapshot(conductorRef, async (doc) => {
+    const unsubscribe = onSnapshot(conductorRef, async (snapshot) => {
       try {
-        if (doc.exists()) {
-          const conductorData = doc.data();
+        if (snapshot.exists()) {
+          const conductorData = snapshot.data();
 
 
           // Get trips data when conductor data changes
@@ -938,9 +938,56 @@ class ConductorService {
           } catch (error) {
             }
 
+          // Fetch complete reservation data if reservationId exists or find by busId
+          let enrichedReservationDetails = conductorData.reservationDetails;
+
+          // Try to fetch reservation data
+          try {
+            let reservationDoc = null;
+
+            // First try: Use reservationId if available
+            if (conductorData.reservationId) {
+              const reservationRef = doc(db, 'reservations', conductorData.reservationId);
+              reservationDoc = await getDoc(reservationRef);
+            }
+
+            // Second try: Find reservation by selectedBusIds containing this conductor's ID
+            if (!reservationDoc || !reservationDoc.exists()) {
+              const reservationsRef = collection(db, 'reservations');
+              const reservationQuery = query(
+                reservationsRef,
+                where('selectedBusIds', 'array-contains', conductorId),
+                where('status', 'in', ['confirmed', 'pending', 'receipt_uploaded'])
+              );
+              const reservationSnap = await getDocs(reservationQuery);
+
+              if (!reservationSnap.empty) {
+                // Get the most recent reservation
+                reservationDoc = reservationSnap.docs[0];
+              }
+            }
+
+            // Merge reservation data if found
+            if (reservationDoc && reservationDoc.exists()) {
+              const reservationData = reservationDoc.data();
+              enrichedReservationDetails = {
+                ...conductorData.reservationDetails,
+                ...reservationData,
+                // Ensure we keep the most complete data
+                approvedAt: reservationData.approvedAt || conductorData.reservationDetails?.approvedAt,
+                approvedBy: reservationData.approvedBy || conductorData.reservationDetails?.approvedBy,
+                departureDate: reservationData.departureDate || conductorData.reservationDetails?.departureDate,
+                departureTime: reservationData.departureTime || conductorData.reservationDetails?.departureTime,
+              };
+            }
+          } catch (reservationError) {
+            console.warn('Could not fetch reservation details:', reservationError);
+          }
+
           callback({
-            id: doc.id,
+            id: snapshot.id,
             ...conductorData,
+            reservationDetails: enrichedReservationDetails,
             trips: allTrips,
             totalTrips: totalTrips,
             todayTrips: todayTrips
@@ -951,10 +998,10 @@ class ConductorService {
       } catch (error) {
         console.error('Error in conductor details listener:', error);
         // Still call callback with basic data if trips fetch fails
-        if (doc.exists()) {
-          const conductorData = doc.data();
+        if (snapshot.exists()) {
+          const conductorData = snapshot.data();
           callback({
-            id: doc.id,
+            id: snapshot.id,
             ...conductorData,
             trips: [],
             totalTrips: 0,
