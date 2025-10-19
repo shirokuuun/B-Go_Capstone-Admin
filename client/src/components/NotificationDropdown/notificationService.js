@@ -251,13 +251,13 @@ export const handleNotificationClick = (notification, navigate) => {
       break;
 
     case 'reservation':
-      // Navigate to reservations page
-      navigate('/reservations');
+      // Navigate to payment transactions page
+      navigate('/admin/payments');
       break;
 
     case 'receipt':
-      // Navigate to payment verification
-      navigate('/payment-verification');
+      // Navigate to payment transactions page
+      navigate('/admin/payments');
       break;
 
     default:

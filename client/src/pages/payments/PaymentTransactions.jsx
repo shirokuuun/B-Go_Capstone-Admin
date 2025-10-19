@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '/src/firebase/firebase.js';
+import { fetchCurrentUserData } from '/src/pages/settings/settings.js';
 import paymentService from './paymentService.js';
 import './PaymentTransactions.css';
 import {
@@ -25,6 +28,12 @@ function PaymentTransactions() {
   const [selectedImage, setSelectedImage] = useState('');
   const [processingPayment, setProcessingPayment] = useState(null);
 
+  // Authentication and role states
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
   // Get configuration from service
   const paymentTypes = paymentService.getPaymentTypes({
     FaBus,
@@ -34,19 +43,42 @@ function PaymentTransactions() {
   });
   const statusColors = paymentService.getStatusColors();
 
-  // Set up real-time listener for reservations (which include payment info)
+  // Authentication and role checking useEffect
   useEffect(() => {
-    const unsubscribe = paymentService.setupReservationsListener((reservationsList, error) => {
-      if (error) {
-        setLoading(false);
-        return;
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const userData = await fetchCurrentUserData();
+          setCurrentUser(userData);
+          setUserRole(userData?.role);
+          setIsSuperAdmin(userData?.role === 'superadmin');
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+        }
+      } else {
+        window.location.href = '/login';
       }
-      setPayments(reservationsList);
-      setLoading(false);
+      setAuthLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
+
+  // Set up real-time listener for reservations (which include payment info)
+  useEffect(() => {
+    if (!authLoading) {
+      const unsubscribe = paymentService.setupReservationsListener((reservationsList, error) => {
+        if (error) {
+          setLoading(false);
+          return;
+        }
+        setPayments(reservationsList);
+        setLoading(false);
+      });
+
+      return () => unsubscribe();
+    }
+  }, [authLoading]);
 
   // Handle reservation payment verification actions
   const handlePaymentAction = async (reservationId, action, reason = '') => {
@@ -68,7 +100,13 @@ function PaymentTransactions() {
 
   // Handle payment deletion
   const handleDeletePayment = async (paymentId) => {
-    if (!window.confirm('Are you sure you want to delete this payment record? This action cannot be undone.')) {
+    // Check if user is superadmin
+    if (!isSuperAdmin) {
+      alert('Access denied. Only super administrators can delete payment transactions.');
+      return;
+    }
+
+    if (!window.confirm('⚠️ SUPER ADMIN ACTION ⚠️\n\nAre you sure you want to delete this payment record?\n\nThis action cannot be undone and will be logged in the activity logs.')) {
       return;
     }
 
@@ -82,12 +120,13 @@ function PaymentTransactions() {
         setPayments(prevPayments =>
           prevPayments.filter(payment => payment.id !== paymentId)
         );
+        alert('✅ Payment record deleted successfully. This action has been logged.');
       } else {
-        alert(`Error deleting payment: ${result.error}`);
+        alert(`❌ Error deleting payment: ${result.error}`);
       }
     } catch (error) {
       console.error('Error deleting payment:', error);
-      alert(`Error deleting payment: ${error.message}`);
+      alert(`❌ Error deleting payment: ${error.message}`);
     } finally {
       setProcessingPayment(null);
     }
@@ -340,7 +379,12 @@ function PaymentTransactions() {
                     <button
                       className="action-btn delete"
                       onClick={() => handleDeletePayment(payment.id)}
-                      disabled={processingPayment === payment.id}
+                      disabled={processingPayment === payment.id || !isSuperAdmin}
+                      title={isSuperAdmin ? 'Delete payment record' : 'Delete not allowed for admin users'}
+                      style={{
+                        opacity: !isSuperAdmin ? 0.5 : 1,
+                        cursor: !isSuperAdmin ? 'not-allowed' : 'pointer'
+                      }}
                     >
                       <FaTrash /> {processingPayment === payment.id ? 'Deleting...' : 'Delete'}
                     </button>

@@ -1368,14 +1368,23 @@ class ConductorService {
 
       const conductorData = conductorDoc.data();
 
+      // Get current busAvailabilityStatus (check activeTrip or root level)
+      let currentBusStatus;
+      if (conductorData.activeTrip && typeof conductorData.activeTrip === 'object' && 'busAvailabilityStatus' in conductorData.activeTrip) {
+        currentBusStatus = conductorData.activeTrip.busAvailabilityStatus;
+      } else {
+        currentBusStatus = conductorData.busAvailabilityStatus;
+      }
+
       // Check if bus is reserved
-      if (conductorData.busAvailabilityStatus !== 'confirmed' && conductorData.busAvailabilityStatus !== 'reserved') {
+      if (currentBusStatus !== 'confirmed' && currentBusStatus !== 'reserved') {
         throw new Error('Bus is not currently reserved');
       }
 
       // Check if reservation date has passed
-      if (conductorData.reservationDetails?.travelDate) {
-        const travelDate = conductorData.reservationDetails.travelDate;
+      const reservationDetails = conductorData.activeTrip?.reservationDetails || conductorData.reservationDetails;
+      if (reservationDetails?.travelDate) {
+        const travelDate = reservationDetails.travelDate;
         let reservationDate;
 
         // Handle Firestore Timestamp or string date
@@ -1398,12 +1407,24 @@ class ConductorService {
         }
       }
 
-      // Update conductor document
+      // Build update data - check where busAvailabilityStatus and reservationDetails are located
       const updateData = {
-        busAvailabilityStatus: 'no-reservation',
-        'reservationDetails.status': 'completed',
         updatedAt: serverTimestamp()
       };
+
+      // Update busAvailabilityStatus based on its location
+      if (conductorData.activeTrip && typeof conductorData.activeTrip === 'object' && 'busAvailabilityStatus' in conductorData.activeTrip) {
+        updateData['activeTrip.busAvailabilityStatus'] = 'no-reservation';
+      } else {
+        updateData.busAvailabilityStatus = 'no-reservation';
+      }
+
+      // Update reservationDetails.status based on its location
+      if (conductorData.activeTrip && typeof conductorData.activeTrip === 'object' && 'reservationDetails' in conductorData.activeTrip) {
+        updateData['activeTrip.reservationDetails.status'] = 'completed';
+      } else {
+        updateData['reservationDetails.status'] = 'completed';
+      }
 
       await updateDoc(conductorRef, updateData);
 

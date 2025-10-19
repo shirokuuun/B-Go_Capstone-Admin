@@ -182,7 +182,7 @@ class PaymentService {
           break;
         case 'reject':
           newReservationStatus = 'cancelled';
-          newBusAvailabilityStatus = 'rejected';
+          newBusAvailabilityStatus = 'no-reservation';
           actionDescription = 'rejected';
           break;
         case 'review':
@@ -231,9 +231,21 @@ class PaymentService {
             // Find conductor by busId in selectedBusIds array or reservationId
             const conductorsRef = collection(db, 'conductors');
 
-            // First try to find by selectedBusIds array containing the busId
-            let conductorQuery = query(conductorsRef, where('selectedBusIds', 'array-contains', busId));
+            // First try to find by email matching the busId pattern (e.g., "LPkahoy_4@gmail.com" for "LPkahoy_4")
+            let conductorQuery = query(conductorsRef, where('email', '==', `${busId}@gmail.com`));
             let conductorSnap = await getDocs(conductorQuery);
+
+            // If not found, try by plateNumber
+            if (conductorSnap.empty) {
+              conductorQuery = query(conductorsRef, where('plateNumber', '==', busId));
+              conductorSnap = await getDocs(conductorQuery);
+            }
+
+            // If not found, try by selectedBusIds array containing the busId
+            if (conductorSnap.empty) {
+              conductorQuery = query(conductorsRef, where('selectedBusIds', 'array-contains', busId));
+              conductorSnap = await getDocs(conductorQuery);
+            }
 
             // If not found, try by reservationId
             if (conductorSnap.empty) {
@@ -241,20 +253,53 @@ class PaymentService {
               conductorSnap = await getDocs(conductorQuery);
             }
 
+            // If still not found, try searching by reservationId in reservationDetails
+            if (conductorSnap.empty) {
+              conductorQuery = query(conductorsRef, where('reservationDetails.reservationId', '==', reservationId));
+              conductorSnap = await getDocs(conductorQuery);
+            }
+
+            // If still not found, try searching by reservationId in activeTrip
+            if (conductorSnap.empty) {
+              conductorQuery = query(conductorsRef, where('activeTrip.reservationDetails.reservationId', '==', reservationId));
+              conductorSnap = await getDocs(conductorQuery);
+            }
+
             if (!conductorSnap.empty) {
               const conductorRef = doc(db, 'conductors', conductorSnap.docs[0].id);
+              const conductorData = conductorSnap.docs[0].data();
 
               // Build update data for conductor
               const conductorUpdateData = {
-                busAvailabilityStatus: newBusAvailabilityStatus,
-                'reservationDetails.status': newReservationStatus,
                 updatedAt: serverTimestamp()
               };
 
-              // Add approval details if this is an approval action
-              if (action === 'approve') {
-                conductorUpdateData['reservationDetails.approvedAt'] = serverTimestamp();
-                conductorUpdateData['reservationDetails.approvedBy'] = 'admin';
+              // Check if busAvailabilityStatus is inside activeTrip or at root level
+              if (conductorData.activeTrip && typeof conductorData.activeTrip === 'object' && 'busAvailabilityStatus' in conductorData.activeTrip) {
+                // busAvailabilityStatus is inside activeTrip
+                console.log(`Updating activeTrip.busAvailabilityStatus for ${busId} from ${conductorData.activeTrip.busAvailabilityStatus} to ${newBusAvailabilityStatus}`);
+                conductorUpdateData['activeTrip.busAvailabilityStatus'] = newBusAvailabilityStatus;
+              } else if ('busAvailabilityStatus' in conductorData) {
+                // busAvailabilityStatus is at root level
+                console.log(`Updating busAvailabilityStatus for ${busId} from ${conductorData.busAvailabilityStatus} to ${newBusAvailabilityStatus}`);
+                conductorUpdateData.busAvailabilityStatus = newBusAvailabilityStatus;
+              }
+
+              // Check if reservationDetails is inside activeTrip or at root level
+              if (conductorData.activeTrip && typeof conductorData.activeTrip === 'object' && 'reservationDetails' in conductorData.activeTrip) {
+                // reservationDetails is inside activeTrip
+                conductorUpdateData['activeTrip.reservationDetails.status'] = newReservationStatus;
+                if (action === 'approve') {
+                  conductorUpdateData['activeTrip.reservationDetails.approvedAt'] = serverTimestamp();
+                  conductorUpdateData['activeTrip.reservationDetails.approvedBy'] = 'admin';
+                }
+              } else {
+                // reservationDetails is at root level
+                conductorUpdateData['reservationDetails.status'] = newReservationStatus;
+                if (action === 'approve') {
+                  conductorUpdateData['reservationDetails.approvedAt'] = serverTimestamp();
+                  conductorUpdateData['reservationDetails.approvedBy'] = 'admin';
+                }
               }
 
               // Update conductor document
