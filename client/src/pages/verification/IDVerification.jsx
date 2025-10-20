@@ -104,14 +104,25 @@ function IDVerification() {
       alert('Access denied: Only admin and superadmin users can verify or revoke ID verifications.');
       return;
     }
-    
+
+    // If action is revoked, prompt for reason
+    let reason = '';
+    if (action === 'revoked') {
+      reason = prompt('Reason for revoking verification (e.g., Expired ID, Invalid information, Document quality issue):');
+      if (reason === null) {
+        return; // User cancelled
+      }
+      // Remove emojis from reason
+      reason = (reason || 'No reason provided').replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
+    }
+
     setLoading(true);
     try {
-      await updateIDVerificationStatus(selectedUser.id, action, currentUser);
-      
+      await updateIDVerificationStatus(selectedUser.id, action, currentUser, reason);
+
       // Note: State updates will happen automatically via real-time subscriptions
       // No need to manually update local state anymore
-      
+
       // AUTO-SWITCH TO THE APPROPRIATE TAB
       if (action === 'verified') {
         setActiveTab('verified');
@@ -120,7 +131,7 @@ function IDVerification() {
       } else if (action === 'revoked') {
         setActiveTab('revoked'); // Switch to revoked tab for revoked users
       }
-      
+
       alert(`ID ${action} successfully!`);
     } catch (error) {
       console.error(`Failed to ${action} ID:`, error);
@@ -321,7 +332,20 @@ function IDVerification() {
                         Current Status: {(selectedUserID.status || 'pending').toUpperCase()}
                       </span>
                     </div>
-                    
+
+                    {selectedUserID.revocationReason && (
+                      <div className="id-verification-revocation-reason">
+                        <strong>Revocation Reason:</strong> {selectedUserID.revocationReason}
+                      </div>
+                    )}
+
+                    {selectedUserID.revokedAt && (
+                      <div className="id-verification-revoked-details">
+                        <div><strong>Revoked At:</strong> {new Date(selectedUserID.revokedAt.seconds * 1000 || selectedUserID.revokedAt).toLocaleString()}</div>
+                        {selectedUserID.revokedBy && <div><strong>Revoked By:</strong> {selectedUserID.revokedBy}</div>}
+                      </div>
+                    )}
+
                     {(selectedUserID.status || 'pending') === 'pending' && (
                       <div className="id-verification-buttons">
                         <button

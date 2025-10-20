@@ -1,13 +1,12 @@
-import { 
-  collection, 
-  getDocs, 
+import {
+  collection,
+  getDocs,
   setDoc,
   serverTimestamp,
-  updateDoc,    
-  doc, 
+  updateDoc,
+  doc,
   getDoc,
   query,
-  orderBy,
   onSnapshot,
   where,
   deleteDoc
@@ -26,7 +25,7 @@ class ConductorService {
     this.maxListeners = 10; // Allow multiple listeners for list + details + reservations
     this.cleanupOnError = true;
 
-    // 🚀 IN-MEMORY CACHE SYSTEM
+    // IN-MEMORY CACHE SYSTEM
     this.conductorsCache = null;        // Stores conductor list
     this.lastFetchTime = null;         // When we last fetched
     this.tripCountsCache = new Map();  // Stores trip counts by conductor ID
@@ -55,23 +54,23 @@ class ConductorService {
     }
   }
 
-  // 🚀 CACHED: Get all conductors with basic info (cache-first approach)
+  //  CACHED: Get all conductors with basic info (cache-first approach)
   async getAllConductors() {
     try {
-      // ⚡ FAST PATH: Return cached data immediately if available
+      //  FAST PATH: Return cached data immediately if available
       if (this.conductorsCache && this.isCacheListenerActive) {
         // Return a copy to prevent external modifications
         return [...this.conductorsCache];
       }
 
-      // 🔄 SLOW PATH: First time or cache invalidated - fetch everything
+      //  SLOW PATH: First time or cache invalidated - fetch everything
       const conductors = await this.fetchAllConductorsFromFirestore();
 
-      // 💾 Save to cache (in-memory)
+      //  Save to cache (in-memory)
       this.conductorsCache = conductors;
       this.lastFetchTime = Date.now();
 
-      // 👂 Start listening for real-time changes
+      //  Start listening for real-time changes
       this.startConductorsCacheListener();
 
       return conductors;
@@ -81,7 +80,7 @@ class ConductorService {
     }
   }
 
-  // 📥 Fetch all conductors from Firestore (original logic)
+  //  Fetch all conductors from Firestore (original logic)
   async fetchAllConductorsFromFirestore() {
     const conductorsRef = collection(db, 'conductors');
     const snapshot = await getDocs(conductorsRef);
@@ -106,7 +105,7 @@ class ConductorService {
         try {
           await this.updateConductorTripsCount(doc.id);
         } catch (updateError) {
-          console.warn(`⚠️ Failed to update cache for ${doc.id}:`, updateError);
+          console.warn(` Failed to update cache for ${doc.id}:`, updateError);
         }
       }
 
@@ -120,7 +119,7 @@ class ConductorService {
     return conductors;
   }
 
-  // 👂 Start real-time cache updates listener
+  //  Start real-time cache updates listener
   startConductorsCacheListener() {
     if (this.isCacheListenerActive) {
       return; // Don't create duplicate listeners
@@ -180,7 +179,7 @@ class ConductorService {
         this.notifyListenersOfCacheUpdate();
       }
     }, (error) => {
-      console.error('❌ Error in cache listener:', error);
+      console.error(' Error in cache listener:', error);
       this.isCacheListenerActive = false;
       this.listeners.delete('cache_listener');
     });
@@ -190,7 +189,7 @@ class ConductorService {
     this.isCacheListenerActive = true;
   }
 
-  // 🔧 Cache Helper Methods
+  //  Cache Helper Methods
   async addToConductorsCache(doc) {
     if (!this.conductorsCache) return;
 
@@ -279,7 +278,7 @@ class ConductorService {
     }
   }
 
-  // 🧹 Cache management methods
+  //  Cache management methods
   invalidateCache() {
     this.conductorsCache = null;
     this.lastFetchTime = null;
@@ -293,7 +292,7 @@ class ConductorService {
     this.isCacheListenerActive = false;
   }
 
-  // 🔄 Force refresh cache with updated trip counts
+  // Force refresh cache with updated trip counts
   async forceRefreshCache() {
     this.invalidateCache();
 
@@ -313,45 +312,7 @@ class ConductorService {
     };
   }
 
-  // 🧪 Debug method - Test cache performance
-  async testCachePerformance() {
-    console.log('🧪 Testing cache performance...');
-
-    // Test 1: First load (should be slow)
-    this.invalidateCache();
-    const start1 = Date.now();
-    await this.getAllConductors();
-    const end1 = Date.now();
-    console.log(`📊 First load: ${end1 - start1}ms`);
-
-    // Test 2: Cached load (should be fast)
-    const start2 = Date.now();
-    await this.getAllConductors();
-    const end2 = Date.now();
-    console.log(`📊 Cached load: ${end2 - start2}ms`);
-
-    // Test 3: Multiple cached loads
-    const times = [];
-    for (let i = 0; i < 5; i++) {
-      const start = Date.now();
-      await this.getAllConductors();
-      const end = Date.now();
-      times.push(end - start);
-    }
-
-    const avgTime = times.reduce((a, b) => a + b, 0) / times.length;
-    console.log(`📊 Average cached load time (5 tests): ${avgTime.toFixed(2)}ms`);
-    console.log('🎯 Cache performance test complete!');
-
-    return {
-      firstLoad: end1 - start1,
-      cachedLoad: end2 - start2,
-      averageCachedLoad: avgTime,
-      cacheInfo: this.getCacheInfo()
-    };
-  }
-
-  // Get detailed conductor information (using remittance counting logic)
+  // Get detailed conductor information 
   async getConductorDetails(conductorId) {
     try {
       const conductorRef = doc(db, 'conductors', conductorId);
@@ -367,39 +328,10 @@ class ConductorService {
 
       // Use remittance counting logic for trip counts
       const totalTrips = await this.getConductorTripsCount(conductorId);
-      
-      // Calculate today trips using remittance logic
-      const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
+
+      // Calculate today trips using existing method
       const today = new Date().toISOString().split('T')[0];
-      let todayTrips = 0;
-      
-      try {
-        const todayDocRef = doc(db, 'conductors', conductorId, 'dailyTrips', today);
-        const todayDoc = await getDoc(todayDocRef);
-        
-        if (todayDoc.exists()) {
-          // Use dynamic trip detection like daily revenue
-          const tripNames = await this.getAllTripNames(conductorId, today);
-
-          for (const tripName of tripNames) {
-            try {
-              // Check for both regular tickets and prebookings in parallel
-              const [ticketsSnapshot, preBookingsSnapshot] = await Promise.all([
-                getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', today, tripName, 'tickets', 'tickets')),
-                getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', today, tripName, 'preBookings', 'preBookings'))
-              ]);
-
-              // Count today's trip if it has either regular tickets OR prebookings
-              if (ticketsSnapshot.docs.length > 0 || preBookingsSnapshot.docs.length > 0) {
-                todayTrips++;
-              }
-            } catch (tripError) {
-              continue;
-            }
-          }
-        }
-      } catch (error) {
-      }
+      const todayTrips = await this.getConductorTripsCountForDate(conductorId, today);
 
       return {
         id: conductorDoc.id,
@@ -509,7 +441,7 @@ class ConductorService {
     }
   }
 
-  // FIXED: Get trips count for a conductor (matching daily revenue logic exactly)
+  //  Get trips count for a conductor 
   async getConductorTripsCount(conductorId) {
     try {
       const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
@@ -635,7 +567,7 @@ class ConductorService {
     }
   }
 
-  // NEW: Delete a specific trip using new dailyTrips path structure
+  // Delete a specific trip using new dailyTrips path structure
   async deleteTrip(conductorId, date, ticketNumber, tripId = null) {
     try {
       // Validate parameters
@@ -731,7 +663,7 @@ class ConductorService {
     }
   }
 
-  // FIXED: Update conductor's total trips count (matching daily revenue logic exactly)
+  // Update conductor's total trips count 
   async updateConductorTripsCount(conductorId) {
     try {
       // Use the same logic as getConductorTripsCount
@@ -821,7 +753,7 @@ class ConductorService {
     }
   }
 
-  // 🚀 CACHED: Real-time listener for conductors list (uses cache when available)
+  // CACHED: Real-time listener for conductors list (uses cache when available)
   setupConductorsListener(callback) {
     // Remove existing conductors listener to prevent duplicates
     this.removeListener('conductors');
@@ -882,7 +814,7 @@ class ConductorService {
     return unsubscribe;
   }
 
-  // FIXED: Real-time listener for specific conductor with trips (using remittance counting logic)
+  //Real-time listener for specific conductor with trips 
   setupConductorDetailsListener(conductorId, callback) {
     // Remove existing listener for this conductor if it exists
     this.removeConductorDetailsListener(conductorId);
@@ -906,37 +838,9 @@ class ConductorService {
           // Use remittance counting logic for trip counts
           const totalTrips = await this.getConductorTripsCount(conductorId);
 
-          // Calculate today trips using remittance logic
+          // Calculate today trips using existing method
           const today = new Date().toISOString().split('T')[0];
-          let todayTrips = 0;
-
-          try {
-            const todayDocRef = doc(db, 'conductors', conductorId, 'dailyTrips', today);
-            const todayDoc = await getDoc(todayDocRef);
-
-            if (todayDoc.exists()) {
-              // Use dynamic trip detection like daily revenue
-              const tripNames = await this.getAllTripNames(conductorId, today);
-
-              for (const tripName of tripNames) {
-                try {
-                  // Check for both regular tickets and prebookings in parallel
-                  const [ticketsSnapshot, preBookingsSnapshot] = await Promise.all([
-                    getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', today, tripName, 'tickets', 'tickets')),
-                    getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', today, tripName, 'preBookings', 'preBookings'))
-                  ]);
-
-                  // Count today's trip if it has either regular tickets OR prebookings
-                  if (ticketsSnapshot.docs.length > 0 || preBookingsSnapshot.docs.length > 0) {
-                    todayTrips++;
-                  }
-                } catch (tripError) {
-                  continue;
-                }
-              }
-            }
-          } catch (error) {
-            }
+          const todayTrips = await this.getConductorTripsCountForDate(conductorId, today);
 
           // Fetch complete reservation data if reservationId exists or find by busId
           let enrichedReservationDetails = conductorData.reservationDetails;
@@ -1020,46 +924,6 @@ class ConductorService {
     return unsubscribe;
   }
 
-  // NEW: Lightweight listener for conductor status only (for location page)
-  setupConductorStatusListener(conductorId, callback) {
-    const conductorRef = doc(db, 'conductors', conductorId);
-    
-    const unsubscribe = onSnapshot(conductorRef, (doc) => {
-      try {
-        if (doc.exists()) {
-          const data = doc.data();
-          
-          // Return essential data for status monitoring
-          callback({
-            id: doc.id,
-            name: data.name,
-            email: data.email,
-            route: data.route,
-            busNumber: data.busNumber,
-            isOnline: data.isOnline,
-            status: data.status,
-            lastSeen: data.lastSeen,
-            currentLocation: data.currentLocation,
-            createdAt: data.createdAt,
-            updatedAt: data.updatedAt
-          });
-        } else {
-          console.warn(`Conductor ${conductorId} not found`);
-          callback(null);
-        }
-      } catch (error) {
-        console.error('Error in conductor status listener:', error);
-        callback(null);
-      }
-    }, (error) => {
-      console.error('Error setting up conductor status listener:', error);
-      callback(null);
-    });
-    
-    this.listeners.set(`conductor_status_${conductorId}`, unsubscribe);
-    return unsubscribe;
-  }
-
   // Get online conductors (excluding deleted ones)
   async getOnlineConductors() {
     try {
@@ -1104,7 +968,7 @@ class ConductorService {
     }
   }
 
-  // NEW: Method to update conductor location (call this from conductor app)
+  //  Method to update conductor location (call this from conductor app)
   async updateConductorLocation(conductorId, locationData) {
     try {
       const conductorRef = doc(db, 'conductors', conductorId);
@@ -1193,73 +1057,6 @@ class ConductorService {
     return `${Math.floor(diffMinutes / 1440)}d ago`;
   }
 
-  // Get trips without setting up listeners (for modal view) using new dailyTrips path structure
-  async getConductorTripsSimple(conductorId, limit = null) {
-    try {
-      const dailyTripsRef = collection(db, 'conductors', conductorId, 'dailyTrips');
-      const datesSnapshot = await getDocs(dailyTripsRef);
-      const allTrips = [];
-      const availableDates = [];
-
-      for (const dateDoc of datesSnapshot.docs) {
-        const dateId = dateDoc.id;
-        availableDates.push(dateId);
-
-        // Process trip subcollections (trip1, trip2, etc.)
-        const tripNames = ['trip1', 'trip2', 'trip3', 'trip4', 'trip5', 'trip6', 'trip7', 'trip8', 'trip9', 'trip10'];
-        
-        for (const tripName of tripNames) {
-          try {
-            // Check for tickets in: /conductors/{conductorId}/dailyTrips/{dateId}/{tripName}/tickets/tickets/
-            const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
-            const ticketsSnapshot = await getDocs(ticketsRef);
-            
-            if (ticketsSnapshot.docs.length > 0) {
-              ticketsSnapshot.docs.forEach(ticketDoc => {
-                const ticketData = ticketDoc.data();
-                allTrips.push({
-                  id: ticketDoc.id,
-                  date: dateId,
-                  tripId: tripName,
-                  ticketNumber: ticketDoc.id,
-                  ...ticketData,
-                  timestamp: ticketData.timestamp || ticketData.createdAt || null
-                });
-              });
-            }
-          } catch (tripError) {
-            // Normal - not all trip numbers will exist
-            continue;
-          }
-        }
-      }
-
-      // Sort by timestamp (most recent first)
-      allTrips.sort((a, b) => {
-        if (!a.timestamp || !b.timestamp) return 0;
-        try {
-          const timestampA = a.timestamp.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
-          const timestampB = b.timestamp.toDate ? b.timestamp.toDate() : new Date(b.timestamp);
-          return timestampB - timestampA;
-        } catch (error) {
-          console.error('Error sorting timestamps:', error);
-          return 0;
-        }
-      });
-
-
-      return {
-        allTrips: limit ? allTrips.slice(0, limit) : allTrips,
-        availableDates,
-      };
-    } catch (error) {
-      console.error('Error fetching conductor trips:', error);
-      return {
-        allTrips: [],
-        availableDates: [],
-      };
-    }
-  }
 
   // Clean up listeners
   removeListener(key) {
@@ -1284,76 +1081,6 @@ class ConductorService {
 
   removeConductorStatusListener(conductorId) {
     this.removeListener(`conductor_status_${conductorId}`);
-  }
-
-  // NEW: Real-time listener for reservations
-  setupReservationsListener(callback) {
-    this.removeListener('reservations');
-
-    const reservationsRef = collection(db, 'reservations');
-    const reservationsQuery = query(reservationsRef, orderBy('timestamp', 'desc'));
-
-    const unsubscribe = onSnapshot(reservationsQuery, (snapshot) => {
-      try {
-        const reservations = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-
-        callback(reservations);
-      } catch (error) {
-        console.error('Error in reservations listener:', error);
-        callback([]);
-      }
-    }, (error) => {
-      console.error('Error setting up reservations listener:', error);
-      callback([]);
-    });
-
-    this.listeners.set('reservations', unsubscribe);
-    return unsubscribe;
-  }
-
-  // NEW: Real-time listener for conductor reservations (by conductor ID)
-  setupConductorReservationsListener(conductorId, callback) {
-    const listenerKey = `conductor_reservations_${conductorId}`;
-    this.removeListener(listenerKey);
-
-    const reservationsRef = collection(db, 'reservations');
-    const reservationsQuery = query(
-      reservationsRef,
-      where('selectedBusIds', 'array-contains', conductorId),
-      orderBy('timestamp', 'desc')
-    );
-
-    const unsubscribe = onSnapshot(reservationsQuery, (snapshot) => {
-      try {
-        const reservations = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-
-        callback(reservations);
-      } catch (error) {
-        console.error(`Error in conductor reservations listener for ${conductorId}:`, error);
-        callback([]);
-      }
-    }, (error) => {
-      console.error(`Error setting up conductor reservations listener for ${conductorId}:`, error);
-      callback([]);
-    });
-
-    this.listeners.set(listenerKey, unsubscribe);
-    return unsubscribe;
-  }
-
-  //Remove reservation listeners
-  removeReservationsListener() {
-    this.removeListener('reservations');
-  }
-
-  removeConductorReservationsListener(conductorId) {
-    this.removeListener(`conductor_reservations_${conductorId}`);
   }
 
   // Mark reservation as completed
@@ -1537,7 +1264,7 @@ class ConductorService {
 
 
 
-  // NEW: Delete all trips for a conductor (for fresh start on reactivation)
+  // Delete all trips for a conductor (for fresh start on reactivation)
   async deleteAllConductorTrips(conductorId) {
     try {
       console.log(`Deleting all trips for conductor: ${conductorId}`);
@@ -1611,7 +1338,7 @@ class ConductorService {
     }
   }
 
-  // NEW: Reactivate deleted conductor for re-registration
+  //  Reactivate deleted conductor for re-registration
   async reactivateDeletedConductor(email, conductorData) {
     try {
       // Search for deleted conductor with this original email
@@ -1697,7 +1424,7 @@ class ConductorService {
     }
   }
 
-  // Create new conductor (matches your current implementation but with improvements)
+  // Create new conductor
   async createConductor(formData) {
     try {
       const { busNumber, email, name, route, password, plateNumber } = formData;
@@ -1741,7 +1468,7 @@ class ConductorService {
       const conductorAuth = getAuth(conductorApp);
       const conductorDb = getFirestore(conductorApp);
 
-      // Step 1: Create user in Firebase Authentication using separate app
+      // Create user in Firebase Authentication using separate app
       let userCredential, user;
       
       try {
@@ -1779,12 +1506,12 @@ class ConductorService {
         throw authError;
       }
 
-      // Step 2: Update user profile
+      // Update user profile
       await updateProfile(user, {
         displayName: name
       });
 
-      // Step 3: Create conductor document in Firestore using separate app
+      // Create conductor document in Firestore using separate app
       const conductorData = {
         busNumber: parseInt(busNumber),
         email: email,
@@ -2086,25 +1813,18 @@ class ConductorService {
     };
   }
 
-  /**
-   * Handle delete conductor with role checking and UI feedback
-   * @param {string} conductorId - The ID of the conductor to delete
-   * @param {Object} conductor - The conductor object with name and email
-   * @param {string} userRole - The current user's role
-   * @param {boolean} isSuperAdmin - Whether the user has superadmin privileges
-   * @returns {Promise<Object>} Result with success status
-   */
+ // Handle permission who can delete conductor
   async handleDeleteConductor(conductorId, conductor, userRole, isSuperAdmin) {
     try {
       // Check if user is superadmin with proper privileges
       if (userRole !== 'superadmin' || isSuperAdmin !== true) {
-        alert('❌ Only superadmin users can delete conductors.');
+        alert(' Only superadmin users can delete conductors.');
         return { success: false, error: 'Permission denied' };
       }
 
       // Check if conductor exists
       if (!conductor) {
-        alert('❌ Conductor not found!');
+        alert(' Conductor not found!');
         return { success: false, error: 'Conductor not found' };
       }
 
@@ -2122,20 +1842,21 @@ class ConductorService {
       // Show success message
       if (result.success) {
         if (result.authDeleted) {
-          alert(`✅ Conductor deleted completely!\n\n• Profile: Deleted\n• Login account: Deleted\n• Email: ${conductor.email}`);
+          alert(`Conductor deleted completely!\n\n• Profile: Deleted\n• Login account: Deleted\n• Email: ${conductor.email}`);
         } else {
-          alert(`⚠️ Conductor profile deleted.\n\nLogin account status: ${result.message || 'See activity logs for details'}`);
+          alert(`Conductor profile deleted.\n\nLogin account status: ${result.message || 'See activity logs for details'}`);
         }
       }
 
       return result;
     } catch (error) {
       console.error('Error in handleDeleteConductor:', error);
-      alert(`❌ Error deleting conductor: ${error.message}`);
+      alert(`Error deleting conductor: ${error.message}`);
       return { success: false, error: error.message };
     }
   }
 
+  // Delete conductor (pseudo-delete)
   async deleteConductor(conductorId) {
     try {
       // Get conductor data before deletion for logging
@@ -2227,94 +1948,7 @@ class ConductorService {
     }
   }
 
-  // NEW: Create conductor with Firebase Auth user
-  async createConductorWithAuth(formData) {
-    try {
-      const { busNumber, email, name, route, password } = formData;
-      
-      // Store current admin user
-      const currentAdmin = auth.currentUser;
-      const adminEmail = currentAdmin?.email;
-      
-      // Create Firebase Authentication user
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const conductorUser = userCredential.user;
-      
-      // Extract document ID from email
-      const documentId = this.extractDocumentId(email);
-      
-      // Create conductor document in Firestore
-      const conductorData = {
-        busNumber: parseInt(busNumber),
-        email: email,
-        name: name,
-        route: route,
-        isOnline: false,
-        createdAt: serverTimestamp(),
-        lastSeen: null,
-        currentLocation: null,
-        uid: conductorUser.uid,
-        totalTrips: 0,
-        todayTrips: 0,
-        status: 'offline'
-      };
-      
-      await setDoc(doc(db, 'conductors', documentId), conductorData);
-      
-      // Sign out the conductor immediately
-      await auth.signOut();
-      
-      // Re-authenticate as admin using stored credentials
-      // Note: You'll need to store admin password securely or handle this differently
-      
-      return {
-        success: true,
-        message: 'Conductor created successfully',
-        conductorId: documentId,
-        uid: conductorUser.uid,
-        requiresAdminReauth: true,
-        adminEmail: adminEmail
-      };
-      
-    } catch (error) {
-      console.error('Error creating conductor with auth:', error);
-      throw error;
-    }
-  }
-
-  // NEW: Create conductor document only (no Firebase Auth)
-  async createConductorDocument(documentId, conductorData) {
-    try {
-      const conductorRef = doc(db, 'conductors', documentId);
-      await setDoc(conductorRef, conductorData);
-
-      // Log the activity
-      await logActivity(
-        ACTIVITY_TYPES.CONDUCTOR_CREATE,
-        `Admin created new conductor: ${conductorData.name}`,
-        {
-          conductorId: documentId,
-          conductorName: conductorData.name,
-          email: conductorData.email,
-          plateNumber: conductorData.plateNumber,
-          route: conductorData.route,
-          busNumber: conductorData.busNumber,
-          action: 'conductor_creation',
-          timestamp: new Date().toISOString()
-        }
-      );
-
-      return {
-        success: true,
-        message: 'Conductor document created successfully'
-      };
-    } catch (error) {
-      console.error('Error creating conductor document:', error);
-      throw error;
-    }
-  }
-
-  // NEW: Force refresh conductor list (call after deletion if real-time doesn't work)
+  // Force refresh conductor list (call after deletion if real-time doesn't work)
   async refreshConductorsList() {
     try {
       // Remove and recreate all listeners to force refresh
@@ -2405,7 +2039,7 @@ class ConductorService {
     }
   }
 
-  // ENHANCED: Sync all conductor trip counts (run this to fix existing data)
+  // Sync all conductor trip counts (run this to fix existing data)
   async syncAllConductorTripCounts() {
     try {
       console.log('Starting trip count synchronization...');

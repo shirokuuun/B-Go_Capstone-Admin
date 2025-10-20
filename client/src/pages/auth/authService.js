@@ -25,7 +25,6 @@ const reactivateDeletedAdmin = async (email, name) => {
     const deletedSnapshot = await getDocs(deletedQuery);
     
     if (deletedSnapshot.empty) {
-      console.log(`No deleted admin found with originalEmail: ${email}`);
       return null;
     }
     
@@ -33,9 +32,7 @@ const reactivateDeletedAdmin = async (email, name) => {
     const deletedDoc = deletedSnapshot.docs[0];
     const deletedData = deletedDoc.data();
     const adminDocId = deletedDoc.id;
-    
-    console.log(`Found deleted admin: ${adminDocId}, reactivating...`);
-    
+
     // Regular admin permissions (NO delete permissions)
     const regularAdminPermissions = [
       'read_all_users',
@@ -92,9 +89,7 @@ const reactivateDeletedAdmin = async (email, name) => {
         action: 'account_reactivation'
       }
     );
-    
-    console.log(`Successfully reactivated admin account: ${email}`);
-    
+
     return {
       uid: deletedData.uid,
       email: email,
@@ -178,14 +173,11 @@ export const signupAdmin = async ({ name, email, password, role = 'admin' }) => 
   } catch (error) {
     // Handle the specific case of email already in use
     if (error.code === 'auth/email-already-in-use') {
-      console.log('Email already in use, attempting to reactivate deleted account...');
-
       // Try to reactivate a deleted admin account
       const reactivatedUser = await reactivateDeletedAdmin(email, name);
 
       if (reactivatedUser) {
         // Successfully reactivated! Return the user object
-        console.log('Successfully reactivated deleted admin account');
         return reactivatedUser;
       }
 

@@ -127,7 +127,7 @@ export const fetchUserIDData = async (userId) => {
 };
 
 // Update ID verification status with activity logging
-export const updateIDVerificationStatus = async (userId, status, adminInfo = null) => {
+export const updateIDVerificationStatus = async (userId, status, adminInfo = null, reason = '') => {
   try {
     // Get user information for activity logging
     const userDocRef = doc(db, 'users', userId);
@@ -135,6 +135,9 @@ export const updateIDVerificationStatus = async (userId, status, adminInfo = nul
     const userData = userDoc.exists() ? userDoc.data() : null;
     const userName = userData?.name || userData?.displayName || 'Unknown User';
     const userEmail = userData?.email || 'Unknown Email';
+
+    // Remove emojis from reason
+    const cleanReason = reason ? reason.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim() : '';
 
     if (status === 'rejected' || status === 'revoked') {
       const idDocRef = doc(db, 'users', userId, 'VerifyID', 'id');
@@ -150,6 +153,11 @@ export const updateIDVerificationStatus = async (userId, status, adminInfo = nul
         revokedBy: adminInfo?.name || adminInfo?.email || 'admin',
         previousStatus: idData?.status || userData?.idVerificationStatus || 'verified'
       };
+
+      // Add revocation reason if provided
+      if (cleanReason) {
+        updateData.revocationReason = cleanReason;
+      }
 
       // Only add original verification data if it exists
       if (idData?.verifiedAt || userData?.idVerifiedAt || userData?.verifiedAt) {
@@ -184,7 +192,8 @@ export const updateIDVerificationStatus = async (userId, status, adminInfo = nul
           action: status === 'rejected' ? 'rejected' : 'revoked',
           previousStatus: userData?.idVerificationStatus || 'verified',
           revokedAt: new Date().toISOString(),
-          revokedBy: adminInfo?.name || adminInfo?.email || 'admin'
+          revokedBy: adminInfo?.name || adminInfo?.email || 'admin',
+          reason: cleanReason
         }
       );
     } else {

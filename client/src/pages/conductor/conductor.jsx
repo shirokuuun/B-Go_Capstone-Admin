@@ -450,14 +450,7 @@ const Conductor = () => {
           onSuccess={() => {
             setShowEditModal(false);
             setEditingConductor(null);
-            // Force refresh after update to ensure real-time update
-            setTimeout(() => {
-              conductorService.refreshConductorsList().then(result => {
-                if (result.success) {
-                  setConductors(result.conductors);
-                }
-              });
-            }, 1000);
+            // Real-time listener will automatically update the UI
           }}
         />
       )}
