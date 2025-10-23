@@ -1,16 +1,45 @@
 import { collection, query, orderBy, onSnapshot, where, getDocs, Timestamp } from "firebase/firestore";
 import { db } from "/src/firebase/firebase.js";
 
-// Cache for performance optimization
-let cachedData = null;
-let cacheTimestamp = null;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-// Available routes cache
+// Available routes cache with TTL
 let cachedRoutes = null;
+let routesCacheTime = null;
+const ROUTES_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 // Real-time listener reference
 let unsubscribeListener = null;
+
+// Helper function to convert Firestore timestamp to Date
+const convertTimestampToDate = (timestamp) => {
+  if (!timestamp) return null;
+
+  if (timestamp.toDate) {
+    return timestamp.toDate();
+  }
+  return new Date(timestamp);
+};
+
+// Helper function to calculate response time in minutes
+const calculateResponseTime = (item) => {
+  if (!item.timestamp || !item.updatedAt) return null;
+
+  const createdTime = convertTimestampToDate(item.timestamp);
+  const updatedTime = convertTimestampToDate(item.updatedAt);
+
+  if (!createdTime || !updatedTime) return null;
+
+  return (updatedTime - createdTime) / (1000 * 60);
+};
+
+// Helper function to check if incident is critical
+const isCriticalIncident = (item) => {
+  return item.severity === 'critical' ||
+         item.emergencyType === 'Medical Emergency' ||
+         item.emergencyType === 'Brake Failure' ||
+         item.emergencyType === 'Accident' ||
+         item.emergencyType === 'Security Incident';
+};
 
 // Fetch SOS data with date range filtering and real-time updates
 export const fetchSOSData = (dateRange, routeFilter, emergencyTypeFilter, callback) => {
@@ -58,10 +87,6 @@ export const fetchSOSData = (dateRange, routeFilter, emergencyTypeFilter, callba
       if (emergencyTypeFilter && emergencyTypeFilter !== 'all') {
         sosData = sosData.filter(item => item.emergencyType === emergencyTypeFilter);
       }
-
-      // Update cache
-      cachedData = sosData;
-      cacheTimestamp = Date.now();
 
       // Sanitize data to ensure no nested objects in strings
       const sanitizedData = sosData.map(item => {
@@ -115,16 +140,21 @@ export const fetchSOSData = (dateRange, routeFilter, emergencyTypeFilter, callba
   }
 };
 
-// Get available routes from SOS data
+// Get available routes from SOS data with TTL caching
 export const getAvailableRoutes = async () => {
-  if (cachedRoutes) {
-    return cachedRoutes;
+  // Check if cache exists and is still fresh
+  if (cachedRoutes && routesCacheTime) {
+    const cacheAge = Date.now() - routesCacheTime;
+    if (cacheAge < ROUTES_CACHE_TTL) {
+      return cachedRoutes; // Return cached routes (still fresh)
+    }
   }
 
+  // Cache expired or doesn't exist - fetch fresh data
   try {
     const q = query(collection(db, "sosRequests"));
     const querySnapshot = await getDocs(q);
-    
+
     const routes = new Set();
     querySnapshot.forEach((doc) => {
       const data = doc.data();
@@ -134,10 +164,11 @@ export const getAvailableRoutes = async () => {
     });
 
     cachedRoutes = Array.from(routes).sort();
+    routesCacheTime = Date.now(); // Store cache timestamp
     return cachedRoutes;
   } catch (error) {
     console.error("Error fetching available routes:", error);
-    return [];
+    return cachedRoutes || []; // Return stale cache if available, otherwise empty array
   }
 };
 
@@ -164,27 +195,13 @@ export const calculateMetrics = (sosData) => {
   let responseTimeCount = 0;
   
   sosData.forEach(item => {
-    if (item.status && item.status.toLowerCase() === 'received' && item.timestamp && item.updatedAt) {
+    if (item.status && item.status.toLowerCase() === 'received') {
       try {
-        let createdTime, updatedTime;
-        
-        // Handle Firestore timestamp objects
-        if (item.timestamp.toDate) {
-          createdTime = item.timestamp.toDate();
-        } else {
-          createdTime = new Date(item.timestamp);
+        const responseTime = calculateResponseTime(item);
+        if (responseTime !== null) {
+          totalResponseTime += responseTime;
+          responseTimeCount++;
         }
-        
-        if (item.updatedAt.toDate) {
-          updatedTime = item.updatedAt.toDate();
-        } else {
-          updatedTime = new Date(item.updatedAt);
-        }
-        
-        // Calculate response time in minutes
-        const responseTime = (updatedTime - createdTime) / (1000 * 60);
-        totalResponseTime += responseTime;
-        responseTimeCount++;
       } catch (error) {
         console.warn('Error calculating response time for metrics:', item.id, error);
       }
@@ -193,14 +210,8 @@ export const calculateMetrics = (sosData) => {
   
   const avgResponseTime = responseTimeCount > 0 ? totalResponseTime / responseTimeCount : 0;
   
-  // Count critical incidents (you can define criteria)
-  const criticalIncidents = sosData.filter(item => 
-    item.severity === 'critical' || 
-    item.emergencyType === 'Medical Emergency' ||
-    item.emergencyType === 'Brake Failure' ||
-    item.emergencyType === 'Accident' ||
-    item.emergencyType === 'Security Incident'
-  ).length;
+  // Count critical incidents
+  const criticalIncidents = sosData.filter(item => isCriticalIncident(item)).length;
 
   return {
     totalIncidents,
@@ -221,34 +232,8 @@ export const analyzeResponseTimeDistribution = (sosData) => {
 
   sosData.forEach(item => {
     if (item.status && item.status.toLowerCase() === 'received') {
-      // Calculate real response time using timestamp and updatedAt
-      let responseTime = 0;
-      
-      if (item.timestamp && item.updatedAt) {
-        try {
-          let createdTime, updatedTime;
-          
-          // Handle Firestore timestamp objects
-          if (item.timestamp.toDate) {
-            createdTime = item.timestamp.toDate();
-          } else {
-            createdTime = new Date(item.timestamp);
-          }
-          
-          if (item.updatedAt.toDate) {
-            updatedTime = item.updatedAt.toDate();
-          } else {
-            updatedTime = new Date(item.updatedAt);
-          }
-          
-          // Calculate difference in minutes
-          responseTime = (updatedTime - createdTime) / (1000 * 60);
-        } catch (error) {
-          console.warn('Error calculating response time for item:', item.id, error);
-          responseTime = 0;
-        }
-      }
-      
+      const responseTime = calculateResponseTime(item) || 0;
+
       if (responseTime <= 5) {
         distribution['0-5min']++;
       } else if (responseTime <= 10) {
@@ -299,26 +284,13 @@ export const analyzeEmergencyTypes = (sosData) => {
         typeAnalysis[type].cancelled++;
       }
       
-      if (status === 'received' && item.timestamp && item.updatedAt) {
-        // Calculate real response time
+      if (status === 'received') {
         try {
-          let createdTime, updatedTime;
-          
-          if (item.timestamp.toDate) {
-            createdTime = item.timestamp.toDate();
-          } else {
-            createdTime = new Date(item.timestamp);
+          const responseTime = calculateResponseTime(item);
+          if (responseTime !== null) {
+            typeAnalysis[type].responseTimesSum += responseTime;
+            typeAnalysis[type].responseTimesCount++;
           }
-          
-          if (item.updatedAt.toDate) {
-            updatedTime = item.updatedAt.toDate();
-          } else {
-            updatedTime = new Date(item.updatedAt);
-          }
-          
-          const responseTime = (updatedTime - createdTime) / (1000 * 60);
-          typeAnalysis[type].responseTimesSum += responseTime;
-          typeAnalysis[type].responseTimesCount++;
         } catch (error) {
           console.warn('Error calculating response time for emergency type:', type, error);
         }
@@ -362,10 +334,7 @@ export const identifyRouteHotspots = (sosData) => {
     }
     
     // Count critical incidents
-    if (item.severity === 'critical' || 
-        item.emergencyType === 'Medical Emergency' ||
-        item.emergencyType === 'Brake Failure' ||
-        item.emergencyType === 'Accident') {
+    if (isCriticalIncident(item)) {
       routeAnalysis[route].criticalCount++;
     }
     
@@ -450,9 +419,8 @@ export const cleanup = () => {
     unsubscribeListener();
     unsubscribeListener = null;
   }
-  cachedData = null;
-  cacheTimestamp = null;
   cachedRoutes = null;
+  routesCacheTime = null;
 };
 
 // Export for Excel generation

@@ -44,18 +44,18 @@ class RemittanceDataCacheService {
     }
   }
 
-  // CACHED: Get remittance data with cache-first approach
+  //  Get remittance data with cache-first approach
   async getRemittanceData(selectedDate) {
     try {
       const cacheKey = selectedDate;
 
 
-      // FAST PATH: Return cached data immediately if available and fresh
+      //  Return cached data immediately if available and fresh
       if (this.remittanceCache.has(cacheKey) && this.isCacheFresh(cacheKey)) {
         return this.remittanceCache.get(cacheKey);
       }
 
-      // SLOW PATH: Fetch fresh data
+      //  Fetch fresh data
       const freshData = await this.fetchRemittanceDataFromFirestore(selectedDate);
 
       // Save to cache
@@ -165,14 +165,14 @@ async getTripDataFromDailyTrips(conductorId, date) {
     for (const [key, value] of Object.entries(dailyTripsData)) {
       if (key.startsWith('trip') && typeof value === 'object' && value !== null) {
 
-        // ✅ Get conductor tickets, pre-bookings, AND pre-tickets in parallel
+        // Get conductor tickets, pre-bookings, AND pre-tickets in parallel
         const [ticketDetails, preBookingDetails, preTicketDetails] = await Promise.all([
           this.getTicketDetailsFromDailyTrips(conductorId, date, key),
           this.getPreBookingDetailsFromNewPath(conductorId, date, key),
           this.getPreTicketDetailsFromNewPath(conductorId, date, key)
         ]);
 
-        // ✅ Combine all ticket types
+        // Combine all ticket types
         const allTickets = [
           ...ticketDetails.tickets, 
           ...preBookingDetails.preBookings,
@@ -498,7 +498,7 @@ async getPreTicketDetailsFromNewPath(conductorId, date, tripNumber) {
   }
 }
 
-  // CACHED: Get remittance summary data (moved to cache service)
+  //  Get remittance summary data (moved to cache service)
   async getRemittanceSummaryData(conductorId, date) {
     try {
       // Check if there's summary data in the remittance date document
@@ -517,7 +517,7 @@ async getPreTicketDetailsFromNewPath(conductorId, date, tripNumber) {
     }
   }
 
-  // Start real-time cache updates listener - IMPROVED VERSION
+  // Start real-time cache updates listener 
   startRemittanceDataListener() {
     if (this.isCacheListenerActive) {
       return; // Don't create duplicate listeners
@@ -603,7 +603,7 @@ async getPreTicketDetailsFromNewPath(conductorId, date, tripNumber) {
     });
   }
 
-  // CACHED: Get available remittance dates with caching
+  // Get available remittance dates with caching
   async getAvailableRemittanceDates() {
     try {
       // Check if cache is fresh (10 minutes for dates)
@@ -692,7 +692,7 @@ async getPreTicketDetailsFromNewPath(conductorId, date, tripNumber) {
     }
   }
 
-  // CACHED: Get conductor details with caching
+  // Get conductor details with caching
   async getConductorDetails(conductorId) {
     try {
       // Check if cache is fresh (15 minutes for conductor details)
@@ -780,7 +780,7 @@ async getPreTicketDetailsFromNewPath(conductorId, date, tripNumber) {
     }
   }
 
-  // CACHED: Get all conductor details with caching
+  // Get all conductor details with caching
   async getAllConductorDetails() {
     try {
       const conductorsRef = collection(db, 'conductors');
@@ -820,7 +820,7 @@ async getPreTicketDetailsFromNewPath(conductorId, date, tripNumber) {
     return await this.getRemittanceData(date);
   }
 
-  // CACHED: Setup real-time listener for remittance data
+  // Setup real-time listener for remittance data
   setupRemittanceDataListener(date, callback) {
     const listenerKey = `remittance_callback_${date}`;
 
@@ -900,42 +900,42 @@ async getPreTicketDetailsFromNewPath(conductorId, date, tripNumber) {
 // Create singleton instance
 const remittanceDataCache = new RemittanceDataCacheService();
 
-// CACHED: Function to get available dates from remittance collection
+// Function to get available dates from remittance collection
 export const getAvailableRemittanceDates = async () => {
   return await remittanceDataCache.getAvailableRemittanceDates();
 };
 
-// CACHED: Function to get trip data from dailyTrips (using cache service)
+// Function to get trip data from dailyTrips (using cache service)
 export const getTripDataFromDailyTrips = async (conductorId, date) => {
   return await remittanceDataCache.getTripDataFromDailyTrips(conductorId, date);
 };
 
-// CACHED: Function to get ticket details from dailyTrips (using cache service)
+// Function to get ticket details from dailyTrips (using cache service)
 export const getTicketDetailsFromDailyTrips = async (conductorId, date, tripNumber) => {
   return await remittanceDataCache.getTicketDetailsFromDailyTrips(conductorId, date, tripNumber);
 };
 
-// CACHED: Function to get pre-booking details from new path (using cache service)
+// Function to get pre-booking details from new path (using cache service)
 export const getPreBookingDetailsFromNewPath = async (conductorId, date, tripNumber) => {
   return await remittanceDataCache.getPreBookingDetailsFromNewPath(conductorId, date, tripNumber);
 };
 
-// CACHED: Function to get remittance summary data (using cache service)
+// Function to get remittance summary data (using cache service)
 export const getRemittanceSummaryData = async (conductorId, date) => {
   return await remittanceDataCache.getRemittanceSummaryData(conductorId, date);
 };
 
-// CACHED: Function to get conductor details (using cache service)
+// Function to get conductor details (using cache service)
 export const getConductorDetails = async (conductorId) => {
   return await remittanceDataCache.getConductorDetails(conductorId);
 };
 
-// CACHED: Function to get all conductor details (using cache service)
+// Function to get all conductor details (using cache service)
 export const getAllConductorDetails = async () => {
   return await remittanceDataCache.getAllConductorDetails();
 };
 
-// CACHED: Main function to load remittance data using cache-first approach
+// Main function to load remittance data using cache-first approach
 export const loadRemittanceData = async (selectedDate) => {
   return await remittanceDataCache.getRemittanceData(selectedDate);
 };
@@ -1006,7 +1006,7 @@ export const groupRemittanceByconductor = (remittanceData) => {
   return grouped;
 };
 
-// CACHED: Function to get remittance data by conductor for a specific date
+// Function to get remittance data by conductor for a specific date
 export const getRemittanceByDate = async (date) => {
   try {
     const remittanceData = await remittanceDataCache.getRemittanceData(date);
@@ -1123,22 +1123,22 @@ export const validateRemittanceData = (remittanceData) => {
   return validationResults;
 };
 
-// CACHED: Setup real-time listener for remittance data updates
+// Setup real-time listener for remittance data updates
 export const setupRemittanceDataListener = (date, callback) => {
   return remittanceDataCache.setupRemittanceDataListener(date, callback);
 };
 
-// CACHED: Force refresh cache for specific remittance data
+// Force refresh cache for specific remittance data
 export const forceRefreshRemittanceCache = async (date) => {
   return await remittanceDataCache.forceRefreshCache(date);
 };
 
-// CACHED: Get cache information for debugging
+// Get cache information for debugging
 export const getRemittanceDataCacheInfo = () => {
   return remittanceDataCache.getCacheInfo();
 };
 
-// CACHED: Remove all listeners on cleanup
+// Remove all listeners on cleanup
 export const removeAllRemittanceListeners = () => {
   remittanceDataCache.removeAllListeners();
 };
@@ -1167,7 +1167,7 @@ export const parseTicketDiscountBreakdown = (ticket) => {
         return;
       }
 
-      // ✅ HANDLE BOTH STRING AND OBJECT FORMATS
+      // HANDLE BOTH STRING AND OBJECT FORMATS
       let fareType = 'regular';
       let fare = parseFloat(farePerPassenger[index]) || 0;
 
@@ -1188,7 +1188,7 @@ export const parseTicketDiscountBreakdown = (ticket) => {
           fareType = 'regular';
         }
       } else if (typeof desc === 'object' && desc !== null) {
-        // ✅ NEW FORMAT: Object like { type: 'Senior', count: 1, discount: 3, fare: 12 }
+        // NEW FORMAT: Object like { type: 'Senior', count: 1, discount: 3, fare: 12 }
         const type = (desc.type || 'Regular').toLowerCase();
         
         // Use fare from object if available, otherwise use farePerPassenger

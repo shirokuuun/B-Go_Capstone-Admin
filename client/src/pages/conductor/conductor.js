@@ -14,7 +14,6 @@ import {
 import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, deleteUser } from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
 import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 
 import { db, auth } from '/src/firebase/firebase';
@@ -441,6 +440,56 @@ class ConductorService {
     }
   }
 
+  // Helper function to fetch pre-ticket tickets (same as dashboard.js)
+  async fetchPreTickets(conductorId, dateId, tripName) {
+    try {
+      const preTicketsPath = `conductors/${conductorId}/dailyTrips/${dateId}/${tripName}/preTickets/preTickets`;
+      const preTicketsRef = collection(db, preTicketsPath);
+      const preTicketsSnapshot = await getDocs(preTicketsRef);
+
+      const preTickets = [];
+
+      for (const preTicketDoc of preTicketsSnapshot.docs) {
+        const preTicketData = preTicketDoc.data();
+
+        // Parse qrData if it's a string
+        let parsedQrData = null;
+        if (preTicketData.qrData) {
+          try {
+            if (typeof preTicketData.qrData === 'string') {
+              parsedQrData = JSON.parse(preTicketData.qrData);
+            } else if (typeof preTicketData.qrData === 'object') {
+              parsedQrData = preTicketData.qrData;
+            }
+          } catch (parseError) {
+            // Ignore parse errors
+          }
+        }
+
+        // Use parsedQrData as the primary data source, with fallbacks
+        const sourceData = parsedQrData || preTicketData;
+
+        // Get fare and quantity from qrData or direct fields
+        const totalFare = sourceData.amount || sourceData.totalFare || preTicketData.totalFare || 0;
+        const quantity = sourceData.quantity || preTicketData.quantity || 0;
+
+        preTickets.push({
+          id: preTicketDoc.id,
+          totalFare: totalFare,
+          quantity: quantity,
+          from: sourceData.from || preTicketData.from || '',
+          to: sourceData.to || preTicketData.to || '',
+          documentType: 'preTicket',
+          ticketType: 'preTicket'
+        });
+      }
+
+      return preTickets;
+    } catch (error) {
+      return [];
+    }
+  }
+
   //  Get trips count for a conductor 
   async getConductorTripsCount(conductorId) {
     try {
@@ -465,10 +514,11 @@ class ConductorService {
           // Process trips in parallel for this date
           const tripPromises = tripNames.map(async (tripName) => {
             try {
-              // Check for tickets and prebookings (like daily revenue does)
-              const [ticketsSnapshot, preBookingsSnapshot] = await Promise.all([
+              // Check for tickets, prebookings, and pre-tickets 
+              const [ticketsSnapshot, preBookingsSnapshot, preTickets] = await Promise.all([
                 getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets')),
-                getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'preBookings', 'preBookings'))
+                getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'preBookings', 'preBookings')),
+                this.fetchPreTickets(conductorId, dateId, tripName)
               ]);
 
               const trips = [];
@@ -483,13 +533,23 @@ class ConductorService {
                 });
               });
 
-              // Add each prebooking as a trip object (like daily revenue)
+              // Add each prebooking as a trip object 
               preBookingsSnapshot.docs.forEach(preBookingDoc => {
                 trips.push({
                   conductorId: conductorId,
                   tripId: tripName,
                   date: dateId,
                   type: 'prebooking'
+                });
+              });
+
+              // Add each pre-ticket as a trip object 
+              preTickets.forEach(preTicket => {
+                trips.push({
+                  conductorId: conductorId,
+                  tripId: tripName,
+                  date: dateId,
+                  type: 'preticket'
                 });
               });
 
@@ -711,12 +771,13 @@ class ConductorService {
 
       for (const tripName of tripNames) {
         try {
-          const [ticketsSnapshot, preBookingsSnapshot] = await Promise.all([
+          const [ticketsSnapshot, preBookingsSnapshot, preTickets] = await Promise.all([
             getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', targetDate, tripName, 'tickets', 'tickets')),
-            getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', targetDate, tripName, 'preBookings', 'preBookings'))
+            getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', targetDate, tripName, 'preBookings', 'preBookings')),
+            this.fetchPreTickets(conductorId, targetDate, tripName)
           ]);
 
-          // Add each ticket and prebooking as trip objects
+          // Add each ticket, prebooking, and pre-ticket as trip objects
           ticketsSnapshot.docs.forEach(() => {
             allTrips.push({
               conductorId: conductorId,
@@ -726,6 +787,14 @@ class ConductorService {
           });
 
           preBookingsSnapshot.docs.forEach(() => {
+            allTrips.push({
+              conductorId: conductorId,
+              tripId: tripName,
+              date: targetDate
+            });
+          });
+
+          preTickets.forEach(() => {
             allTrips.push({
               conductorId: conductorId,
               tripId: tripName,
@@ -753,7 +822,7 @@ class ConductorService {
     }
   }
 
-  // CACHED: Real-time listener for conductors list (uses cache when available)
+  // Real-time listener for conductors list (uses cache when available)
   setupConductorsListener(callback) {
     // Remove existing conductors listener to prevent duplicates
     this.removeListener('conductors');
@@ -1386,7 +1455,9 @@ class ConductorService {
         deletedBy: null,
         deletedByEmail: null,
         originalEmail: null,
-        originalName: null
+        originalName: null,
+        // User role
+        userRole: 'conductor'
       };
       
       // Update the existing document
@@ -1466,7 +1537,7 @@ class ConductorService {
       // Initialize separate Firebase app for conductor creation
       const conductorApp = initializeApp(firebaseConfig, 'conductor-creation-' + Date.now());
       const conductorAuth = getAuth(conductorApp);
-      const conductorDb = getFirestore(conductorApp);
+      // Don't use conductorDb - we'll use the main admin's db instance for Firestore writes
 
       // Create user in Firebase Authentication using separate app
       let userCredential, user;
@@ -1535,10 +1606,14 @@ class ConductorService {
 
         // Bus availability status for mobile app (initially no reservation)
         busAvailabilityStatus: 'no-reservation', // Initially available for reservation
-        codingDay: this.getCodingDayFromPlate(plateNumber) // Calculate from plate number
+        codingDay: this.getCodingDayFromPlate(plateNumber), // Calculate from plate number
+
+        // User role
+        userRole: 'conductor'
       };
 
-      await setDoc(doc(conductorDb, 'conductors', documentId), conductorData);
+      // Use the main admin's db instance to write with admin permissions
+      await setDoc(doc(db, 'conductors', documentId), conductorData);
 
       // Log the activity
       await logActivity(

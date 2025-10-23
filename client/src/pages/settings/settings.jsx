@@ -24,8 +24,6 @@ import {
   deleteCurrentAccount,
   subscribeToAdminUsers,
   deleteAdminUser,
-  verifyUser,
-  rejectUser,
   changeUserRole
 } from './settings.js';
 import {
@@ -700,10 +698,9 @@ const formatLogDescription = (description) => {
   // Handle admin user deletion
   const handleDeleteUser = useCallback(async (user) => {
     const confirmed = window.confirm(
-      <IoWarning size={20}/> +
-      ` Are you sure you want to delete admin user "${user.name || user.email}"?\n\nThis action cannot be undone.`
+      `Are you sure you want to delete admin user "${user.name || user.email}"?\n\nThis action cannot be undone.`
     );
-    
+
     if (!confirmed) {
       return;
     }
@@ -717,46 +714,6 @@ const formatLogDescription = (description) => {
       setMessage(<><FaCheckCircle style={{ color: 'green', marginRight: '8px' }} />Admin user "{user.name || user.email}" has been successfully deleted from the system.</>);
     } catch (err) {
       setError(`❌ Failed to delete admin user: ${err.message}. Please try again or contact support if the issue persists.`);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Handle user verification
-  const handleVerifyUser = useCallback(async (userId, newRole = 'admin') => {
-    setLoading(true);
-    setError('');
-    setMessage('');
-    
-    try {
-      const result = await verifyUser(userId, newRole);
-      setMessage(`✅ ${result}`);
-    } catch (err) {
-      setError(`❌ Failed to verify user: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Handle user rejection
-  const handleRejectUser = useCallback(async (userId, reason = '') => {
-    const confirmed = window.confirm(
-      `Are you sure you want to reject this user's account verification?\n\nThis will prevent them from logging in.`
-    );
-    
-    if (!confirmed) {
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setMessage('');
-    
-    try {
-      const result = await rejectUser(userId, reason);
-      setMessage(`⚠️ ${result}`);
-    } catch (err) {
-      setError(`❌ Failed to reject user: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -871,7 +828,7 @@ const formatLogDescription = (description) => {
         // Set final success state
         setBackupProgress({
           percentage: 100,
-          message: `✅ Backup Created: ${result.fileName}`,
+          message: `Backup Created: ${result.fileName}`,
           completed: true,
           fileName: result.fileName
         });

@@ -42,17 +42,17 @@ class RevenueDataCacheService {
     }
   }
 
-  // CACHED: Get revenue data with cache-first approach
+  //  Get revenue data with cache-first approach
   async getRevenueData(selectedDate, selectedRoute = null) {
     try {
       const cacheKey = this.getCacheKey(selectedDate, selectedRoute);
 
-      // FAST PATH: Return cached data immediately if available and fresh
+      //  Return cached data immediately if available and fresh
       if (this.revenueCache.has(cacheKey) && this.isCacheFresh(cacheKey)) {
         return { ...this.revenueCache.get(cacheKey), fromCache: true };
       }
 
-      // SLOW PATH: Fetch fresh data
+      // Fetch fresh data
       const freshData = await this.fetchRevenueDataFromFirestore(selectedDate, selectedRoute);
 
       // Save to cache
@@ -112,7 +112,7 @@ class RevenueDataCacheService {
     return result;
   }
 
-  // Start real-time cache updates listener - IMPROVED VERSION
+  // Start real-time cache updates listener
   startRevenueDataListener() {
     if (this.isCacheListenerActive) {
       return; // Don't create duplicate listeners
@@ -225,7 +225,7 @@ class RevenueDataCacheService {
     return await this.getRevenueData(date, route);
   }
 
-  // CACHED: Setup real-time listener for revenue data
+  //  Setup real-time listener for revenue data
   setupRevenueDataListener(date, route, callback) {
     const listenerKey = `revenue_callback_${this.getCacheKey(date, route)}`;
 
@@ -269,7 +269,7 @@ class RevenueDataCacheService {
     return unsubscribe;
   }
 
-  // CACHED: Get available dates with caching
+  // Get available dates with caching
   async getAvailableDates() {
     try {
       // Check if cache is fresh (10 minutes for dates)
@@ -293,7 +293,7 @@ class RevenueDataCacheService {
     }
   }
 
-  // CACHED: Get available routes with caching
+  //  Get available routes with caching
   async getAvailableRoutes() {
     try {
       // Check if cache is fresh (10 minutes for routes)
@@ -777,7 +777,7 @@ class RevenueDataCacheService {
           }
         }
 
-        // CORRECT PATH: Get preBookings from /conductors/{conductorId}/dailyTrips/{date}/{tripId}/preBookings/preBookings/
+        //  Get preBookings from /conductors/{conductorId}/dailyTrips/{date}/{tripId}/preBookings/preBookings/
         const preBookingsRef = collection(db, `conductors/${conductorId}/dailyTrips/${dateId}/${tripName}/preBookings/preBookings`);
         const preBookingsSnapshot = await getDocs(preBookingsRef);
 
@@ -807,7 +807,7 @@ class RevenueDataCacheService {
               const preBooking = {
                 id: ticketId,
                 conductorId: conductorId,
-                tripId: tripName, // ✅ FIXED: Use tripName directly (e.g., "trip3")
+                tripId: tripName, 
                 currentTrip: currentTripNumber,
                 tripDirection: tripDirection || ticketData.direction,
                 totalFare: parseFloat(ticketData.totalFare),
@@ -878,7 +878,7 @@ async processPreTicketsForDate(conductorId, dateId, allPreTickets, filterDate = 
           }
         }
 
-        // FIXED: Get preTickets from correct path: /conductors/{conductorId}/dailyTrips/{date}/{tripId}/preTickets/preTickets/
+        // Get preTickets from correct path: /conductors/{conductorId}/dailyTrips/{date}/{tripId}/preTickets/preTickets/
         const preTicketsRef = collection(db, `conductors/${conductorId}/dailyTrips/${dateId}/${tripName}/preTickets/preTickets`);
         const preTicketsSnapshot = await getDocs(preTicketsRef);
 
@@ -896,7 +896,7 @@ async processPreTicketsForDate(conductorId, dateId, allPreTickets, filterDate = 
             const ticketData = ticketDoc.data();
             const ticketId = ticketDoc.id;
 
-            // ✅ PARSE qrData if it's a string
+            //  PARSE qrData if it's a string
             let parsedQrData = null;
             if (ticketData.qrData) {
               try {
@@ -918,12 +918,12 @@ async processPreTicketsForDate(conductorId, dateId, allPreTickets, filterDate = 
               }
             }
 
-            // ✅ Use parsedQrData as the primary data source, with fallbacks
+            //  Use parsedQrData as the primary data source, with fallbacks
             const sourceData = parsedQrData || ticketData;
 
             // Process valid pre-tickets
             if (sourceData.amount || sourceData.totalFare) {
-              // ✅ BUILD DISCOUNT BREAKDOWN from qrData
+              // BUILD DISCOUNT BREAKDOWN from qrData
               let discountBreakdown = [];
               let discountList = [];
               let totalDiscountAmount = 0;
@@ -1013,7 +1013,6 @@ async processPreTicketsForDate(conductorId, dateId, allPreTickets, filterDate = 
                 endKm: sourceData.toKm || ticketData.endKm || ticketData.toKm || 0,
                 totalKm: sourceData.totalKm || ticketData.totalKm || ((sourceData.toKm || 0) - (sourceData.fromKm || 0)),
                 farePerPassenger: sourceData.passengerFares || ticketData.farePerPassenger || ticketData.passengerFares || [],
-                // ✅ FIXED: Use parsed discount breakdown from qrData
                 discountBreakdown: discountBreakdown,
                 discountList: discountList,
                 active: ticketData.active !== undefined ? ticketData.active : true,
@@ -1103,43 +1102,6 @@ async processPreTicketsForDate(conductorId, dateId, allPreTickets, filterDate = 
   }
 }
 
-// Alternative helper function to get trip names by checking for tickets
-const getAllTripNamesFromTickets = async (conductorId, dateId) => {
-  try {
-    const tripNames = [];
-    let consecutiveNotFound = 0;
-    
-    // Check for trips from trip1 to trip50 by looking for tickets
-    for (let i = 1; i <= 50; i++) {
-      const tripName = `trip${i}`;
-      try {
-        // Check if tickets exist for this trip
-        const ticketsRef = collection(db, `conductors/${conductorId}/dailyTrips/${dateId}/${tripName}/tickets/tickets`);
-        const ticketsSnapshot = await getDocs(ticketsRef);
-        
-        if (ticketsSnapshot.docs.length > 0) {
-          tripNames.push(tripName);
-          consecutiveNotFound = 0; // Reset counter when we find tickets
-        } else {
-          consecutiveNotFound++;
-          if (consecutiveNotFound >= 5) {
-            break;
-          }
-        }
-      } catch (error) {
-        consecutiveNotFound++;
-        if (consecutiveNotFound >= 5) {
-          break;
-        }
-      }
-    }
-    
-    return tripNames;
-  } catch (error) {
-    return [];
-  }
-};
-
 // Helper function to get all trip names from date document maps
 const getAllTripNames = async (conductorId, dateId) => {
   try {
@@ -1167,37 +1129,10 @@ const getAllTripNames = async (conductorId, dateId) => {
   }
 };
 
-// Helper function to get all trip maps from a date document
-const getAllTripMapsFromDate = async (conductorId, dateId) => {
-  try {
-    // Get the date document which contains trip maps
-    const dateDocRef = doc(db, `conductors/${conductorId}/dailyTrips/${dateId}`);
-    const dateDocSnapshot = await getDoc(dateDocRef);
-    
-    if (!dateDocSnapshot.exists()) {
-      return [];
-    }
-    
-    const dateData = dateDocSnapshot.data();
-    const tripNames = [];
-    
-    // Look for all fields that start with "trip" and are objects (maps)
-    for (const [key, value] of Object.entries(dateData)) {
-      if (key.startsWith('trip') && typeof value === 'object' && value !== null) {
-        tripNames.push(key);
-      }
-    }
-    return tripNames;
-  } catch (error) {
-    console.error(`Error getting trip maps for ${conductorId}/${dateId}:`, error);
-    return [];
-  }
-};
-
 // Create singleton instance
 const revenueDataCache = new RevenueDataCacheService();
 
-// CACHED EXPORTS: Use cache-first approach
+// Use cache-first approach
 export const fetchConductorTripsAndPreBooking = async (date, selectedRoute = null) => {
   const result = await revenueDataCache.fetchConductorTripsAndPreBooking(date, selectedRoute);
   return result;
@@ -1315,7 +1250,7 @@ export const prepareRouteRevenueData = (conductorTrips, preBookingTrips, preTick
   return sortedRoutes;
 };
 
-// CACHED: Load all revenue data with caching
+// Load all revenue data with caching
 export const loadRevenueData = async (selectedDate, selectedRoute = null) => {
   try {
     // Pass null or empty string when date is cleared to fetch all data
@@ -1329,32 +1264,32 @@ export const loadRevenueData = async (selectedDate, selectedRoute = null) => {
   }
 };
 
-// CACHED: Get available routes with caching
+// Get available routes with caching
 export const getAvailableRoutes = async () => {
   return await revenueDataCache.getAvailableRoutes();
 };
 
-// CACHED: Get available dates with caching
+// Get available dates with caching
 export const getAvailableDates = async () => {
   return await revenueDataCache.getAvailableDates();
 };
 
-// NEW: Setup real-time listener for revenue data
+// Setup real-time listener for revenue data
 export const setupRevenueDataListener = (date, route, callback) => {
   return revenueDataCache.setupRevenueDataListener(date, route, callback);
 };
 
-// NEW: Force refresh cache
+// Force refresh cache
 export const forceRefreshRevenueCache = async (date, route) => {
   return await revenueDataCache.forceRefreshCache(date, route);
 };
 
-// NEW: Get cache info for debugging
+// Get cache info for debugging
 export const getRevenueCacheInfo = () => {
   return revenueDataCache.getCacheInfo();
 };
 
-// NEW: Cleanup listeners (call on component unmount)
+// Cleanup listeners (call on component unmount)
 export const cleanupRevenueListeners = () => {
   revenueDataCache.removeAllListeners();
 };

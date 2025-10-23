@@ -2,7 +2,7 @@ import { updatePassword, EmailAuthProvider, reauthenticateWithCredential, delete
 import { doc, updateDoc, deleteDoc, collection, getDocs, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { auth, db } from '/src/firebase/firebase.js';
-import { getCurrentAdminData, isSuperAdmin, verifyAdminUser, rejectAdminUser } from '/src/pages/auth/authService.js';
+import { getCurrentAdminData, isSuperAdmin } from '/src/pages/auth/authService.js';
 import { logActivity, logSystemError, ACTIVITY_TYPES } from './auditService.js';
 
 /**
@@ -204,19 +204,19 @@ export const fetchAllAdminUsers = async () => {
   try {
     const adminCollection = collection(db, 'Admin');
     const adminSnapshot = await getDocs(adminCollection);
-    
+
     const adminUsers = [];
     adminSnapshot.forEach((doc) => {
       const data = doc.data();
-      // Include admin, superadmin, and pending verification users that are not deleted
-      if ((data.role === 'admin' || data.role === 'superadmin' || data.verificationStatus === 'pending') && data.status !== 'deleted') {
+      // Include only admin and superadmin users that are not deleted
+      if ((data.role === 'admin' || data.role === 'superadmin') && data.status !== 'deleted') {
         adminUsers.push({
           id: doc.id,
           ...data
         });
       }
     });
-    
+
     return adminUsers;
   } catch (error) {
     console.error('Error fetching admin users:', error);
@@ -234,13 +234,13 @@ export const subscribeToAdminUsers = (callback, errorCallback) => {
   try {
     const adminCollection = collection(db, 'Admin');
     const q = query(adminCollection, orderBy('createdAt', 'desc'));
-    
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const adminUsers = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
-        // Include admin, superadmin, and pending verification users that are not deleted
-        if ((data.role === 'admin' || data.role === 'superadmin' || data.verificationStatus === 'pending') && data.status !== 'deleted') {
+        // Include only admin and superadmin users that are not deleted
+        if ((data.role === 'admin' || data.role === 'superadmin') && data.status !== 'deleted') {
           adminUsers.push({
             id: doc.id,
             ...data
@@ -484,60 +484,6 @@ export const deleteCurrentAccount = async (currentPassword) => {
       throw new Error('Please log out and log back in before deleting your account');
     }
     
-    throw error;
-  }
-};
-
-/**
- * Verifies a user's admin account (superadmin only)
- * @param {string} userId - The user ID to verify
- * @param {string} newRole - The role to assign ('admin' or 'superadmin')
- * @returns {Promise<string>} Success message
- * @throws {Error} If verification fails or user is not superadmin
- */
-export const verifyUser = async (userId, newRole = 'admin') => {
-  try {
-    if (!auth.currentUser) {
-      throw new Error('No authenticated user found');
-    }
-
-    // Verify current user is superadmin
-    const currentUserData = await getCurrentAdminData(auth.currentUser.uid);
-    if (currentUserData?.role !== 'superadmin') {
-      throw new Error('Only superadmin users can verify accounts');
-    }
-
-    const result = await verifyAdminUser(userId, newRole);
-    return result.message;
-  } catch (error) {
-    console.error('Error verifying user:', error);
-    throw error;
-  }
-};
-
-/**
- * Rejects a user's admin account verification (superadmin only)
- * @param {string} userId - The user ID to reject
- * @param {string} reason - Optional reason for rejection
- * @returns {Promise<string>} Success message
- * @throws {Error} If rejection fails or user is not superadmin
- */
-export const rejectUser = async (userId, reason = '') => {
-  try {
-    if (!auth.currentUser) {
-      throw new Error('No authenticated user found');
-    }
-
-    // Verify current user is superadmin
-    const currentUserData = await getCurrentAdminData(auth.currentUser.uid);
-    if (currentUserData?.role !== 'superadmin') {
-      throw new Error('Only superadmin users can reject accounts');
-    }
-
-    const result = await rejectAdminUser(userId, reason);
-    return result.message;
-  } catch (error) {
-    console.error('Error rejecting user:', error);
     throw error;
   }
 };

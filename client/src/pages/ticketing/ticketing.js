@@ -142,17 +142,17 @@ class TicketingDataCacheService {
     }
   }
 
-  // CACHED: Get ticket data with cache-first approach
+  // Get ticket data with cache-first approach
   async getTicketData(conductorId = null, limit = 50) {
     try {
       const cacheKey = this.getCacheKey(conductorId, limit);
 
-      // FAST PATH: Return cached data immediately if available and fresh
+      // Return cached data immediately if available and fresh
       if (this.ticketCache.has(cacheKey) && this.isCacheFresh(cacheKey)) {
         return { ...this.ticketCache.get(cacheKey), fromCache: true };
       }
 
-      // SLOW PATH: Fetch fresh data
+      // Fetch fresh data
       const freshData = await this.fetchTicketDataFromFirestore(conductorId, limit);
 
       // Save to cache

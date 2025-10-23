@@ -160,7 +160,6 @@ export const logSystemError = async (error, context, additionalData = {}) => {
  */
 export const getActivityLogs = async (filters = {}) => {
   try {
-    let q = collection(db, 'AuditLogs');
     const constraints = [orderBy('timestamp', 'desc')];
 
     // Apply filters
@@ -182,7 +181,7 @@ export const getActivityLogs = async (filters = {}) => {
 
     constraints.push(limit(filters.limit || 100));
 
-    q = query(q, ...constraints);
+    const q = query(collection(db, 'AuditLogs'), ...constraints);
     const querySnapshot = await getDocs(q);
     
     return querySnapshot.docs.map(doc => ({
@@ -206,7 +205,6 @@ export const getActivityLogs = async (filters = {}) => {
  */
 export const getErrorLogs = async (filters = {}) => {
   try {
-    let q = collection(db, 'ErrorLogs');
     const constraints = [orderBy('timestamp', 'desc')];
 
     if (filters.startDate) {
@@ -218,7 +216,7 @@ export const getErrorLogs = async (filters = {}) => {
 
     constraints.push(limit(filters.limit || 50));
 
-    q = query(q, ...constraints);
+    const q = query(collection(db, 'ErrorLogs'), ...constraints);
     const querySnapshot = await getDocs(q);
     
     return querySnapshot.docs.map(doc => ({
@@ -263,7 +261,7 @@ export const exportLogsToCSV = (logs, filename, type = 'activity') => {
           log.severity || 'info'
         ]);
       } else {
-        headers = ['Date/Time', 'User', 'Email', 'Error', 'Context', 'URL'];
+        headers = ['Date/Time', 'Email', 'Error', 'Context', 'URL'];
         rows = logs.map(log => [
           log.timestamp.toLocaleString('en-US', {
             year: 'numeric',
@@ -273,7 +271,6 @@ export const exportLogsToCSV = (logs, filename, type = 'activity') => {
             minute: '2-digit',
             second: '2-digit'
           }),
-          log.userEmail || 'anonymous',
           log.userEmail || 'anonymous',
           log.errorMessage || '',
           log.context || '',
@@ -382,10 +379,9 @@ const exportLogsToCSVFallback = (logs, filename, type) => {
         log.severity || 'info'
       ]);
     } else {
-      headers = ['Date/Time', 'User', 'Email', 'Error', 'Context', 'URL'];
+      headers = ['Date/Time', 'Email', 'Error', 'Context', 'URL'];
       rows = logs.map(log => [
         log.timestamp.toLocaleString(),
-        log.userEmail || 'anonymous',
         log.userEmail || 'anonymous',
         log.errorMessage || '',
         log.context || '',

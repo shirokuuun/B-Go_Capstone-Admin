@@ -67,7 +67,7 @@ class DashboardService {
     }
   }
 
-  // Helper function to fetch prebooking tickets (same as daily revenue)
+  // Helper function to fetch prebooking tickets 
   async fetchPreBookingTickets(conductorId, dateId, tripName) {
     try {
       const preBookingsPath = `conductors/${conductorId}/dailyTrips/${dateId}/${tripName}/preBookings/preBookings`;
@@ -96,7 +96,7 @@ class DashboardService {
     }
   }
 
-  // Helper function to fetch pre-ticket tickets (same as daily revenue and remittance)
+  // Helper function to fetch pre-ticket tickets
   async fetchPreTickets(conductorId, dateId, tripName) {
     try {
       const preTicketsPath = `conductors/${conductorId}/dailyTrips/${dateId}/${tripName}/preTickets/preTickets`;
@@ -108,7 +108,7 @@ class DashboardService {
       for (const preTicketDoc of preTicketsSnapshot.docs) {
         const preTicketData = preTicketDoc.data();
 
-        // Parse qrData if it's a string (same as remittance.js)
+        // Parse qrData if it's a string 
         let parsedQrData = null;
         if (preTicketData.qrData) {
           try {
@@ -170,7 +170,7 @@ class DashboardService {
       const today = new Date().toLocaleDateString('en-CA');
       const selectedDate = customDate || today;
 
-      // Process each conductor's tickets (same structure as ticketing.js)
+      // Process each conductor's tickets 
       for (const conductorDoc of conductorsSnapshot.docs) {
         const conductorId = conductorDoc.id;
         
@@ -298,6 +298,12 @@ class DashboardService {
 
    async getSOSRequestSummary(filter = 'today', customDate = null) {
     try {
+      // FAST PATH: Return cached data immediately if available
+      if (this.dashboardCache.sos && this.isCacheListenerActive) {
+        return this.processSOSRequestSummary(this.dashboardCache.sos, filter, customDate);
+      }
+
+      // SLOW PATH: First time or cache invalidated - fetch everything
       const snapshot = await getDocs(collection(db, 'sosRequests'));
 
       if (snapshot.empty) {
@@ -311,18 +317,49 @@ class DashboardService {
         };
       }
 
-      let totalRequests = 0;
-      let pendingRequests = 0;
-      let receivedRequests = 0;
-      let cancelledRequests = 0;
-      let completedRequests = 0;
-      const recentRequests = [];
-
-      const today = new Date().toLocaleDateString('en-CA');
-      const selectedDate = customDate || today;
-
+      const sosData = [];
       snapshot.forEach(doc => {
-        const data = doc.data();
+        sosData.push({ id: doc.id, ...doc.data() });
+      });
+
+      // Save to cache
+      this.dashboardCache.sos = sosData;
+      this.lastFetchTime = Date.now();
+
+      // Start listening for real-time changes
+      this.startSOSCacheListener();
+
+      return this.processSOSRequestSummary(sosData, filter, customDate);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Helper to process SOS data into summary
+  processSOSRequestSummary(sosData, filter = 'today', customDate = null) {
+    if (!sosData || sosData.length === 0) {
+      return {
+        totalRequests: 0,
+        pendingRequests: 0,
+        receivedRequests: 0,
+        cancelledRequests: 0,
+        completedRequests: 0,
+        recentRequests: []
+      };
+    }
+
+    let totalRequests = 0;
+    let pendingRequests = 0;
+    let receivedRequests = 0;
+    let cancelledRequests = 0;
+    let completedRequests = 0;
+    const recentRequests = [];
+
+    const today = new Date().toLocaleDateString('en-CA');
+    const selectedDate = customDate || today;
+
+    sosData.forEach(sosRequest => {
+      const data = sosRequest;
 
         const dateField = data.timestamp || data.createdAt || data.requestedAt;
         if (!dateField) {
@@ -395,7 +432,7 @@ class DashboardService {
           }
 
           recentRequests.push({
-            id: doc.id,
+            id: data.id,
             status: status,
             timestamp: dateField,
             location: locationText,
@@ -403,29 +440,23 @@ class DashboardService {
             message: data.message || data.description || ''
           });
         }
-      });
+    });
 
-      // Sort recent requests by timestamp (newest first)
-      recentRequests.sort((a, b) => {
-        const timeA = a.timestamp.toDate ? a.timestamp.toDate() : a.timestamp;
-        const timeB = b.timestamp.toDate ? b.timestamp.toDate() : b.timestamp;
-        return timeB - timeA;
-      });
+    // Sort recent requests by timestamp (newest first)
+    recentRequests.sort((a, b) => {
+      const timeA = a.timestamp.toDate ? a.timestamp.toDate() : a.timestamp;
+      const timeB = b.timestamp.toDate ? b.timestamp.toDate() : b.timestamp;
+      return timeB - timeA;
+    });
 
-      const result = {
-        totalRequests,
-        pendingRequests,
-        receivedRequests,
-        cancelledRequests,
-        completedRequests,
-        recentRequests: recentRequests.slice(0, 5) // Show only 5 most recent
-      };
-
-      return result;
-
-    } catch (error) {
-      throw error;
-    }
+    return {
+      totalRequests,
+      pendingRequests,
+      receivedRequests,
+      cancelledRequests,
+      completedRequests,
+      recentRequests: recentRequests.slice(0, 5) // Show only 5 most recent
+    };
   }
 
   // CACHED: Get conductors summary with caching
@@ -494,15 +525,15 @@ class DashboardService {
     };
   }
 
-  // CACHED: Get ID verification summary with caching
+  //  Get ID verification summary with caching
   async getIDVerificationSummary() {
     try {
-      // FAST PATH: Return cached data immediately if available
+      // Return cached data immediately if available
       if (this.dashboardCache.users && this.isCacheListenerActive) {
         return this.processIDVerificationSummary(this.dashboardCache.users);
       }
 
-      // SLOW PATH: First time or cache invalidated - fetch everything
+      //  First time or cache invalidated - fetch everything
       const usersRef = collection(db, 'users');
       const snapshot = await getDocs(usersRef);
 
@@ -538,7 +569,7 @@ class DashboardService {
   }
 
   // Helper to process users data into ID verification summary
-  // NOTE: Only counts users who have uploaded IDs (matching ID Verification page logic)
+  //  Only counts users who have uploaded IDs 
   processIDVerificationSummary(usersData) {
     if (!usersData || usersData.length === 0) {
       return {
@@ -554,7 +585,7 @@ class DashboardService {
     let verifiedUsers = 0;
 
     usersData.forEach(user => {
-      // Only count users who have uploaded an ID (matching ID Verification page)
+      // Only count users who have uploaded an ID 
       if (user.idVerificationData) {
         totalUsers++;
 
@@ -802,6 +833,61 @@ class DashboardService {
     this.isCacheListenerActive = true;
   }
 
+  // Start real-time cache updates listener for SOS requests
+  startSOSCacheListener() {
+    if (this.listeners.has('sos_cache_listener')) {
+      return; // Don't create duplicate listeners
+    }
+
+    const sosRef = collection(db, 'sosRequests');
+
+    const unsubscribe = onSnapshot(sosRef, (snapshot) => {
+      if (!this.dashboardCache.sos) {
+        return; // No cache to update
+      }
+
+      let hasChanges = false;
+      const changes = snapshot.docChanges();
+
+      if (changes.length === 0) {
+        return;
+      }
+
+      // Check if this is the initial snapshot (all changes are 'added' and match cache size)
+      const isInitialSnapshot = changes.length === this.dashboardCache.sos.length &&
+                                changes.every(change => change.type === 'added');
+
+      if (isInitialSnapshot) {
+        return; // Skip initial snapshot to prevent duplicates
+      }
+
+      for (const change of changes) {
+        if (change.type === 'added') {
+          this.addToSOSCache(change.doc);
+          hasChanges = true;
+        }
+        if (change.type === 'modified') {
+          this.updateSOSCache(change.doc);
+          hasChanges = true;
+        }
+        if (change.type === 'removed') {
+          this.removeFromSOSCache(change.doc.id);
+          hasChanges = true;
+        }
+      }
+
+      if (hasChanges) {
+        this.notifyListenersOfCacheUpdate('sos');
+      }
+    }, (error) => {
+      console.error('Error in SOS cache listener:', error);
+      this.listeners.delete('sos_cache_listener');
+    });
+
+    this.listeners.set('sos_cache_listener', unsubscribe);
+    this.isCacheListenerActive = true;
+  }
+
   // Start real-time cache updates listener for users
   startUsersCacheListener() {
     if (this.listeners.has('users_cache_listener')) {
@@ -854,6 +940,7 @@ class DashboardService {
     });
 
     this.listeners.set('users_cache_listener', unsubscribe);
+    this.isCacheListenerActive = true;
   }
 
   // Cache Helper Methods
@@ -917,6 +1004,30 @@ class DashboardService {
     this.dashboardCache.users = this.dashboardCache.users.filter(u => u.id !== docId);
   }
 
+  addToSOSCache(doc) {
+    if (!this.dashboardCache.sos) return;
+    // Check if SOS request already exists to prevent duplicates
+    const existingIndex = this.dashboardCache.sos.findIndex(s => s.id === doc.id);
+    if (existingIndex === -1) {
+      const newSOS = { id: doc.id, ...doc.data() };
+      this.dashboardCache.sos.push(newSOS);
+    }
+  }
+
+  updateSOSCache(doc) {
+    if (!this.dashboardCache.sos) return;
+    const sosData = doc.data();
+    const index = this.dashboardCache.sos.findIndex(s => s.id === doc.id);
+    if (index !== -1) {
+      this.dashboardCache.sos[index] = { id: doc.id, ...sosData };
+    }
+  }
+
+  removeFromSOSCache(docId) {
+    if (!this.dashboardCache.sos) return;
+    this.dashboardCache.sos = this.dashboardCache.sos.filter(s => s.id !== docId);
+  }
+
   // Notify active listeners about cache updates
   notifyListenersOfCacheUpdate(cacheType) {
     if (this.currentDashboardCallback) {
@@ -963,62 +1074,27 @@ class DashboardService {
       this.listeners.get('users_cache_listener')();
       this.listeners.delete('users_cache_listener');
     }
+    if (this.listeners.has('sos_cache_listener')) {
+      this.listeners.get('sos_cache_listener')();
+      this.listeners.delete('sos_cache_listener');
+    }
     this.isCacheListenerActive = false;
-  }
-
-  // Force refresh cache
-  async forceRefreshCache() {
-    this.invalidateCache();
-    // Next call to getDashboardData will fetch fresh data
-    return true;
   }
 
   getCacheInfo() {
     return {
       hasConductorsCache: !!this.dashboardCache.conductors,
       hasUsersCache: !!this.dashboardCache.users,
+      hasSOSCache: !!this.dashboardCache.sos,
       hasFullDashboardCache: !!this.dashboardCache.fullDashboardData,
       conductorsSize: this.dashboardCache.conductors?.length || 0,
       usersSize: this.dashboardCache.users?.length || 0,
+      sosSize: this.dashboardCache.sos?.length || 0,
       lastFetchTime: this.lastFetchTime,
       isListenerActive: this.isCacheListenerActive,
       cacheAge: this.lastFetchTime ? Date.now() - this.lastFetchTime : null,
       currentFilter: this.currentFilter,
       currentCustomDate: this.currentCustomDate
-    };
-  }
-
-  // Debug method - Test cache performance
-  async testCachePerformance() {
-    // Testing dashboard cache performance...
-
-    // Test 1: First load (should be slow)
-    this.invalidateCache();
-    const start1 = Date.now();
-    await this.getDashboardData();
-    const end1 = Date.now();
-
-    // Test 2: Cached load (should be fast)
-    const start2 = Date.now();
-    await this.getDashboardData();
-    const end2 = Date.now();
-
-    // Test 3: Multiple cached loads
-    const times = [];
-    for (let i = 0; i < 5; i++) {
-      const start = Date.now();
-      await this.getDashboardData();
-      const end = Date.now();
-      times.push(end - start);
-    }
-
-    const avgTime = times.reduce((a, b) => a + b, 0) / times.length;
-
-    return {
-      firstLoad: end1 - start1,
-      cachedLoad: end2 - start2,
-      averageCachedLoad: avgTime,
-      cacheInfo: this.getCacheInfo()
     };
   }
 
@@ -1039,18 +1115,12 @@ class DashboardService {
     this.isCacheListenerActive = false;
   }
 
-  // CACHED: Setup dashboard listener (uses cache when available)
+  //  Setup dashboard listener (uses cache when available)
   setupDashboardListener(callback, filter = 'today', customDate = null) {
     // Setting up dashboard listener with caching
 
     // Remove existing dashboard listener
     this.removeListener('dashboard');
-
-    // Clear any existing auto-refresh interval
-    if (this.autoRefreshInterval) {
-      clearInterval(this.autoRefreshInterval);
-      this.autoRefreshInterval = null;
-    }
 
     // Store the callback for cache updates
     this.currentDashboardCallback = () => {
@@ -1082,39 +1152,22 @@ class DashboardService {
       }, 100); // 100ms delay to ensure loading state is visible
     }
 
-    // Set up auto-refresh for trip/revenue data (every 30 seconds)
-    this.autoRefreshInterval = setInterval(() => {
-      // Invalidate only the full dashboard cache, but keep conductors and users cache
-      this.dashboardCache.fullDashboardData = null;
-
-      // Trigger refresh
-      if (this.currentDashboardCallback) {
-        this.currentDashboardCallback();
-      }
-    }, 30000); // 30 seconds
-
     // Create cleanup function
     const unsubscribe = () => {
       // Cleaning up dashboard listener
       this.currentDashboardCallback = null;
-
-      // Clear auto-refresh interval
-      if (this.autoRefreshInterval) {
-        clearInterval(this.autoRefreshInterval);
-        this.autoRefreshInterval = null;
-      }
     };
 
     this.listeners.set('dashboard', unsubscribe);
     return unsubscribe;
   }
 
-  // CACHED: Get complete dashboard data with smart caching
+  //  Get complete dashboard data with smart caching
   async getDashboardData(filter = 'today', customDate = null) {
     try {
       const cacheKey = `${filter}_${customDate || 'null'}`;
 
-      // FAST PATH: Return cached data immediately if available and same filter
+      //  Return cached data immediately if available and same filter
       if (this.dashboardCache.fullDashboardData &&
           this.isCacheListenerActive &&
           this.currentFilter === filter &&
@@ -1125,7 +1178,7 @@ class DashboardService {
 
       // Fetching fresh dashboard data...
 
-      // SLOW PATH: Fetch fresh data
+      //  Fetch fresh data
       const [tripSummary, sosSummary, conductorsSummary, idVerificationSummary, revenueTrend, busReservations] = await Promise.all([
         this.getTripSummary(filter, customDate),
         this.getSOSRequestSummary(filter, customDate),
@@ -1159,23 +1212,6 @@ class DashboardService {
     }
   }
 
-  //  Get fresh dashboard data (bypass cache)
-  async getFreshDashboardData(filter = 'today', customDate = null) {
-    // Force fetching fresh dashboard data...
-
-    // Temporarily disable cache
-    const tempCache = this.dashboardCache.fullDashboardData;
-    this.dashboardCache.fullDashboardData = null;
-
-    try {
-      const freshData = await this.getDashboardData(filter, customDate);
-      return freshData;
-    } catch (error) {
-      // Restore cache on error
-      this.dashboardCache.fullDashboardData = tempCache;
-      throw error;
-    }
-  }
 }
 
 // Export singleton instance

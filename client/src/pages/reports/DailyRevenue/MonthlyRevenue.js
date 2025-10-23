@@ -2,7 +2,7 @@ import {
   loadRevenueData,
   prepareRouteRevenueData,
   getAvailableDates
-} from './DailyRevenue.js'; // Updated path to match your structure
+} from './DailyRevenue.js'; 
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '/src/firebase/firebase.js';
 
@@ -45,18 +45,18 @@ class MonthlyRevenueDataCacheService {
     }
   }
 
-  // CACHED: Get monthly data with cache-first approach
+  // Get monthly data with cache-first approach
   async getMonthlyData(selectedMonth, selectedRoute = null, selectedTicketType = '') {
     try {
       const cacheKey = this.getCacheKey(selectedMonth, selectedRoute, selectedTicketType);
 
 
-      // FAST PATH: Return cached data immediately if available and fresh
+      //Return cached data immediately if available and fresh
       if (this.monthlyCache.has(cacheKey) && this.isCacheFresh(cacheKey)) {
         return { ...this.monthlyCache.get(cacheKey), fromCache: true };
       }
 
-      // SLOW PATH: Fetch fresh data
+      //Fetch fresh data
       const freshData = await this.fetchMonthlyDataFromFirestore(selectedMonth, selectedRoute, selectedTicketType);
 
       // Save to cache
@@ -91,7 +91,7 @@ class MonthlyRevenueDataCacheService {
     return ageMinutes < 10; // Cache valid for 10 minutes (longer than daily)
   }
 
-  // Fetch monthly data from Firestore (original logic)
+  // Fetch monthly data from Firestore 
   async fetchMonthlyDataFromFirestore(selectedMonth, selectedRoute, selectedTicketType) {
 
     // Get all dates in the selected month
@@ -330,7 +330,7 @@ class MonthlyRevenueDataCacheService {
     return await this.getMonthlyData(month, route, ticketType);
   }
 
-  // CACHED: Setup real-time listener for monthly data
+  // Setup real-time listener for monthly data
   setupMonthlyDataListener(month, route, ticketType, callback) {
     const listenerKey = `monthly_callback_${this.getCacheKey(month, route, ticketType)}`;
 
@@ -374,7 +374,7 @@ class MonthlyRevenueDataCacheService {
     return unsubscribe;
   }
 
-  // CACHED: Get available months with caching
+  //  Get available months with caching
   async getAvailableMonths() {
     try {
       // Check if cache is fresh (15 minutes for months)
@@ -541,17 +541,17 @@ export const getCurrentMonth = () => {
   return new Date().toISOString().slice(0, 7);
 };
 
-// CACHED: Calculate monthly growth using cache service
+// Calculate monthly growth using cache service
 export const calculateMonthlyGrowth = async (selectedMonth, selectedRoute, currentMonthRevenue, selectedTicketType = '') => {
   return await monthlyRevenueDataCache.calculateMonthlyGrowth(selectedMonth, selectedRoute, currentMonthRevenue, selectedTicketType);
 };
 
-// CACHED: Simple growth calculation using cache service
+//  Simple growth calculation using cache service
 export const calculateSimpleGrowth = (currentMonthRevenue, dailyBreakdown = []) => {
   return monthlyRevenueDataCache.calculateSimpleGrowth(currentMonthRevenue, dailyBreakdown);
 };
 
-// CACHED: Load monthly revenue data using cache-first approach
+//Load monthly revenue data using cache-first approach
 export const loadMonthlyData = async (selectedMonth, selectedRoute, setMonthlyData, setMonthlyLoading, selectedTicketType = '') => {
   setMonthlyLoading(true);
   try {
@@ -567,7 +567,7 @@ export const loadMonthlyData = async (selectedMonth, selectedRoute, setMonthlyDa
   }
 };
 
-// CACHED: Load available months using cache-first approach
+//Load available months using cache-first approach
 export const loadAvailableMonths = async (setAvailableMonths, setSelectedMonth, selectedMonth) => {
   try {
     const sortedMonths = await monthlyRevenueDataCache.getAvailableMonths();
@@ -682,22 +682,22 @@ export const getTopRoutes = (routeMonthlyData, limit = 5) => {
   return routeMonthlyData.slice(0, limit);
 };
 
-// CACHED: Setup real-time listener for monthly data updates
+//Setup real-time listener for monthly data updates
 export const setupMonthlyDataListener = (month, route, ticketType, callback) => {
   return monthlyRevenueDataCache.setupMonthlyDataListener(month, route, ticketType, callback);
 };
 
-// CACHED: Force refresh cache for specific monthly data
+//Force refresh cache for specific monthly data
 export const forceRefreshMonthlyCache = async (month, route, ticketType) => {
   return await monthlyRevenueDataCache.forceRefreshCache(month, route, ticketType);
 };
 
-// CACHED: Get cache information for debugging
+// Get cache information for debugging
 export const getMonthlyRevenueDataCacheInfo = () => {
   return monthlyRevenueDataCache.getCacheInfo();
 };
 
-// CACHED: Remove all listeners on cleanup
+// Remove all listeners on cleanup
 export const removeAllMonthlyRevenueListeners = () => {
   monthlyRevenueDataCache.removeAllListeners();
 };

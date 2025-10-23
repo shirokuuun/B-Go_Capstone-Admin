@@ -1,6 +1,6 @@
-import { 
-  collection, 
-  getDocs, 
+import {
+  collection,
+  getDocs,
   serverTimestamp,
   doc,
   setDoc,
@@ -8,19 +8,15 @@ import {
   query,
   where,
   orderBy,
-  getDoc,
-  writeBatch,
-  runTransaction 
+  getDoc
 } from 'firebase/firestore';
-import { 
-  ref, 
-  uploadBytes, 
-  listAll, 
+import {
+  ref,
+  uploadBytes,
   deleteObject,
-  getDownloadURL,
-  getBytes 
+  getDownloadURL
 } from 'firebase/storage';
-import { db, storage, auth } from '/src/firebase/firebase.js';
+import { db, storage } from '/src/firebase/firebase.js';
 import { logActivity, ACTIVITY_TYPES } from './auditService.js';
 
 // Available data collections for backup
@@ -53,7 +49,7 @@ export const BACKUP_COLLECTIONS = {
   CONDUCTOR_DATA: { 
     name: 'Conductor Data (Complete)', 
     collection: 'conductors',
-    description: 'Complete conductor data including profiles, dailyTrips, preTickets, and remittance'
+    description: 'Complete conductor data including profiles, dailyTrips, preTickets, preBookings, and remittance'
   }
 };
 
@@ -159,9 +155,15 @@ class BackupService {
       await updateProgress('Uploading backup file to storage...', uploadProgress);
       const jsonData = JSON.stringify(backupData, null, 2);
       const blob = new Blob([jsonData], { type: 'application/json' });
-      
+
       const storageRef = ref(storage, `${this.backupFolder}/${fileName}.json`);
-      const uploadResult = await uploadBytes(storageRef, blob);
+
+      // Upload with metadata to force download instead of display
+      const metadata = {
+        contentType: 'application/json',
+        contentDisposition: `attachment; filename="${fileName}.json"`
+      };
+      const uploadResult = await uploadBytes(storageRef, blob, metadata);
       
       // Get download URL
       const downloadURL = await getDownloadURL(uploadResult.ref);
@@ -274,17 +276,40 @@ class BackupService {
             const tripNames = ['trip1', 'trip2', 'trip3', 'trip4', 'trip5', 'trip6', 'trip7', 'trip8', 'trip9', 'trip10'];
             for (const tripName of tripNames) {
               try {
-                const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
-                const ticketsSnapshot = await getDocs(ticketsRef);
-                
-                if (ticketsSnapshot.docs.length > 0) {
-                  conductorData.subcollections.dailyTrips[dateId].trips[tripName] = {
-                    tickets: ticketsSnapshot.docs.map(doc => ({
+                // Fetch all 3 subcollections in parallel for better performance
+                const [ticketsSnapshot, preBookingsSnapshot, preTicketsSnapshot] = await Promise.all([
+                  getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets')),
+                  getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'preBookings', 'preBookings')),
+                  getDocs(collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'preTickets', 'preTickets'))
+                ]);
+
+                // Only add trip data if at least one subcollection has documents
+                if (ticketsSnapshot.docs.length > 0 || preBookingsSnapshot.docs.length > 0 || preTicketsSnapshot.docs.length > 0) {
+                  conductorData.subcollections.dailyTrips[dateId].trips[tripName] = {};
+
+                  if (ticketsSnapshot.docs.length > 0) {
+                    conductorData.subcollections.dailyTrips[dateId].trips[tripName].tickets = ticketsSnapshot.docs.map(doc => ({
                       id: doc.id,
                       data: doc.data()
-                    }))
-                  };
-                  completeData.totalDocuments += ticketsSnapshot.docs.length;
+                    }));
+                    completeData.totalDocuments += ticketsSnapshot.docs.length;
+                  }
+
+                  if (preBookingsSnapshot.docs.length > 0) {
+                    conductorData.subcollections.dailyTrips[dateId].trips[tripName].preBookings = preBookingsSnapshot.docs.map(doc => ({
+                      id: doc.id,
+                      data: doc.data()
+                    }));
+                    completeData.totalDocuments += preBookingsSnapshot.docs.length;
+                  }
+
+                  if (preTicketsSnapshot.docs.length > 0) {
+                    conductorData.subcollections.dailyTrips[dateId].trips[tripName].preTickets = preTicketsSnapshot.docs.map(doc => ({
+                      id: doc.id,
+                      data: doc.data()
+                    }));
+                    completeData.totalDocuments += preTicketsSnapshot.docs.length;
+                  }
                 }
               } catch (tripError) {
                 // Trip doesn't exist, continue
@@ -446,102 +471,47 @@ class BackupService {
   /**
    * Download a backup file
    * @param {string} fileName - The backup file name
-   * @returns {Promise<void>} 
+   * @returns {Promise<void>}
    */
   async downloadBackup(fileName) {
     try {
-      // Get the backup data directly from Firestore to recreate the JSON file
+      // Get the backup metadata from Firestore
       const backupsRef = collection(db, 'systemBackups');
       const snapshot = await getDocs(query(backupsRef, where('fileName', '==', fileName)));
-      
+
       if (snapshot.empty) {
         throw new Error('Backup metadata not found');
       }
 
-      const backupMetadata = snapshot.docs[0].data();
-      
-      // Recreate the backup data by fetching from collections again
-      const backupData = {
-        metadata: {
-          backupId: backupMetadata.backupId,
-          createdAt: backupMetadata.createdAt?.toDate?.()?.toISOString() || backupMetadata.createdAt,
-          expiresAt: backupMetadata.expiresAt?.toDate?.()?.toISOString() || backupMetadata.expiresAt,
-          collections: backupMetadata.collections || [],
-          version: '1.0',
-          downloadedAt: new Date().toISOString()
-        },
-        data: {}
-      };
+      // Manual download approach (CORS auto-download requires Firebase Admin SDK)
+      try {
+        const storageRef = ref(storage, `${this.backupFolder}/${fileName}`);
 
-      // Re-fetch the data for each collection that was in the original backup
-      for (const collectionKey of backupMetadata.collections || []) {
-        const collectionInfo = BACKUP_COLLECTIONS[collectionKey.toUpperCase()];
-        if (!collectionInfo) {
-          console.warn(`Unknown collection: ${collectionKey}`);
-          continue;
-        }
+        // Get the authenticated download URL
+        const downloadURL = await getDownloadURL(storageRef);
 
-        try {
-          if (collectionKey.toUpperCase() === 'CONDUCTOR_DATA') {
-            const conductorsData = await this.backupCompleteCondutorData();
-            backupData.data[collectionKey] = conductorsData;
-          } else {
-            const collectionRef = collection(db, collectionInfo.collection);
-            const collectionSnapshot = await getDocs(collectionRef);
-            
-            const documents = [];
-            collectionSnapshot.forEach(doc => {
-              documents.push({
-                id: doc.id,
-                data: doc.data()
-              });
-            });
+        // Open in new tab for manual download (browser will handle it)
+        const link = document.createElement('a');
+        link.href = downloadURL;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
 
-            backupData.data[collectionKey] = {
-              collection: collectionInfo.collection,
-              count: documents.length,
-              documents: documents
-            };
-          }
-        } catch (collectionError) {
-          console.error(`Error re-fetching collection ${collectionInfo.collection}:`, collectionError);
-          backupData.data[collectionKey] = {
-            collection: collectionInfo.collection,
-            error: `Re-fetch failed: ${collectionError.message}`,
-            count: 0,
-            documents: []
-          };
-        }
+        await logActivity(
+          ACTIVITY_TYPES.SYSTEM_BACKUP,
+          `Downloaded backup file: ${fileName}`,
+          { fileName }
+        );
+
+        return { success: true };
+
+      } catch (storageError) {
+        console.error('Failed to download from Firebase Storage:', storageError);
+        throw new Error('Cannot download backup file from storage. The file may have been deleted or is no longer accessible.');
       }
 
-      // Convert to JSON and create download
-      const jsonData = JSON.stringify(backupData, null, 2);
-      const blob = new Blob([jsonData], { type: 'application/json' });
-      const url = window.URL.createObjectURL(blob);
-      
-      // Create download link
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      link.style.display = 'none';
-      
-      // Trigger download
-      document.body.appendChild(link);
-      link.click();
-      
-      // Cleanup
-      setTimeout(() => {
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-      }, 100);
-      
-      await logActivity(
-        ACTIVITY_TYPES.SYSTEM_BACKUP,
-        `Downloaded backup file: ${fileName}`,
-        { fileName }
-      );
-      
-      return { success: true };
     } catch (error) {
       console.error('Error downloading backup:', error);
       return { success: false, error: error.message };

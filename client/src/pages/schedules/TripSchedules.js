@@ -108,10 +108,7 @@ const formatSchedulesForStorage = (schedulesArray) => {
  */
 export const subscribeToTripSchedules = (callback, errorCallback) => {
   try {
-    console.log('Setting up trip schedules subscription...'); // Debug log
     
-    // Since we can't orderBy when documents have custom IDs without createdAt field,
-    // we'll get all documents and sort them in memory if needed
     const unsubscribe = onSnapshot(
       collection(db, TRIP_SCHEDULES_COLLECTION),
       (querySnapshot) => {
