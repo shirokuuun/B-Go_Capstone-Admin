@@ -1406,3 +1406,56 @@ body.modal-open {
 .detail-section-compact .detail-item {
   margin-bottom: 8px;
 }
+
+/* Conductor Password Input Container and Toggle Button */
+.conductor-password-input-container {
+  position: relative;
+  width: 100%;
+  display: block;
+}
+
+.conductor-password-input-container input {
+  width: 100%;
+  padding-right: 50px !important;
+  box-sizing: border-box;
+}
+
+.conductor-password-toggle-btn {
+  position: absolute !important;
+  right: 15px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  background: none !important;
+  border: none !important;
+  color: #64748b !important;
+  cursor: pointer !important;
+  padding: 6px !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease !important;
+  font-size: 18px !important;
+  z-index: 100 !important;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  box-shadow: none !important;
+}
+
+.conductor-password-toggle-btn:hover {
+  color: #334155 !important;
+  transform: translateY(-50%) scale(1.1) !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+
+.conductor-password-toggle-btn:active {
+  transform: translateY(-50%) scale(0.95) !important;
+}
+
+.conductor-password-toggle-btn:focus {
+  outline: none !important;
+  color: #007A8F !important;
+  box-shadow: none !important;
+}

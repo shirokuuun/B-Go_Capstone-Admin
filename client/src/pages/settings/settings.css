@@ -3815,6 +3815,24 @@
   color: #1a202c;
 }
 
+/* Register Admin Modal Header */
+.register-admin-header {
+  background-color: #007c91;
+  border-bottom: none;
+}
+
+.register-admin-header h3 {
+  color: #ffffff;
+}
+
+.register-admin-header .settings-modal-close {
+  color: #ffffff;
+}
+
+.register-admin-header .settings-modal-close:hover {
+  color: #e2e8f0;
+}
+
 .settings-modal-close {
   background: none;
   border: none;

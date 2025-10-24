@@ -200,6 +200,8 @@ const formatLogDescription = (description) => {
   });
   const [registerLoading, setRegisterLoading] = useState(false);
   const [registerError, setRegisterError] = useState('');
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [showRegisterConfirmPassword, setShowRegisterConfirmPassword] = useState(false);
 
   // Backup system state (superadmin only)
   const [isBackupExpanded, setIsBackupExpanded] = useState(false);
@@ -648,6 +650,8 @@ const formatLogDescription = (description) => {
         lastName: '',
         role: 'admin'
       });
+      setShowRegisterPassword(false);
+      setShowRegisterConfirmPassword(false);
       setShowRegisterModal(false);
       setMessage('Admin user registered successfully');
 
@@ -671,6 +675,8 @@ const formatLogDescription = (description) => {
       role: 'admin'
     });
     setRegisterError('');
+    setShowRegisterPassword(false);
+    setShowRegisterConfirmPassword(false);
   };
 
   // Setup admin users subscription (superadmin only)
@@ -2357,7 +2363,7 @@ const formatLogDescription = (description) => {
         {showRegisterModal && (
           <div className="settings-modal-overlay" onClick={handleCloseRegisterModal}>
             <div className="settings-modal-content" onClick={(e) => e.stopPropagation()}>
-              <div className="settings-modal-header">
+              <div className="settings-modal-header register-admin-header">
                 <h3>Register New Admin</h3>
                 <button onClick={handleCloseRegisterModal} className="settings-modal-close">×</button>
               </div>
@@ -2400,24 +2406,44 @@ const formatLogDescription = (description) => {
                 <div className="settings-form-row">
                   <div className="settings-form-group">
                     <label>Password</label>
-                    <input
-                      type="password"
-                      value={registerFormData.password}
-                      onChange={(e) => handleRegisterInputChange('password', e.target.value)}
-                      required
-                      placeholder="Minimum 6 characters"
-                      minLength="6"
-                    />
+                    <div className="password-input-container">
+                      <input
+                        type={showRegisterPassword ? "text" : "password"}
+                        value={registerFormData.password}
+                        onChange={(e) => handleRegisterInputChange('password', e.target.value)}
+                        required
+                        placeholder="Minimum 6 characters"
+                        minLength="6"
+                      />
+                      <button
+                        type="button"
+                        className="password-toggle-btn"
+                        onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                        aria-label={showRegisterPassword ? "Hide password" : "Show password"}
+                      >
+                        {showRegisterPassword ? <FaEyeSlash /> : <FaEye />}
+                      </button>
+                    </div>
                   </div>
                   <div className="settings-form-group">
                     <label>Confirm Password</label>
-                    <input
-                      type="password"
-                      value={registerFormData.confirmPassword}
-                      onChange={(e) => handleRegisterInputChange('confirmPassword', e.target.value)}
-                      required
-                      placeholder="Re-enter password"
-                    />
+                    <div className="password-input-container">
+                      <input
+                        type={showRegisterConfirmPassword ? "text" : "password"}
+                        value={registerFormData.confirmPassword}
+                        onChange={(e) => handleRegisterInputChange('confirmPassword', e.target.value)}
+                        required
+                        placeholder="Re-enter password"
+                      />
+                      <button
+                        type="button"
+                        className="password-toggle-btn"
+                        onClick={() => setShowRegisterConfirmPassword(!showRegisterConfirmPassword)}
+                        aria-label={showRegisterConfirmPassword ? "Hide password" : "Show password"}
+                      >
+                        {showRegisterConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                      </button>
+                    </div>
                   </div>
                 </div>
 

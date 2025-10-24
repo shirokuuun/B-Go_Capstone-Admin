@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import conductorService from '/src/pages/conductor/conductor.js';
 import './conductor.css';
 import { IoMdAdd } from "react-icons/io";
-import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaTrash, FaEdit, FaCheck } from 'react-icons/fa';
+import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaTrash, FaEdit, FaCheck, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '/src/firebase/firebase.js';
 import { doc, getDoc } from 'firebase/firestore';
@@ -470,6 +470,7 @@ const AddConductorModal = ({ onClose, onSuccess }) => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -586,16 +587,26 @@ const AddConductorModal = ({ onClose, onSuccess }) => {
 
             <div className="form-group">
               <label htmlFor="password">Password</label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="Enter password"
-                required
-                minLength="6"
-              />
+              <div className="conductor-password-input-container">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="Enter password"
+                  required
+                  minLength="6"
+                />
+                <button
+                  type="button"
+                  className="conductor-password-toggle-btn"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
+                </button>
+              </div>
             </div>
 
             <div className="form-actions">
