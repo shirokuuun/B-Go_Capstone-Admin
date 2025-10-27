@@ -8,7 +8,8 @@ import {
   query,
   where,
   orderBy,
-  getDoc
+  getDoc,
+  Timestamp
 } from 'firebase/firestore';
 import {
   ref,
@@ -46,10 +47,10 @@ export const BACKUP_COLLECTIONS = {
     collection: 'trip_sched',
     description: 'Bus route schedules and timing'
   },
-  CONDUCTOR_DATA: { 
-    name: 'Conductor Data (Complete)', 
+  CONDUCTOR_DATA: {
+    name: 'Conductor Data (Complete)',
     collection: 'conductors',
-    description: 'Complete conductor data including profiles, dailyTrips, preTickets, preBookings, and remittance'
+    description: 'Complete conductor data including profiles, dailyTrips, preTickets, preBookings, scannedQRCodes, and remittance with tickets'
   }
 };
 
@@ -112,7 +113,6 @@ class BackupService {
         await updateProgress(`Processing ${collectionKey} collection...`, collectionPercentage);
         const collectionInfo = BACKUP_COLLECTIONS[collectionKey.toUpperCase()];
         if (!collectionInfo) {
-          console.warn(`Unknown collection: ${collectionKey}`);
           continue;
         }
         
@@ -141,7 +141,6 @@ class BackupService {
             };
           }
         } catch (collectionError) {
-          console.error(`Error backing up collection ${collectionInfo.collection}:`, collectionError);
           backupData.data[collectionKey] = {
             collection: collectionInfo.collection,
             error: collectionError.message,
@@ -198,13 +197,6 @@ class BackupService {
       // Final progress update
       await updateProgress('Backup completed successfully!', finalProgress);
 
-      console.log('Backup completed successfully', {
-        backupId,
-        fileName,
-        downloadURL,
-        sizeKB: Math.round(blob.size / 1024)
-      });
-
       return {
         success: true,
         backupId,
@@ -216,8 +208,6 @@ class BackupService {
       };
 
     } catch (error) {
-      console.error('Backup creation failed:', error);
-      
       await logActivity(
         ACTIVITY_TYPES.SYSTEM_ERROR,
         `Backup creation failed: ${error.message}`,
@@ -256,6 +246,8 @@ class BackupService {
           subcollections: {
             dailyTrips: {},
             preTickets: {},
+            preBookings: {},
+            scannedQRCodes: {},
             remittance: {}
           }
         };
@@ -267,13 +259,21 @@ class BackupService {
           
           for (const dayDoc of dailyTripsSnapshot.docs) {
             const dateId = dayDoc.id;
+            const dayData = dayDoc.data();
             conductorData.subcollections.dailyTrips[dateId] = {
-              data: dayDoc.data(),
+              data: dayData,
               trips: {}
             };
 
-            // Backup individual trips (trip1, trip2, etc.)
-            const tripNames = ['trip1', 'trip2', 'trip3', 'trip4', 'trip5', 'trip6', 'trip7', 'trip8', 'trip9', 'trip10'];
+            // Dynamically discover trip names from the date document
+            const tripNames = [];
+            for (const [key, value] of Object.entries(dayData)) {
+              if (key.startsWith('trip') && typeof value === 'object' && value !== null) {
+                tripNames.push(key);
+              }
+            }
+
+            // Backup individual trips discovered from the document
             for (const tripName of tripNames) {
               try {
                 // Fetch all 3 subcollections in parallel for better performance
@@ -317,33 +317,76 @@ class BackupService {
             }
           }
         } catch (dailyTripsError) {
-          console.warn(`No dailyTrips for conductor ${conductorId}:`, dailyTripsError.message);
+          // No dailyTrips for this conductor
         }
 
-        // Backup preTickets subcollection
+        // Backup preTickets subcollection (flat)
         try {
           const preTicketsRef = collection(db, 'conductors', conductorId, 'preTickets');
           const preTicketsSnapshot = await getDocs(preTicketsRef);
-          
+
           preTicketsSnapshot.forEach(doc => {
             conductorData.subcollections.preTickets[doc.id] = doc.data();
             completeData.totalDocuments++;
           });
         } catch (preTicketsError) {
-          console.warn(`No preTickets for conductor ${conductorId}:`, preTicketsError.message);
+          // No preTickets for this conductor
         }
 
-        // Backup remittance subcollection
+        // Backup preBookings subcollection (flat)
+        try {
+          const preBookingsRef = collection(db, 'conductors', conductorId, 'preBookings');
+          const preBookingsSnapshot = await getDocs(preBookingsRef);
+
+          preBookingsSnapshot.forEach(doc => {
+            conductorData.subcollections.preBookings[doc.id] = doc.data();
+            completeData.totalDocuments++;
+          });
+        } catch (preBookingsError) {
+          // No preBookings for this conductor
+        }
+
+        // Backup scannedQRCodes subcollection (flat)
+        try {
+          const scannedQRCodesRef = collection(db, 'conductors', conductorId, 'scannedQRCodes');
+          const scannedQRCodesSnapshot = await getDocs(scannedQRCodesRef);
+
+          scannedQRCodesSnapshot.forEach(doc => {
+            conductorData.subcollections.scannedQRCodes[doc.id] = doc.data();
+            completeData.totalDocuments++;
+          });
+        } catch (scannedQRCodesError) {
+          // No scannedQRCodes for this conductor
+        }
+
+        // Backup remittance subcollection with nested tickets
         try {
           const remittanceRef = collection(db, 'conductors', conductorId, 'remittance');
           const remittanceSnapshot = await getDocs(remittanceRef);
-          
-          remittanceSnapshot.forEach(doc => {
-            conductorData.subcollections.remittance[doc.id] = doc.data();
+
+          for (const remittanceDoc of remittanceSnapshot.docs) {
+            const dateId = remittanceDoc.id;
+            conductorData.subcollections.remittance[dateId] = {
+              data: remittanceDoc.data(),
+              tickets: {}
+            };
             completeData.totalDocuments++;
-          });
+
+            // Backup tickets subcollection under this remittance date
+            try {
+              const ticketsRef = collection(db, 'conductors', conductorId, 'remittance', dateId, 'tickets');
+              const ticketsSnapshot = await getDocs(ticketsRef);
+
+              ticketsSnapshot.forEach(ticketDoc => {
+                conductorData.subcollections.remittance[dateId].tickets[ticketDoc.id] = ticketDoc.data();
+                completeData.totalDocuments++;
+              });
+            } catch (ticketsError) {
+              // No tickets for this remittance date
+            }
+          }
         } catch (remittanceError) {
-          console.warn(`No remittance for conductor ${conductorId}:`, remittanceError.message);
+          // No remittance for this conductor
         }
 
         completeData.conductors[conductorId] = conductorData;
@@ -358,7 +401,6 @@ class BackupService {
       };
 
     } catch (error) {
-      console.error('Error backing up complete conductor data:', error);
       throw error;
     }
   }
@@ -386,7 +428,6 @@ class BackupService {
 
       return { success: true, backups };
     } catch (error) {
-      console.error('Error listing backups:', error);
       return { success: false, error: error.message, backups: [] };
     }
   }
@@ -412,12 +453,8 @@ class BackupService {
         // Delete from Storage
         const storageRef = ref(storage, `${this.backupFolder}/${data.fileName}`);
         deletePromises.push(
-          deleteObject(storageRef).catch(err => {
-            if (err.code === 'storage/object-not-found') {
-              console.warn(`Storage file not found (already deleted?): ${data.fileName}`);
-            } else {
-              console.warn(`Failed to delete storage file ${data.fileName}:`, err);
-            }
+          deleteObject(storageRef).catch(() => {
+            // Ignore storage deletion errors
           })
         );
         
@@ -438,7 +475,6 @@ class BackupService {
       
       return { success: true, deletedCount };
     } catch (error) {
-      console.error('Error cleaning up expired backups:', error);
       return { success: false, error: error.message, deletedCount: 0 };
     }
   }
@@ -463,7 +499,6 @@ class BackupService {
 
       return { success: true, stats };
     } catch (error) {
-      console.error('Error getting backup statistics:', error);
       return { success: false, error: error.message };
     }
   }
@@ -508,12 +543,10 @@ class BackupService {
         return { success: true };
 
       } catch (storageError) {
-        console.error('Failed to download from Firebase Storage:', storageError);
         throw new Error('Cannot download backup file from storage. The file may have been deleted or is no longer accessible.');
       }
 
     } catch (error) {
-      console.error('Error downloading backup:', error);
       return { success: false, error: error.message };
     }
   }
@@ -541,10 +574,8 @@ class BackupService {
       try {
         await deleteObject(storageRef);
       } catch (storageError) {
-        // If file doesn't exist (404), that's okay - just log it
-        if (storageError.code === 'storage/object-not-found') {
-          console.warn(`Storage file not found (already deleted?): ${fileName}`);
-        } else {
+        // If file doesn't exist (404), that's okay - ignore it
+        if (storageError.code !== 'storage/object-not-found') {
           // Re-throw other storage errors
           throw storageError;
         }
@@ -561,7 +592,6 @@ class BackupService {
       
       return { success: true };
     } catch (error) {
-      console.error('Error deleting backup:', error);
       return { success: false, error: error.message };
     }
   }
@@ -622,7 +652,6 @@ class BackupService {
       progress.totalConductors = analysisResult.totalConductors;
       progress.totalSubcollections = analysisResult.totalSubcollections;
 
-
       // Start restoration process
       progress.phase = 'restoring';
       if (progressCallback) progressCallback(progress);
@@ -662,8 +691,6 @@ class BackupService {
       };
 
     } catch (error) {
-      console.error('Restore failed:', error);
-      
       await logActivity(
         ACTIVITY_TYPES.SYSTEM_ERROR,
         `Restore failed: ${error.message}`,
@@ -722,7 +749,6 @@ class BackupService {
           throw new Error('Please download the backup file manually and upload it using the file input below');
         }
       } catch (storageError) {
-        console.log('Firebase Storage access failed, falling back to manual upload');
         throw new Error('Cannot access backup file from Firebase Storage. Please upload the backup file manually.');
       }
 
@@ -783,25 +809,11 @@ class BackupService {
    * @param {Function} progressCallback - Progress callback
    */
   async restoreMissingOnly(backupData, progress, progressCallback) {
-    const { collection: firestoreCollection, doc, getDoc, setDoc } = await import('firebase/firestore');
-    
-    // Debug logging
-    console.log('BACKUP_COLLECTIONS available:', typeof BACKUP_COLLECTIONS, !!BACKUP_COLLECTIONS);
-    console.log('Backup data structure:', {
-      metadata: backupData.metadata,
-      data: backupData.data,
-      dataType: Array.isArray(backupData.data) ? 'array' : typeof backupData.data,
-      BACKUP_COLLECTIONS_keys: BACKUP_COLLECTIONS ? Object.keys(BACKUP_COLLECTIONS) : 'undefined'
-    });
-    
     // Process each collection in the backup
     for (const collectionKey of backupData.metadata.collections) {
-      console.log(`Processing collection: ${collectionKey}, looking for: ${collectionKey.toUpperCase()}`);
       const collectionInfo = BACKUP_COLLECTIONS[collectionKey.toUpperCase()];
-      console.log('Collection info found:', collectionInfo);
-      
+
       if (!collectionInfo || !backupData.data[collectionKey]) {
-        console.log(`Skipping collection ${collectionKey}: info=${!!collectionInfo}, data=${!!backupData.data[collectionKey]}`);
         continue;
       }
 
@@ -809,8 +821,14 @@ class BackupService {
       if (progressCallback) progressCallback(progress);
 
       const collectionData = backupData.data[collectionKey];
-      
-      // Handle different backup data formats
+
+      // Special handling for CONDUCTOR_DATA with deep subcollections
+      if (collectionKey.toUpperCase() === 'CONDUCTOR_DATA') {
+        await this.restoreMissingConductorData(collectionData, progress, progressCallback);
+        continue;
+      }
+
+      // Handle different backup data formats for simple collections
       let documentsToProcess = [];
       if (collectionData.documents && Array.isArray(collectionData.documents)) {
         // Standard backup format
@@ -819,43 +837,346 @@ class BackupService {
         // Direct object format
         documentsToProcess = Object.entries(collectionData).map(([id, data]) => ({ id, data }));
       }
-      
+
       // Process each document in this collection
       for (const docItem of documentsToProcess) {
         const docId = docItem.id;
         const docData = docItem.data;
-        
+
         try {
           // Check if document exists in Firestore
           const docRef = doc(db, collectionInfo.collection, docId);
           const docSnap = await getDoc(docRef);
-          
+
           if (!docSnap.exists()) {
             // Document is missing, restore it
-            await setDoc(docRef, docData);
+            const convertedDocData = this.convertTimestamps(docData);
+            await setDoc(docRef, convertedDocData);
             progress.processedDocuments++;
-            
+
             progress.currentConductor = `Restored document: ${docId}`;
             if (progressCallback) progressCallback(progress);
-            
+
             // Add delay to make progress visible
             await new Promise(resolve => setTimeout(resolve, 500));
-            
-            console.log(`Restored missing document: ${docId} to collection: ${collectionInfo.collection}`);
           } else {
-            console.log(`Document ${docId} already exists, skipping`);
             progress.processedDocuments++;
-            
+
             progress.currentConductor = `Skipped existing document: ${docId}`;
             if (progressCallback) progressCallback(progress);
-            
+
             // Add small delay even for skipped documents to show progress
             await new Promise(resolve => setTimeout(resolve, 100));
           }
         } catch (error) {
-          console.error(`Failed to restore document ${docId}:`, error);
           progress.errors.push(`Failed to restore document ${docId}: ${error.message}`);
         }
+      }
+    }
+  }
+
+  /**
+   * Convert timestamp objects to Firebase Timestamp instances
+   * @param {*} data - Data to convert
+   * @returns {*} Data with converted timestamps
+   */
+  convertTimestamps(data) {
+    if (!data || typeof data !== 'object') return data;
+
+    // Check if this is a timestamp object
+    if (data.seconds !== undefined && data.nanoseconds !== undefined) {
+      return new Timestamp(data.seconds, data.nanoseconds);
+    }
+
+    // Recursively process nested objects
+    if (Array.isArray(data)) {
+      return data.map(item => this.convertTimestamps(item));
+    }
+
+    const converted = {};
+    for (const [key, value] of Object.entries(data)) {
+      converted[key] = this.convertTimestamps(value);
+    }
+    return converted;
+  }
+
+  /**
+   * Deep restore for conductor data with nested subcollections
+   * @param {Object} conductorBackupData - The conductor backup data
+   * @param {Object} progress - Progress object
+   * @param {Function} progressCallback - Progress callback
+   */
+  async restoreMissingConductorData(conductorBackupData, progress, progressCallback) {
+    // Extract conductors from backup data structure
+    const conductors = conductorBackupData.documents || conductorBackupData;
+
+    for (const [conductorId, conductorData] of Object.entries(conductors)) {
+      progress.currentConductor = `Processing conductor: ${conductorId}`;
+      if (progressCallback) progressCallback(progress);
+
+      try {
+        // Step 1: Check and restore conductor profile
+        const conductorRef = doc(db, 'conductors', conductorId);
+        const conductorSnap = await getDoc(conductorRef);
+
+        if (!conductorSnap.exists() && conductorData.profile) {
+          const convertedProfile = this.convertTimestamps(conductorData.profile);
+          await setDoc(conductorRef, convertedProfile);
+          progress.processedDocuments++;
+        }
+
+        // Step 2: Restore dailyTrips subcollection
+        if (conductorData.subcollections?.dailyTrips) {
+          await this.restoreMissingDailyTrips(conductorId, conductorData.subcollections.dailyTrips, progress, progressCallback);
+        }
+
+        // Step 3: Restore preTickets subcollection (flat structure)
+        if (conductorData.subcollections?.preTickets) {
+          await this.restoreMissingFlatSubcollection(
+            conductorId,
+            'preTickets',
+            conductorData.subcollections.preTickets,
+            progress,
+            progressCallback
+          );
+        }
+
+        // Step 4: Restore preBookings subcollection (flat structure)
+        if (conductorData.subcollections?.preBookings) {
+          await this.restoreMissingFlatSubcollection(
+            conductorId,
+            'preBookings',
+            conductorData.subcollections.preBookings,
+            progress,
+            progressCallback
+          );
+        }
+
+        // Step 5: Restore scannedQRCodes subcollection (flat structure)
+        if (conductorData.subcollections?.scannedQRCodes) {
+          await this.restoreMissingFlatSubcollection(
+            conductorId,
+            'scannedQRCodes',
+            conductorData.subcollections.scannedQRCodes,
+            progress,
+            progressCallback
+          );
+        }
+
+        // Step 6: Restore remittance subcollection (with nested tickets)
+        if (conductorData.subcollections?.remittance) {
+          await this.restoreMissingFlatSubcollection(
+            conductorId,
+            'remittance',
+            conductorData.subcollections.remittance,
+            progress,
+            progressCallback
+          );
+        }
+
+      } catch (error) {
+        progress.errors.push(`Failed to restore conductor ${conductorId}: ${error.message}`);
+      }
+    }
+  }
+
+  /**
+   * Restore missing dailyTrips with nested trip structure
+   * @param {string} conductorId - Conductor ID
+   * @param {Object} dailyTripsData - Daily trips backup data
+   * @param {Object} progress - Progress object
+   * @param {Function} progressCallback - Progress callback
+   */
+  async restoreMissingDailyTrips(conductorId, dailyTripsData, progress, progressCallback) {
+    for (const [dateId, dateData] of Object.entries(dailyTripsData)) {
+      progress.currentConductor = `Checking date: ${dateId} for conductor ${conductorId}`;
+      if (progressCallback) progressCallback(progress);
+
+      try {
+        // Check if date document exists
+        const dateDocRef = doc(db, 'conductors', conductorId, 'dailyTrips', dateId);
+        const dateDocSnap = await getDoc(dateDocRef);
+
+        if (!dateDocSnap.exists() && dateData.data) {
+          // Date document is missing, restore it with all trip maps
+          const convertedDateData = this.convertTimestamps(dateData.data);
+          await setDoc(dateDocRef, convertedDateData);
+          progress.processedDocuments++;
+        }
+
+        // Restore nested trip tickets/preBookings/preTickets
+        if (dateData.trips) {
+          for (const [tripName, tripData] of Object.entries(dateData.trips)) {
+            progress.currentConductor = `Restoring ${tripName} on ${dateId}`;
+            if (progressCallback) progressCallback(progress);
+
+            // Restore tickets subcollection
+            if (tripData.tickets) {
+              await this.restoreMissingTripDocuments(
+                conductorId,
+                dateId,
+                tripName,
+                'tickets',
+                'tickets',
+                tripData.tickets,
+                progress
+              );
+            }
+
+            // Restore preBookings subcollection
+            if (tripData.preBookings) {
+              await this.restoreMissingTripDocuments(
+                conductorId,
+                dateId,
+                tripName,
+                'preBookings',
+                'preBookings',
+                tripData.preBookings,
+                progress
+              );
+            }
+
+            // Restore preTickets subcollection
+            if (tripData.preTickets) {
+              await this.restoreMissingTripDocuments(
+                conductorId,
+                dateId,
+                tripName,
+                'preTickets',
+                'preTickets',
+                tripData.preTickets,
+                progress
+              );
+            }
+          }
+        }
+
+      } catch (error) {
+        progress.errors.push(`Failed to restore date ${dateId}: ${error.message}`);
+      }
+    }
+  }
+
+  /**
+   * Restore missing trip documents (tickets/preBookings/preTickets)
+   * @param {string} conductorId - Conductor ID
+   * @param {string} dateId - Date ID
+   * @param {string} tripName - Trip name (e.g., trip1)
+   * @param {string} collectionName - Collection name
+   * @param {string} subcollectionName - Subcollection name
+   * @param {Array} documents - Documents to restore
+   * @param {Object} progress - Progress object
+   */
+  async restoreMissingTripDocuments(conductorId, dateId, tripName, collectionName, subcollectionName, documents, progress) {
+    for (const docItem of documents) {
+      try {
+        const docId = docItem.id;
+        const docData = docItem.data;
+
+        // Path: /conductors/{conductorId}/dailyTrips/{dateId}/{tripName}/{collectionName}/{subcollectionName}/{docId}
+        const docRef = doc(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, collectionName, subcollectionName, docId);
+
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists()) {
+          const convertedDocData = this.convertTimestamps(docData);
+          await setDoc(docRef, convertedDocData);
+          progress.processedDocuments++;
+        }
+
+        // Small delay to avoid overwhelming Firestore
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+      } catch (error) {
+        progress.errors.push(`Failed to restore ${collectionName}/${docItem.id}: ${error.message}`);
+      }
+    }
+  }
+
+  /**
+   * Restore missing documents in flat subcollection (preTickets) or nested subcollection (remittance)
+   * @param {string} conductorId - Conductor ID
+   * @param {string} subcollectionName - Subcollection name
+   * @param {Object} subcollectionData - Subcollection backup data
+   * @param {Object} progress - Progress object
+   * @param {Function} progressCallback - Progress callback
+   */
+  async restoreMissingFlatSubcollection(conductorId, subcollectionName, subcollectionData, progress, progressCallback) {
+    // Special handling for remittance with nested tickets structure
+    if (subcollectionName === 'remittance') {
+      await this.restoreMissingRemittanceData(conductorId, subcollectionData, progress, progressCallback);
+      return;
+    }
+
+    // Handle flat subcollections (like preTickets)
+    for (const [docId, docData] of Object.entries(subcollectionData)) {
+      try {
+        const docRef = doc(db, 'conductors', conductorId, subcollectionName, docId);
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists()) {
+          const convertedDocData = this.convertTimestamps(docData);
+          await setDoc(docRef, convertedDocData);
+          progress.processedDocuments++;
+        }
+
+        // Small delay
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+      } catch (error) {
+        progress.errors.push(`Failed to restore ${subcollectionName}/${docId}: ${error.message}`);
+      }
+    }
+  }
+
+  /**
+   * Restore missing remittance data with nested tickets subcollection
+   * @param {string} conductorId - Conductor ID
+   * @param {Object} remittanceData - Remittance backup data
+   * @param {Object} progress - Progress object
+   * @param {Function} progressCallback - Progress callback
+   */
+  async restoreMissingRemittanceData(conductorId, remittanceData, progress, progressCallback) {
+    for (const [dateId, dateInfo] of Object.entries(remittanceData)) {
+      progress.currentConductor = `Restoring remittance ${dateId} for conductor ${conductorId}`;
+      if (progressCallback) progressCallback(progress);
+
+      try {
+        // Check if remittance date document exists
+        const remittanceDateRef = doc(db, 'conductors', conductorId, 'remittance', dateId);
+        const remittanceDateSnap = await getDoc(remittanceDateRef);
+
+        // Restore remittance date document if missing
+        if (!remittanceDateSnap.exists() && dateInfo.data) {
+          const convertedData = this.convertTimestamps(dateInfo.data);
+          await setDoc(remittanceDateRef, convertedData);
+          progress.processedDocuments++;
+        }
+
+        // Restore tickets subcollection if it exists in backup
+        if (dateInfo.tickets && typeof dateInfo.tickets === 'object') {
+          for (const [ticketId, ticketData] of Object.entries(dateInfo.tickets)) {
+            try {
+              const ticketRef = doc(db, 'conductors', conductorId, 'remittance', dateId, 'tickets', ticketId);
+              const ticketSnap = await getDoc(ticketRef);
+
+              if (!ticketSnap.exists()) {
+                const convertedTicketData = this.convertTimestamps(ticketData);
+                await setDoc(ticketRef, convertedTicketData);
+                progress.processedDocuments++;
+              }
+
+              // Small delay
+              await new Promise(resolve => setTimeout(resolve, 50));
+
+            } catch (ticketError) {
+              progress.errors.push(`Failed to restore remittance ticket ${dateId}/${ticketId}: ${ticketError.message}`);
+            }
+          }
+        }
+
+      } catch (error) {
+        progress.errors.push(`Failed to restore remittance date ${dateId}: ${error.message}`);
       }
     }
   }
@@ -898,18 +1219,16 @@ class BackupService {
         try {
           // Overwrite document (creates if doesn't exist, replaces if exists)
           const docRef = doc(db, collectionInfo.collection, docId);
-          await setDoc(docRef, docData);
-          
+          const convertedDocData = this.convertTimestamps(docData);
+          await setDoc(docRef, convertedDocData);
+
           progress.processedDocuments++;
           progress.currentConductor = `Overwritten document: ${docId}`;
           if (progressCallback) progressCallback(progress);
-          
+
           // Add delay to make progress visible
           await new Promise(resolve => setTimeout(resolve, 300));
-          
-          console.log(`Overwritten document: ${docId} in collection: ${collectionInfo.collection}`);
         } catch (error) {
-          console.error(`Failed to overwrite document ${docId}:`, error);
           progress.errors.push(`Failed to overwrite document ${docId}: ${error.message}`);
         }
       }

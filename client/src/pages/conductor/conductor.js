@@ -108,10 +108,17 @@ class ConductorService {
         }
       }
 
+      // Extract activeTrip direction if available
+      let activeTripDirection = 'N/A';
+      if (conductorData.activeTrip && typeof conductorData.activeTrip === 'object') {
+        activeTripDirection = conductorData.activeTrip.direction || 'N/A';
+      }
+
       conductors.push({
         id: doc.id,
         ...conductorData,
-        tripsCount: tripsCount
+        tripsCount: tripsCount,
+        activeTripDirection: activeTripDirection
       });
     }
 
@@ -209,10 +216,17 @@ class ConductorService {
 
     const tripsCount = await this.getConductorTripsCount(doc.id);
 
+    // Extract activeTrip direction if available
+    let activeTripDirection = 'N/A';
+    if (conductorData.activeTrip && typeof conductorData.activeTrip === 'object') {
+      activeTripDirection = conductorData.activeTrip.direction || 'N/A';
+    }
+
     const newConductor = {
       id: doc.id,
       ...conductorData,
-      tripsCount: tripsCount
+      tripsCount: tripsCount,
+      activeTripDirection: activeTripDirection
     };
 
     this.conductorsCache.push(newConductor);
@@ -240,10 +254,17 @@ class ConductorService {
         tripsCount = await this.getConductorTripsCount(doc.id);
       }
 
+      // Extract activeTrip direction if available
+      let activeTripDirection = 'N/A';
+      if (conductorData.activeTrip && typeof conductorData.activeTrip === 'object') {
+        activeTripDirection = conductorData.activeTrip.direction || 'N/A';
+      }
+
       this.conductorsCache[index] = {
         id: doc.id,
         ...conductorData,
-        tripsCount: tripsCount
+        tripsCount: tripsCount,
+        activeTripDirection: activeTripDirection
       };
     } else {
       // Conductor not in cache, add it
@@ -957,9 +978,16 @@ class ConductorService {
             console.warn('Could not fetch reservation details:', reservationError);
           }
 
+          // Extract activeTrip direction if available
+          let activeTripDirection = 'N/A';
+          if (conductorData.activeTrip && typeof conductorData.activeTrip === 'object') {
+            activeTripDirection = conductorData.activeTrip.direction || 'N/A';
+          }
+
           callback({
             id: snapshot.id,
             ...conductorData,
+            activeTripDirection: activeTripDirection,
             reservationDetails: enrichedReservationDetails,
             trips: allTrips,
             totalTrips: totalTrips,

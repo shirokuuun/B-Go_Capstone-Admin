@@ -2092,7 +2092,9 @@ const formatLogDescription = (description) => {
                           <strong>Missing Only (Recommended)</strong>
                         </div>
                         <div className="restore-mode-description">
-                          Only restore documents that don't exist. Keeps your existing data safe.
+                          <p>✓ Restores only missing <strong>documents</strong> (e.g., deleted dates, tickets, conductors)</p>
+                          <p>✓ Keeps all existing data untouched - safest option</p>
+                          <p className="note-text">⚠ Note: Does NOT restore individual missing fields inside existing documents</p>
                         </div>
                       </div>
                     </label>
@@ -2111,11 +2113,46 @@ const formatLogDescription = (description) => {
                           <strong>Overwrite All</strong>
                         </div>
                         <div className="restore-mode-description">
-                          Replace all existing data with backup data. <span className="restore-warning">Use with caution!</span>
+                          <p>✓ Replaces ALL documents with backup versions</p>
+                          <p>✓ Can restore missing fields inside documents</p>
+                          <p className="warning-text">⚠ WARNING: Overwrites current data - any changes after backup will be LOST!</p>
                         </div>
                       </div>
                     </label>
 
+                  </div>
+                </div>
+
+                <div className="restore-info-section">
+                  <div className="flex-container">
+                    <div className="icon-wrapper">
+                      <FaMagnifyingGlass size={20} />
+                    </div>
+                    <div className="flex-content">
+                      <h4>Understanding Documents vs Fields</h4>
+                      <div>
+                        <p>
+                          <strong>Document:</strong> A complete record (e.g., a date like "2025-10-16", a ticket, a conductor profile)
+                        </p>
+                        <p>
+                          <strong>Field:</strong> A piece of data inside a document (e.g., "currentTrip", "ticketCount", "totalFare")
+                        </p>
+                        <div className="restore-info-examples-box">
+                          <p>Examples:</p>
+                          <ul>
+                            <li>
+                              Delete entire date "2025-10-16" → <strong className="text-success">Missing Only restores it</strong>
+                            </li>
+                            <li>
+                              Delete field "currentTrip" inside "2025-10-16" → <strong className="text-danger">Missing Only skips it</strong>, use Overwrite
+                            </li>
+                            <li>
+                              Delete entire ticket → <strong className="text-success">Missing Only restores it</strong>
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

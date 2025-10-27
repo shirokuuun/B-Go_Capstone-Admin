@@ -2936,6 +2936,99 @@
   line-height: 1.4;
 }
 
+.restore-mode-description p {
+  margin: 0 0 8px 0;
+}
+
+.restore-mode-description p:last-child {
+  margin-bottom: 0;
+}
+
+.restore-mode-description .note-text {
+  color: #666;
+  font-size: 13px;
+}
+
+.restore-mode-description .warning-text {
+  color: #d32f2f;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Restore Info Section */
+.restore-info-section {
+  background: #e3f2fd;
+  border: 1px solid #2196f3;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+.restore-info-section h4 {
+  margin: 0 0 12px 0;
+  color: #1565c0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.restore-info-section p {
+  font-size: 13px;
+  color: #424242;
+  line-height: 1.6;
+  margin: 0 0 8px 0;
+}
+
+.restore-info-section ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.restore-info-section li {
+  margin-bottom: 6px;
+}
+
+.restore-info-section li:last-child {
+  margin-bottom: 0;
+}
+
+.restore-info-examples-box {
+  background: white;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #90caf9;
+}
+
+.restore-info-examples-box p {
+  margin: 0 0 8px 0;
+  font-weight: 600;
+  color: #1565c0;
+}
+
+.restore-info-section .flex-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.restore-info-section .flex-content {
+  flex: 1;
+}
+
+.restore-info-section .icon-wrapper {
+  color: #1976d2;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.restore-info-section .text-success {
+  color: #2e7d32;
+}
+
+.restore-info-section .text-danger {
+  color: #d32f2f;
+}
+
 .restore-warning {
   color: #dc2626;
   font-weight: 500;
@@ -3188,7 +3281,7 @@
 .restore-progress-header h2 {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #111827;
+  color: #007c91;
   margin: 0;
 }
 
@@ -3330,7 +3423,7 @@
 }
 
 .restore-close-btn {
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, #007c91, #005f73);
   color: white;
   border: none;
   padding: 10px 20px;
@@ -3341,9 +3434,9 @@
 }
 
 .restore-close-btn:hover {
-  background: linear-gradient(135deg, #059669, #047857);
+  background: linear-gradient(135deg, #005f73, #004d5c);
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 4px 8px rgba(0, 124, 145, 0.3);
 }
 
 .restore-export-errors-btn {

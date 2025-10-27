@@ -333,6 +333,10 @@ const Conductor = () => {
                     <span className="detail-value">{conductor.route || 'N/A'}</span>
                   </div>
                   <div className="detail-row">
+                    <span className="detail-label">Active Trip:</span>
+                    <span className="detail-value">{conductor.activeTripDirection || 'N/A'}</span>
+                  </div>
+                  <div className="detail-row">
                     <span className="detail-label">Bus:</span>
                     <span className="detail-value">#{conductorService.extractBusNumber(conductor.name)}</span>
                   </div>
@@ -868,6 +872,10 @@ const ConductorDetails = ({ conductor }) => {
           <h3>Location Information</h3>
           {conductor.currentLocation ? (
             <>
+              <div className="detail-item">
+                <span className="label">Active Trip:</span>
+                <span className="value">{conductor.activeTripDirection || 'N/A'}</span>
+              </div>
               <div className="detail-item">
                 <span className="label">Latitude:</span>
                 <span className="value">{conductor.currentLocation.latitude?.toFixed(6) || 'N/A'}</span>
