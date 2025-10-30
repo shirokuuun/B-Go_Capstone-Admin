@@ -473,6 +473,11 @@ class ConductorService {
       for (const preTicketDoc of preTicketsSnapshot.docs) {
         const preTicketData = preTicketDoc.data();
 
+        // Only include pre-tickets that have been scanned/boarded
+        if (!preTicketData.scannedAt) {
+          continue;
+        }
+
         // Parse qrData if it's a string
         let parsedQrData = null;
         if (preTicketData.qrData) {
@@ -554,8 +559,13 @@ class ConductorService {
                 });
               });
 
-              // Add each prebooking as a trip object 
+              // Add each prebooking as a trip object
               preBookingsSnapshot.docs.forEach(preBookingDoc => {
+                const preBookingData = preBookingDoc.data();
+                // Only include pre-bookings that have been scanned/boarded
+                if (!preBookingData.scannedAt) {
+                  return;
+                }
                 trips.push({
                   conductorId: conductorId,
                   tripId: tripName,
@@ -807,7 +817,12 @@ class ConductorService {
             });
           });
 
-          preBookingsSnapshot.docs.forEach(() => {
+          preBookingsSnapshot.docs.forEach((preBookingDoc) => {
+            const preBookingData = preBookingDoc.data();
+            // Only include pre-bookings that have been scanned/boarded
+            if (!preBookingData.scannedAt) {
+              return;
+            }
             allTrips.push({
               conductorId: conductorId,
               tripId: tripName,

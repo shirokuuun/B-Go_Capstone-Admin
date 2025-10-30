@@ -722,10 +722,11 @@ const Ticketing = () => {
                     </p>
                     <p className="ticketing-ticket-meta">Direction: {ticket.direction}</p>
                     <p className="ticketing-ticket-meta">Distance: {ticket.fromKm} km → {ticket.toKm} km</p>
-                    <p className="ticketing-ticket-meta">
-                      Date: {ticket.date} at {formatTime(ticket.time)}
-                    </p>
-                    {ticket.scannedAt && getEffectiveTicketType(ticket) === 'preBooking' && (
+                    {getEffectiveTicketType(ticket) === 'conductor' ? (
+                      <p className="ticketing-ticket-meta">
+                        Date: {ticket.date} at {formatTime(ticket.time)}
+                      </p>
+                    ) : (
                       <p className="ticketing-ticket-meta">
                         <strong>Scanned at:</strong> {formatScannedAt(ticket.scannedAt)}
                       </p>

@@ -802,19 +802,24 @@ class RevenueDataCacheService {
               }
             }
 
+            // Only include pre-bookings that have been scanned/boarded
+            if (!ticketData.scannedAt) {
+              continue;
+            }
+
             // Process valid pre-bookings (all docs in preBookings collection should be preBookings)
             if (ticketData.totalFare && ticketData.quantity) {
               const preBooking = {
                 id: ticketId,
                 conductorId: conductorId,
-                tripId: tripName, 
+                tripId: tripName,
                 currentTrip: currentTripNumber,
                 tripDirection: tripDirection || ticketData.direction,
                 totalFare: parseFloat(ticketData.totalFare),
                 quantity: ticketData.quantity,
                 from: ticketData.from,
                 to: ticketData.to,
-                timestamp: ticketData.timestamp,
+                timestamp: ticketData.scannedAt,
                 discountAmount: parseFloat(ticketData.discountAmount || 0),
                 date: dateId,
                 startKm: ticketData.startKm || 0,
@@ -918,6 +923,11 @@ async processPreTicketsForDate(conductorId, dateId, allPreTickets, filterDate = 
               }
             }
 
+            // Only include pre-tickets that have been scanned/boarded
+            if (!ticketData.scannedAt) {
+              continue;
+            }
+
             //  Use parsedQrData as the primary data source, with fallbacks
             const sourceData = parsedQrData || ticketData;
 
@@ -1006,7 +1016,7 @@ async processPreTicketsForDate(conductorId, dateId, allPreTickets, filterDate = 
                 quantity: sourceData.quantity || ticketData.quantity || 1,
                 from: sourceData.from || ticketData.from,
                 to: sourceData.to || ticketData.to,
-                timestamp: ticketData.timestamp || ticketData.scannedAt,
+                timestamp: ticketData.scannedAt,
                 discountAmount: parseFloat(ticketData.discountAmount || totalDiscountAmount || 0),
                 date: dateId,
                 startKm: sourceData.fromKm || ticketData.startKm || ticketData.fromKm || 0,

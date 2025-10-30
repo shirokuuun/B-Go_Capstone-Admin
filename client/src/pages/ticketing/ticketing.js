@@ -363,6 +363,11 @@ class TicketingDataCacheService {
         const preBookingData = preBookingDoc.data();
         const preBookingId = preBookingDoc.id;
 
+        // Only include pre-bookings that have been scanned/boarded
+        if (!preBookingData.scannedAt) {
+          return;
+        }
+
         preBookingTickets.push({
           id: preBookingId,
           conductorId: conductorId,
@@ -376,14 +381,14 @@ class TicketingDataCacheService {
           toKm: preBookingData.toKm || 0,
           route: `${preBookingData.from} → ${preBookingData.to}`,
           direction: tripDirection || `${preBookingData.from} → ${preBookingData.to}`,
-          timestamp: preBookingData.timestamp,
+          timestamp: preBookingData.scannedAt,
           discountBreakdown: preBookingData.discountBreakdown || [],
           status: preBookingData.active ? 'active' : 'inactive',
           ticketType: 'preBooking',
           documentType: 'preBooking',
-          scannedAt: preBookingData.timestamp,
-          time: preBookingData.timestamp ? new Date(preBookingData.timestamp.seconds * 1000).toLocaleTimeString() : '',
-          dateFormatted: preBookingData.timestamp ? new Date(preBookingData.timestamp.seconds * 1000).toLocaleDateString() : dateId,
+          scannedAt: preBookingData.scannedAt,
+          time: preBookingData.scannedAt ? new Date(preBookingData.scannedAt.seconds * 1000).toLocaleTimeString() : '',
+          dateFormatted: preBookingData.scannedAt ? new Date(preBookingData.scannedAt.seconds * 1000).toLocaleDateString() : dateId,
           busNumber: preBookingData.busNumber,
           conductorName: preBookingData.conductorName,
           paymentMethod: preBookingData.paymentMethod,
@@ -422,6 +427,11 @@ class TicketingDataCacheService {
         const preTicketData = preTicketDoc.data();
         const preTicketId = preTicketDoc.id;
 
+        // Only include pre-tickets that have been scanned/boarded
+        if (!preTicketData.scannedAt) {
+          return;
+        }
+
         // Parse qrData if it's a string
         let parsedQrData = null;
         if (preTicketData.qrData) {
@@ -452,15 +462,15 @@ class TicketingDataCacheService {
           toKm: sourceData.toKm || preTicketData.endKm || preTicketData.toKm || 0,
           route: `${sourceData.from || preTicketData.from || ''} → ${sourceData.to || preTicketData.to || ''}`,
           direction: tripDirection || sourceData.direction || preTicketData.direction || '',
-          timestamp: preTicketData.timestamp || preTicketData.scannedAt,
+          timestamp: preTicketData.scannedAt,
           discountBreakdown: sourceData.discountBreakdown || preTicketData.discountBreakdown || [],
           status: preTicketData.active !== undefined ? (preTicketData.active ? 'active' : 'inactive') : 'active',
           ticketType: 'preTicket',
           documentType: 'preTicket',
           scannedAt: preTicketData.scannedAt,
           scannedBy: preTicketData.scannedBy,
-          time: preTicketData.timestamp ? new Date(preTicketData.timestamp.seconds * 1000).toLocaleTimeString() : '',
-          dateFormatted: preTicketData.timestamp ? new Date(preTicketData.timestamp.seconds * 1000).toLocaleDateString() : dateId,
+          time: preTicketData.scannedAt ? new Date(preTicketData.scannedAt.seconds * 1000).toLocaleTimeString() : '',
+          dateFormatted: preTicketData.scannedAt ? new Date(preTicketData.scannedAt.seconds * 1000).toLocaleDateString() : dateId,
           qrData: preTicketData.qrData,
           qrDataParsed: parsedQrData,
           fareTypes: sourceData.fareTypes || preTicketData.fareTypes,
@@ -721,6 +731,11 @@ const fetchPreBookingTickets = async (conductorId, dateId, tripName) => {
       const preBookingData = preBookingDoc.data();
       const preBookingId = preBookingDoc.id;
 
+      // Only include pre-bookings that have been scanned/boarded
+      if (!preBookingData.scannedAt) {
+        continue;
+      }
+
       // Get trip direction for this trip
       const tripDirection = await getTripDirection(conductorId, dateId, tripName);
 
@@ -737,14 +752,14 @@ const fetchPreBookingTickets = async (conductorId, dateId, tripName) => {
         toKm: preBookingData.toKm || 0,
         route: `${preBookingData.from} → ${preBookingData.to}`,
         direction: tripDirection || `${preBookingData.from} → ${preBookingData.to}`,
-        timestamp: preBookingData.timestamp,
+        timestamp: preBookingData.scannedAt,
         discountBreakdown: preBookingData.discountBreakdown || [],
         status: preBookingData.active ? 'active' : 'inactive',
         ticketType: 'preBooking',
         documentType: 'preBooking',
-        scannedAt: preBookingData.timestamp,
-        time: preBookingData.timestamp ? new Date(preBookingData.timestamp.seconds * 1000).toLocaleTimeString() : '',
-        dateFormatted: preBookingData.timestamp ? new Date(preBookingData.timestamp.seconds * 1000).toLocaleDateString() : dateId,
+        scannedAt: preBookingData.scannedAt,
+        time: preBookingData.scannedAt ? new Date(preBookingData.scannedAt.seconds * 1000).toLocaleTimeString() : '',
+        dateFormatted: preBookingData.scannedAt ? new Date(preBookingData.scannedAt.seconds * 1000).toLocaleDateString() : dateId,
         // Additional prebooking specific fields
         busNumber: preBookingData.busNumber,
         conductorName: preBookingData.conductorName,
@@ -780,6 +795,11 @@ const fetchPreTickets = async (conductorId, dateId, tripName) => {
       const preTicketData = preTicketDoc.data();
       const preTicketId = preTicketDoc.id;
 
+      // Only include pre-tickets that have been scanned/boarded
+      if (!preTicketData.scannedAt) {
+        continue;
+      }
+
       // Parse qrData if it's a string
       let parsedQrData = null;
       if (preTicketData.qrData) {
@@ -813,15 +833,15 @@ const fetchPreTickets = async (conductorId, dateId, tripName) => {
         toKm: sourceData.toKm || preTicketData.endKm || preTicketData.toKm || 0,
         route: `${sourceData.from || preTicketData.from || ''} → ${sourceData.to || preTicketData.to || ''}`,
         direction: tripDirection || sourceData.direction || preTicketData.direction || '',
-        timestamp: preTicketData.timestamp || preTicketData.scannedAt,
+        timestamp: preTicketData.scannedAt,
         discountBreakdown: sourceData.discountBreakdown || preTicketData.discountBreakdown || [],
         status: preTicketData.active !== undefined ? (preTicketData.active ? 'active' : 'inactive') : 'active',
         ticketType: 'preTicket',
         documentType: 'preTicket',
         scannedAt: preTicketData.scannedAt,
         scannedBy: preTicketData.scannedBy,
-        time: preTicketData.timestamp ? new Date(preTicketData.timestamp.seconds * 1000).toLocaleTimeString() : '',
-        dateFormatted: preTicketData.timestamp ? new Date(preTicketData.timestamp.seconds * 1000).toLocaleDateString() : dateId,
+        time: preTicketData.scannedAt ? new Date(preTicketData.scannedAt.seconds * 1000).toLocaleTimeString() : '',
+        dateFormatted: preTicketData.scannedAt ? new Date(preTicketData.scannedAt.seconds * 1000).toLocaleDateString() : dateId,
         qrData: preTicketData.qrData,
         qrDataParsed: parsedQrData,
         fareTypes: sourceData.fareTypes || preTicketData.fareTypes,

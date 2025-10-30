@@ -79,6 +79,11 @@ class DashboardService {
       for (const preBookingDoc of preBookingsSnapshot.docs) {
         const preBookingData = preBookingDoc.data();
 
+        // Only include pre-bookings that have been scanned/boarded
+        if (!preBookingData.scannedAt) {
+          continue;
+        }
+
         preBookingTickets.push({
           id: preBookingDoc.id,
           totalFare: preBookingData.totalFare || 0,
@@ -108,7 +113,12 @@ class DashboardService {
       for (const preTicketDoc of preTicketsSnapshot.docs) {
         const preTicketData = preTicketDoc.data();
 
-        // Parse qrData if it's a string 
+        // Only include pre-tickets that have been scanned/boarded
+        if (!preTicketData.scannedAt) {
+          continue;
+        }
+
+        // Parse qrData if it's a string
         let parsedQrData = null;
         if (preTicketData.qrData) {
           try {

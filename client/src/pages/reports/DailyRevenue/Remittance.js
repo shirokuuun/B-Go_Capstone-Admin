@@ -311,6 +311,11 @@ async getPreBookingDetailsFromNewPath(conductorId, date, tripNumber) {
       const preBookingData = preBookingDoc.data();
       const preBookingId = preBookingDoc.id;
 
+      // Only include pre-bookings that have been scanned/boarded
+      if (!preBookingData.scannedAt) {
+        continue;
+      }
+
       if (preBookingData.totalFare && preBookingData.quantity) {
         const fare = parseFloat(preBookingData.totalFare);
         const passengers = parseInt(preBookingData.quantity);
@@ -324,7 +329,7 @@ async getPreBookingDetailsFromNewPath(conductorId, date, tripNumber) {
           to: preBookingData.to || 'N/A',
           fare: fare,
           passengers: passengers,
-          timestamp: preBookingData.timestamp,
+          timestamp: preBookingData.scannedAt,
           documentType: 'preBooking',
           ticketType: preBookingData.ticketType || 'preBooking',
           discountAmount: preBookingData.discountAmount || 0,
@@ -377,6 +382,11 @@ async getPreTicketDetailsFromNewPath(conductorId, date, tripNumber) {
     for (const preTicketDoc of preTicketsSnapshot.docs) {
       const preTicketData = preTicketDoc.data();
       const preTicketId = preTicketDoc.id;
+
+      // Only include pre-tickets that have been scanned/boarded
+      if (!preTicketData.scannedAt) {
+        continue;
+      }
 
       // Parse qrData if it's a string
       let parsedQrData = null;
@@ -459,7 +469,7 @@ async getPreTicketDetailsFromNewPath(conductorId, date, tripNumber) {
           to: sourceData.to || preTicketData.to || 'N/A',
           fare: fare,
           passengers: passengers,
-          timestamp: preTicketData.timestamp || preTicketData.scannedAt,
+          timestamp: preTicketData.scannedAt,
           documentType: 'preTicket',
           ticketType: sourceData.ticketType || preTicketData.ticketType || 'preTicket',
           discountAmount: preTicketData.discountAmount || discountBreakdown.reduce((sum, item) => sum + (item.discount || 0), 0),
