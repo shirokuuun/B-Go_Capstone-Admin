@@ -403,6 +403,7 @@
 }
 
 .tripsch-modal-header {
+  background-color: #007c91;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -413,7 +414,7 @@
 .tripsch-modal-title {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #111827;
+  color: white;
   margin: 0;
 }
 
@@ -421,7 +422,7 @@
   background: none;
   border: none;
   font-size: 2rem;
-  color: #9ca3af;
+  color: white;
   cursor: pointer;
   padding: 0;
   line-height: 1;
