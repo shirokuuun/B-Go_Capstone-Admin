@@ -538,13 +538,20 @@ export const getVerificationStatusDisplay = (userData) => {
  */
 export const changeUserRole = async (userId, newRole) => {
   try {
+    // CRITICAL: Prevent users from changing their own role
+    // This is essential to prevent superadmins from accidentally demoting themselves
+    const currentUserId = auth.currentUser?.uid;
+    if (currentUserId === userId) {
+      throw new Error('You cannot change your own role. This is a security measure to prevent accidental self-demotion.');
+    }
+
     const userRef = doc(db, 'Admin', userId);
-    
+
     // Validate the new role
     if (!['admin', 'superadmin'].includes(newRole)) {
       throw new Error('Invalid role. Must be "admin" or "superadmin".');
     }
-    
+
     await updateDoc(userRef, {
       role: newRole,
       isSuperAdmin: newRole === 'superadmin',

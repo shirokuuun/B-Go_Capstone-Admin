@@ -27,15 +27,10 @@ export const BACKUP_COLLECTIONS = {
     collection: 'Admin',
     description: 'Admin user accounts and permissions'
   },
-  USERS: { 
-    name: 'Users', 
+  USERS: {
+    name: 'Users',
     collection: 'users',
     description: 'Regular user accounts'
-  },
-  BUS_RESERVATIONS: { 
-    name: 'Bus Reservations', 
-    collection: 'busReservations',
-    description: 'Bus booking and reservation data'
   },
   ACTIVITY_LOGS: { 
     name: 'Activity Logs', 

@@ -219,8 +219,8 @@ const MonthlyRevenue = ({
         </div>
       </div>
 
-        {/* Monthly Filters */}
-      <div className="revenue-monthly-filters">
+      {/* Monthly Filters */}
+      <div className="revenue-filters">
         <div className="revenue-filter-group">
           <label className="revenue-filter-label">Select Month</label>
           <select
@@ -239,7 +239,7 @@ const MonthlyRevenue = ({
 
         <div className="revenue-filter-group">
           <label className="revenue-filter-label">Trip Direction</label>
-          <select 
+          <select
             value={selectedRoute}
             onChange={(e) => onRouteChange(e.target.value)}
             className="revenue-filter-select"
@@ -252,10 +252,10 @@ const MonthlyRevenue = ({
             ))}
           </select>
         </div>
-        
+
         <div className="revenue-filter-group">
           <label className="revenue-filter-label">Ticket Type</label>
-          <select 
+          <select
             value={selectedTicketType}
             onChange={(e) => onTicketTypeChange(e.target.value)}
             className="revenue-filter-select"
@@ -270,38 +270,29 @@ const MonthlyRevenue = ({
         {/* Clear Filters Button */}
         <div className="revenue-filter-group">
           <label className="revenue-filter-label">&nbsp;</label>
-          <button 
+          <button
             onClick={() => {
               onMonthChange('');
               onRouteChange('');
               onTicketTypeChange('');
             }}
             className="revenue-filter-btn"
-            style={{ height: '42px' }}
           >
             Clear Filters
           </button>
         </div>
-        
+
         {/* Results Count */}
         <div className="revenue-filter-group">
           <label className="revenue-filter-label">&nbsp;</label>
-          <div className="revenue-results-count" style={{ 
-            background: '#f8f9fa', 
-            padding: '10px 12px', 
-            borderRadius: '8px', 
-            border: '2px solid #e1e8ed',
-            fontSize: '14px',
-            color: '#2c3e50',
-            fontWeight: '600'
-          }}>
+          <div className="revenue-results-count">
             {(() => {
               if (monthlyData && monthlyData.dailyBreakdown) {
                 const totalDays = monthlyData.dailyBreakdown.length;
                 const totalPassengers = monthlyData.totalMonthlyPassengers || 0;
                 return `${totalDays} days • ${totalPassengers} passengers`;
               }
-              return 'Loading...';
+              return '0 days • 0 passengers';
             })()}
           </div>
         </div>

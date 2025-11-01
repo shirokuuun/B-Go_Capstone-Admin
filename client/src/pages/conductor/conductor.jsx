@@ -338,7 +338,7 @@ const Conductor = () => {
                   </div>
                   <div className="detail-row">
                     <span className="detail-label">Bus:</span>
-                    <span className="detail-value">#{conductorService.extractBusNumber(conductor.name)}</span>
+                    <span className="detail-value">#{conductor.busNumber || 'N/A'}</span>
                   </div>
                   <div className="detail-row">
                     <span className="detail-label">Plate:</span>
@@ -451,10 +451,26 @@ const Conductor = () => {
             setShowEditModal(false);
             setEditingConductor(null);
           }}
-          onSuccess={() => {
+          onSuccess={(updatedConductor) => {
             setShowEditModal(false);
             setEditingConductor(null);
-            // Real-time listener will automatically update the UI
+
+            // Update the selected conductor details immediately
+            if (selectedConductor?.id === updatedConductor.id) {
+              setSelectedConductor(prev => ({
+                ...prev,
+                ...updatedConductor
+              }));
+            }
+
+            // Update the conductor in the list immediately
+            setConductors(prevConductors =>
+              prevConductors.map(c =>
+                c.id === updatedConductor.id
+                  ? { ...c, ...updatedConductor }
+                  : c
+              )
+            );
           }}
         />
       )}
@@ -669,16 +685,22 @@ const EditConductorModal = ({ conductor, onClose, onSuccess }) => {
     setError('');
 
     try {
-      const result = await conductorService.updateConductor(conductor.id, {
+      const updateData = {
         busNumber: parseInt(formData.busNumber),
         name: formData.name,
         route: formData.route,
         plateNumber: formData.plateNumber
-      });
+      };
+
+      const result = await conductorService.updateConductor(conductor.id, updateData);
 
       if (result.success) {
         console.log('Conductor updated successfully');
-        onSuccess();
+        // Pass the updated data back to parent
+        onSuccess({
+          id: conductor.id,
+          ...updateData
+        });
       } else {
         throw new Error(result.error || 'Failed to update conductor');
       }
@@ -912,7 +934,7 @@ const ConductorDetails = ({ conductor }) => {
           <h3>Bus Reservation Status</h3>
           <div className="detail-item">
             <span className="label">Bus Number:</span>
-            <span className="value">#{conductorService.extractBusNumber(conductor.name)}</span>
+            <span className="value">#{conductor.busNumber || 'N/A'}</span>
           </div>
           <div className="detail-item">
             <span className="label">Plate Number:</span>

@@ -777,6 +777,25 @@ const formatLogDescription = (description) => {
     }
   }, [userData]);
 
+  // Auto-clear error and success messages after 5 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        setError('');
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage('');
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
+
   // Cleanup listeners on unmount
   useEffect(() => {
     return () => {
@@ -1359,6 +1378,40 @@ const formatLogDescription = (description) => {
                     <span className="settings-stat-label">Admins</span>
                   </div>
                 </div>
+
+                {/* Error and Success Messages */}
+                {error && (
+                  <div className="settings-error-message" style={{
+                    backgroundColor: '#fee',
+                    color: '#c00',
+                    padding: '12px 16px',
+                    borderRadius: '8px',
+                    marginBottom: '16px',
+                    border: '1px solid #fcc',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <FaExclamationTriangle />
+                    {error}
+                  </div>
+                )}
+                {message && (
+                  <div className="settings-success-message" style={{
+                    backgroundColor: '#efe',
+                    color: '#060',
+                    padding: '12px 16px',
+                    borderRadius: '8px',
+                    marginBottom: '16px',
+                    border: '1px solid #cfc',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    {message}
+                  </div>
+                )}
+
                 {adminUsersLoading ? (
                   <div className="settings-log-loading">Loading admin users...</div>
                 ) : adminUsers.length === 0 ? (

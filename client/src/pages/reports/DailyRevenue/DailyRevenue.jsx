@@ -1248,14 +1248,13 @@ const Revenue = () => {
         {/* Clear Filters Button */}
         <div className="revenue-filter-group">
           <label className="revenue-filter-label">&nbsp;</label>
-          <button 
+          <button
             onClick={() => {
               setSelectedDate('');
               setSelectedRoute('');
               setSelectedTicketType('');
             }}
             className="revenue-filter-btn"
-            style={{ height: '42px' }}
           >
             Clear Filters
           </button>
@@ -1264,22 +1263,14 @@ const Revenue = () => {
         {/* Results Count - Show ticket/trip counts based on current data */}
         <div className="revenue-filter-group">
           <label className="revenue-filter-label">&nbsp;</label>
-          <div className="revenue-results-count" style={{ 
-            background: '#f8f9fa', 
-            padding: '10px 12px', 
-            borderRadius: '8px', 
-            border: '2px solid #e1e8ed',
-            fontSize: '14px',
-            color: '#2c3e50',
-            fontWeight: '600'
-          }}>
+          <div className="revenue-results-count">
             {(() => {
               if (loading || revenueData === null) {
                 return 'Loading...';
               }
               if (revenueData) {
-                const totalTrips = (revenueData.conductorTrips?.length || 0) + 
-                                 (revenueData.preBookingTrips?.length || 0) + 
+                const totalTrips = (revenueData.conductorTrips?.length || 0) +
+                                 (revenueData.preBookingTrips?.length || 0) +
                                  (revenueData.preTicketing?.length || 0);
                 const totalPassengers = revenueData.totalPassengers || 0;
                 return `${totalTrips} tickets • ${totalPassengers} passengers`;
