@@ -37,14 +37,12 @@ const reactivateDeletedAdmin = async (email, name) => {
     const regularAdminPermissions = [
       'read_all_users',
       'write_all_users',
-      'manage_buses',
-      'manage_routes', 
+      'manage_buses', 
       'manage_conductors',
       'view_all_reservations',
       'manage_system_settings',
       'view_analytics',
       'manage_trips',
-      'scan_tickets',
       'update_booking_status',
       'view_payments',
       'manage_notifications'

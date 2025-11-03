@@ -28,9 +28,9 @@ export const BACKUP_COLLECTIONS = {
     description: 'Admin user accounts and permissions'
   },
   USERS: {
-    name: 'Users',
+    name: 'Users (Complete)',
     collection: 'users',
-    description: 'Regular user accounts'
+    description: 'Complete user data including VerifyID, preBookings, and preTickets subcollections'
   },
   ACTIVITY_LOGS: { 
     name: 'Activity Logs', 
@@ -116,11 +116,15 @@ class BackupService {
           if (collectionKey.toUpperCase() === 'CONDUCTOR_DATA') {
             const conductorsData = await this.backupCompleteCondutorData();
             backupData.data[collectionKey] = conductorsData;
+          } else if (collectionKey.toUpperCase() === 'USERS') {
+            // Special handling for USERS to include all subcollections
+            const usersData = await this.backupCompleteUserData();
+            backupData.data[collectionKey] = usersData;
           } else {
             // Standard collection backup
             const collectionRef = collection(db, collectionInfo.collection);
             const snapshot = await getDocs(collectionRef);
-            
+
             const documents = [];
             snapshot.forEach(doc => {
               documents.push({
@@ -393,6 +397,90 @@ class BackupService {
         count: Object.keys(completeData.conductors).length,
         totalDocuments: completeData.totalDocuments,
         documents: completeData.conductors
+      };
+
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Backup complete user data including all subcollections
+   * @returns {Promise<Object>} Complete user data structure
+   */
+  async backupCompleteUserData() {
+    try {
+      const usersRef = collection(db, 'users');
+      const usersSnapshot = await getDocs(usersRef);
+
+      const completeData = {
+        collection: 'users_complete',
+        totalDocuments: 0,
+        users: {}
+      };
+
+      for (const userDoc of usersSnapshot.docs) {
+        const userId = userDoc.id;
+        const userData = {
+          profile: userDoc.data(),
+          subcollections: {
+            verifyID: null,
+            preBookings: {},
+            preTickets: {}
+          }
+        };
+
+        // Backup VerifyID subcollection (single document at /users/{userId}/VerifyID/id)
+        try {
+          const verifyIDDocRef = doc(db, 'users', userId, 'VerifyID', 'id');
+          const verifyIDSnapshot = await getDoc(verifyIDDocRef);
+
+          if (verifyIDSnapshot.exists()) {
+            userData.subcollections.verifyID = {
+              id: verifyIDSnapshot.id,
+              data: verifyIDSnapshot.data()
+            };
+            completeData.totalDocuments++;
+          }
+        } catch (verifyIDError) {
+          // No VerifyID for this user
+        }
+
+        // Backup preBookings subcollection (flat)
+        try {
+          const preBookingsRef = collection(db, 'users', userId, 'preBookings');
+          const preBookingsSnapshot = await getDocs(preBookingsRef);
+
+          preBookingsSnapshot.forEach(doc => {
+            userData.subcollections.preBookings[doc.id] = doc.data();
+            completeData.totalDocuments++;
+          });
+        } catch (preBookingsError) {
+          // No preBookings for this user
+        }
+
+        // Backup preTickets subcollection (flat)
+        try {
+          const preTicketsRef = collection(db, 'users', userId, 'preTickets');
+          const preTicketsSnapshot = await getDocs(preTicketsRef);
+
+          preTicketsSnapshot.forEach(doc => {
+            userData.subcollections.preTickets[doc.id] = doc.data();
+            completeData.totalDocuments++;
+          });
+        } catch (preTicketsError) {
+          // No preTickets for this user
+        }
+
+        completeData.users[userId] = userData;
+        completeData.totalDocuments++; // Count the user profile itself
+      }
+
+      return {
+        collection: 'users_complete',
+        count: Object.keys(completeData.users).length,
+        totalDocuments: completeData.totalDocuments,
+        documents: completeData.users
       };
 
     } catch (error) {
@@ -823,6 +911,12 @@ class BackupService {
         continue;
       }
 
+      // Special handling for USERS with subcollections
+      if (collectionKey.toUpperCase() === 'USERS') {
+        await this.restoreMissingUserData(collectionData, progress, progressCallback);
+        continue;
+      }
+
       // Handle different backup data formats for simple collections
       let documentsToProcess = [];
       if (collectionData.documents && Array.isArray(collectionData.documents)) {
@@ -971,6 +1065,104 @@ class BackupService {
 
       } catch (error) {
         progress.errors.push(`Failed to restore conductor ${conductorId}: ${error.message}`);
+      }
+    }
+  }
+
+  /**
+   * Deep restore for user data with subcollections
+   * @param {Object} userBackupData - The user backup data
+   * @param {Object} progress - Progress object
+   * @param {Function} progressCallback - Progress callback
+   */
+  async restoreMissingUserData(userBackupData, progress, progressCallback) {
+    // Extract users from backup data structure
+    const users = userBackupData.documents || userBackupData;
+
+    for (const [userId, userData] of Object.entries(users)) {
+      progress.currentConductor = `Processing user: ${userId}`;
+      if (progressCallback) progressCallback(progress);
+
+      try {
+        // Step 1: Check and restore user profile
+        const userRef = doc(db, 'users', userId);
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists() && userData.profile) {
+          const convertedProfile = this.convertTimestamps(userData.profile);
+          await setDoc(userRef, convertedProfile);
+          progress.processedDocuments++;
+        }
+
+        // Step 2: Restore VerifyID subcollection (single document at /users/{userId}/VerifyID/id)
+        if (userData.subcollections?.verifyID) {
+          try {
+            const verifyIDDocRef = doc(db, 'users', userId, 'VerifyID', 'id');
+            const verifyIDSnap = await getDoc(verifyIDDocRef);
+
+            if (!verifyIDSnap.exists()) {
+              const convertedVerifyData = this.convertTimestamps(userData.subcollections.verifyID.data);
+              await setDoc(verifyIDDocRef, convertedVerifyData);
+              progress.processedDocuments++;
+            }
+          } catch (verifyError) {
+            progress.errors.push(`Failed to restore VerifyID for user ${userId}: ${verifyError.message}`);
+          }
+        }
+
+        // Step 3: Restore preBookings subcollection (flat structure)
+        if (userData.subcollections?.preBookings) {
+          await this.restoreMissingUserSubcollection(
+            userId,
+            'preBookings',
+            userData.subcollections.preBookings,
+            progress,
+            progressCallback
+          );
+        }
+
+        // Step 4: Restore preTickets subcollection (flat structure)
+        if (userData.subcollections?.preTickets) {
+          await this.restoreMissingUserSubcollection(
+            userId,
+            'preTickets',
+            userData.subcollections.preTickets,
+            progress,
+            progressCallback
+          );
+        }
+
+      } catch (error) {
+        progress.errors.push(`Failed to restore user ${userId}: ${error.message}`);
+      }
+    }
+  }
+
+  /**
+   * Restore missing documents in user subcollections (preBookings, preTickets)
+   * @param {string} userId - User ID
+   * @param {string} subcollectionName - Subcollection name
+   * @param {Object} subcollectionData - Subcollection backup data
+   * @param {Object} progress - Progress object
+   * @param {Function} progressCallback - Progress callback
+   */
+  async restoreMissingUserSubcollection(userId, subcollectionName, subcollectionData, progress, progressCallback) {
+    for (const [docId, docData] of Object.entries(subcollectionData)) {
+      try {
+        const docRef = doc(db, 'users', userId, subcollectionName, docId);
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists()) {
+          const convertedDocData = this.convertTimestamps(docData);
+          await setDoc(docRef, convertedDocData);
+          progress.processedDocuments++;
+        }
+
+        // Small delay to avoid overwhelming Firestore
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+      } catch (error) {
+        progress.errors.push(`Failed to restore ${subcollectionName}/${docId} for user ${userId}: ${error.message}`);
       }
     }
   }

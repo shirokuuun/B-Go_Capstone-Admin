@@ -13,7 +13,6 @@ import Settings from "/src/pages/settings/settings.jsx";
 import UserManagement from "/src/pages/UserManagement/UserManagement.jsx";
 import PageTransitionWrapper from "/src/components/PageTransition/PageTransition.jsx";
 import Login from "/src/pages/auth/login.jsx";
-import Signup from "/src/pages/auth/signup.jsx";
 import Conductor from "/src/pages/conductor/conductor.jsx";
 
 // Reports components
@@ -30,20 +29,12 @@ createRoot(document.getElementById("root")).render(
         {/* 🔐 Default redirect to /login */}
         <Route path="/" element={<Navigate to="/login" replace />} />
 
-        {/* 🔐 Login and Signup routes */}
+        {/* 🔐 Login route */}
         <Route
           path="/login"
           element={
             <PageTransitionWrapper>
               <Login />
-            </PageTransitionWrapper>
-          }
-        />
-        <Route
-          path="/signup"
-          element={
-            <PageTransitionWrapper>
-              <Signup />
             </PageTransitionWrapper>
           }
         />

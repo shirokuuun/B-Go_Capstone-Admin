@@ -404,7 +404,7 @@ const formatLogDescription = (description) => {
   const handleBulkDeleteLogs = async () => {
     // Check if user is authorized
     if (userData.role === 'admin' && userData.isSuperAdmin !== true) {
-      setError('❌ Only superadmin users can delete activity logs.');
+      setError('Only superadmin users can delete activity logs.');
       return;
     }
 
@@ -442,10 +442,10 @@ const formatLogDescription = (description) => {
       // Refresh total counts after bulk deletion
       fetchTotalLogCounts();
 
-      setMessage(`✅ Successfully deleted ${selectedLogs.size} activity log entries`);
+      setMessage(`Successfully deleted ${selectedLogs.size} activity log entries`);
     } catch (error) {
       console.error('Error in bulk delete logs:', error);
-      setError('❌ Failed to delete some log entries: ' + error.message);
+      setError('Failed to delete some log entries: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -653,7 +653,7 @@ const formatLogDescription = (description) => {
       setShowRegisterPassword(false);
       setShowRegisterConfirmPassword(false);
       setShowRegisterModal(false);
-      setMessage('Admin user registered successfully');
+      setMessage('Admin user registered successfully.');
 
       // Refresh admin users list
       setupAdminUsersListener();
@@ -719,7 +719,7 @@ const formatLogDescription = (description) => {
       await deleteAdminUser(user.id, user.email, user.name);
       setMessage(<><FaCheckCircle style={{ color: 'green', marginRight: '8px' }} />Admin user "{user.name || user.email}" has been successfully deleted from the system.</>);
     } catch (err) {
-      setError(`❌ Failed to delete admin user: ${err.message}. Please try again or contact support if the issue persists.`);
+      setError(`Failed to delete admin user: ${err.message}. Please try again or contact support if the issue persists.`);
     } finally {
       setLoading(false);
     }
@@ -729,7 +729,7 @@ const formatLogDescription = (description) => {
   const handleRoleChange = useCallback(async (userId, newRole) => {
     // Prevent user from changing their own role
     if (userData && userId === userData.id) {
-      setError('❌ You cannot change your own role.');
+      setError('You cannot change your own role.');
       return;
     }
     
@@ -747,9 +747,9 @@ const formatLogDescription = (description) => {
     
     try {
       await changeUserRole(userId, newRole);
-      setMessage(`✅ Successfully changed user role to ${newRole}`);
+      setMessage(`Successfully changed user role to ${newRole}`);
     } catch (err) {
-      setError(`❌ Failed to change role: ${err.message}`);
+      setError(`Failed to change role: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -858,18 +858,18 @@ const formatLogDescription = (description) => {
           fileName: result.fileName
         });
         
-        setMessage(`✅ Backup created successfully! File: ${result.fileName}`);
+        setMessage(`Backup created successfully! File: ${result.fileName}`);
         setSelectedCollections([]);
         // Refresh backup files list
         loadBackupFiles();
         setBackupLoading(false);
       } else {
-        setError(`❌ Failed to create backup: ${result.error}`);
+        setError(`Failed to create backup: ${result.error}`);
         setBackupProgress(null);
         setBackupLoading(false);
       }
     } catch (err) {
-      setError(`❌ Failed to create backup: ${err.message}`);
+      setError(`Failed to create backup: ${err.message}`);
       setBackupProgress(null);
       setBackupLoading(false);
     }
@@ -883,12 +883,12 @@ const formatLogDescription = (description) => {
     try {
       const result = await backupService.downloadBackup(fileName);
       if (result.success) {
-        setMessage(`✅ Backup downloaded successfully!`);
+        setMessage(`Backup downloaded successfully!`);
       } else {
-        setError(`❌ Failed to download backup: ${result.error}`);
+        setError(`Failed to download backup: ${result.error}`);
       }
     } catch (err) {
-      setError(`❌ Failed to download backup: ${err.message}`);
+      setError(`Failed to download backup: ${err.message}`);
     }
   };
 
@@ -905,14 +905,14 @@ const formatLogDescription = (description) => {
     try {
       const result = await backupService.deleteBackup(backupId);
       if (result.success) {
-        setMessage(`✅ Backup deleted successfully!`);
+        setMessage(`Backup deleted successfully!`);
         // Refresh backup files list
         loadBackupFiles();
       } else {
-        setError(`❌ Failed to delete backup: ${result.error}`);
+        setError(`Failed to delete backup: ${result.error}`);
       }
     } catch (err) {
-      setError(`❌ Failed to delete backup: ${err.message}`);
+      setError(`Failed to delete backup: ${err.message}`);
     }
   };
 
@@ -1021,9 +1021,9 @@ const formatLogDescription = (description) => {
         setUploadedBackupFile(null);
         
         const docsRestored = typeof result.documentsRestored === 'number' ? result.documentsRestored : 'unknown';
-        setMessage(`✅ Data restored successfully! ${docsRestored} documents processed.`);
+        setMessage(`Data restored successfully! ${docsRestored} documents processed.`);
         if (result.errors && result.errors.length > 0) {
-          setError(`⚠️ Restore completed with ${result.errors.length} errors. Check the error log for details.`);
+          setError(`Warning: Restore completed with ${result.errors.length} errors. Check the error log for details.`);
         }
       } else {
         const errorMsg = typeof result.error === 'string' ? result.error : JSON.stringify(result.error);
@@ -1037,7 +1037,7 @@ const formatLogDescription = (description) => {
       }, 3000);
       
     } catch (err) {
-      setError(`❌ Restore failed: ${err.message}`);
+      setError(`Restore failed: ${err.message}`);
       setIsRestoring(false);
       setRestoreProgress(null);
     }
@@ -1075,9 +1075,9 @@ const formatLogDescription = (description) => {
 
       setUploadedBackupFile(backupInfo);
       setSelectedBackupFile(backupInfo);
-      setMessage(`✅ Backup file "${file.name}" loaded successfully! Click restore to proceed.`);
+      setMessage(`Backup file "${file.name}" loaded successfully! Click restore to proceed.`);
     } catch (error) {
-      setError(`❌ Failed to upload backup file: ${error.message}`);
+      setError(`Failed to upload backup file: ${error.message}`);
     }
   };
 
