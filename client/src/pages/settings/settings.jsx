@@ -2076,7 +2076,6 @@ const formatLogDescription = (description) => {
                     <h4><MdOutlineSecurity size={20}/> Security & Privacy</h4>
                     <ul>
                       <li>Backups are stored securely in Firebase Cloud Storage</li>
-                      <li>All data is encrypted in transit and at rest</li>
                       <li>Only superadmin accounts can access backup functionality</li>
                       <li>Backup files automatically expire after 30 days</li>
                     </ul>
