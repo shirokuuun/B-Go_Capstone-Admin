@@ -78,12 +78,12 @@ class RevenueDataCacheService {
     return `${dateKey}_${routeKey}`;
   }
 
-  // Check if cache is fresh (5 minutes)
+  // Check if cache is fresh (3 minutes)
   isCacheFresh(cacheKey) {
     const lastFetch = this.lastFetchTime.get(cacheKey);
     if (!lastFetch) return false;
     const ageMinutes = (Date.now() - lastFetch) / (1000 * 60);
-    return ageMinutes < 5; // Cache valid for 5 minutes
+    return ageMinutes < 3; // Cache valid for 3 minutes
   }
 
   // Fetch revenue data from Firestore (original logic)
@@ -112,7 +112,8 @@ class RevenueDataCacheService {
     return result;
   }
 
-  // Start real-time cache updates listener
+  // Start listening for conductor-level changes (note: subcollection changes not detected)
+  // Ticket changes are handled by cache expiration (3 min)
   startRevenueDataListener() {
     if (this.isCacheListenerActive) {
       return; // Don't create duplicate listeners

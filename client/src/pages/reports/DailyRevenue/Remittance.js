@@ -74,12 +74,12 @@ class RemittanceDataCacheService {
     }
   }
 
-  // Check if cache is fresh (5 minutes for remittance data)
+  // Check if cache is fresh (3 minutes for remittance data)
   isCacheFresh(cacheKey) {
     const lastFetch = this.lastFetchTime.get(cacheKey);
     if (!lastFetch) return false;
     const ageMinutes = (Date.now() - lastFetch) / (1000 * 60);
-    return ageMinutes < 5; // Cache valid for 5 minutes
+    return ageMinutes < 3; // Cache valid for 3 minutes
   }
 
   // Fetch remittance data from Firestore (original logic)

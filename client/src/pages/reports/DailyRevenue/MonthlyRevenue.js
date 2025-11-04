@@ -95,9 +95,9 @@ class MonthlyRevenueDataCacheService {
   async fetchMonthlyDataFromFirestore(selectedMonth, selectedRoute, selectedTicketType) {
 
     // Get all dates in the selected month
-    const year = parseInt(selectedMonth.split('-')[0]);
-    const month = parseInt(selectedMonth.split('-')[1]);
-    const daysInMonth = new Date(year, month, 0).getDate();
+    const year = parseInt(selectedMonth.split('-')[0]);   // "2024-01" → 2024
+    const month = parseInt(selectedMonth.split('-')[1]);  // "2024-01" → 1
+    const daysInMonth = new Date(year, month, 0).getDate(); // January 2024 = 31 days
 
     const monthlyPromises = [];
     const dailyBreakdown = [];
