@@ -207,8 +207,8 @@ class TicketingDataCacheService {
     }
   }
 
-  // Optimized conductor-specific ticket fetching
-  async fetchConductorTicketsOptimized(conductorId, limit) {
+  // Optimized conductor-specific ticket fetching (no limit - admin dashboard shows all)
+  async fetchConductorTicketsOptimized(conductorId) {
     const allTickets = [];
 
     // Get all daily trips for this conductor
@@ -299,18 +299,17 @@ class TicketingDataCacheService {
     const dateResults = await Promise.all(datePromises);
     allTickets.push(...dateResults.flat());
 
-    // Sort by timestamp and limit
+    // Sort by timestamp (no limit for admin dashboard)
     return allTickets
       .sort((a, b) => {
         const aTime = a.timestamp?.seconds || 0;
         const bTime = b.timestamp?.seconds || 0;
         return bTime - aTime;
-      })
-      .slice(0, limit);
+      });
   }
 
-  // Optimized all tickets fetching with parallel processing
-  async fetchAllTicketsOptimized(limit) {
+  // Optimized all tickets fetching with parallel processing (no limit - admin dashboard shows all)
+  async fetchAllTicketsOptimized() {
     const conductorsRef = collection(db, 'conductors');
     const conductorsSnapshot = await getDocs(conductorsRef);
 
@@ -321,7 +320,7 @@ class TicketingDataCacheService {
       const conductorData = conductorDoc.data();
       const conductorId = conductorDoc.id;
 
-      const conductorTickets = await this.fetchConductorTicketsOptimized(conductorId, limit);
+      const conductorTickets = await this.fetchConductorTicketsOptimized(conductorId);
 
       // Add conductor info to tickets
       return conductorTickets.map(ticket => ({
@@ -333,14 +332,13 @@ class TicketingDataCacheService {
     const conductorResults = await Promise.all(conductorPromises);
     allTickets.push(...conductorResults.flat());
 
-    // Sort by timestamp and limit
+    // Sort by timestamp (no limit for admin dashboard)
     return allTickets
       .sort((a, b) => {
         const aTime = a.timestamp?.seconds || 0;
         const bTime = b.timestamp?.seconds || 0;
         return bTime - aTime;
-      })
-      .slice(0, limit);
+      });
   }
 
   // Optimized prebooking tickets fetching
@@ -1915,8 +1913,7 @@ export const subscribeToTicketsByConductor = (conductorId, onUpdate) => {
             const aTime = a.timestamp?.seconds || 0;
             const bTime = b.timestamp?.seconds || 0;
             return bTime - aTime;
-          })
-          .slice(0, 50); // Limit to 50 tickets
+          });
         onUpdate(sortedTickets);
         
       } catch (error) {

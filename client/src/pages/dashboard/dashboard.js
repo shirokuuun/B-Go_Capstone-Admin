@@ -12,7 +12,7 @@ class DashboardService {
       conductors: null,
       users: null,
       sos: null,
-      fullDashboardData: null // Cache the complete dashboard response
+      fullDashboardData: null 
     };
     this.lastFetchTime = null;
     this.isCacheListenerActive = false;
@@ -158,7 +158,7 @@ class DashboardService {
 
   async getTripSummary(filter = 'today', customDate = null) {
     try {
-      // Get all conductors first (same pattern as ticketing.js)
+      // Get all conductors first 
       const conductorsRef = collection(db, 'conductors');
       const conductorsSnapshot = await getDocs(conductorsRef);
 
@@ -274,7 +274,6 @@ class DashboardService {
                 }
               });
             } catch (error) {
-              // Normal - not all trips will have tickets
               continue;
             }
           }
@@ -308,12 +307,12 @@ class DashboardService {
 
    async getSOSRequestSummary(filter = 'today', customDate = null) {
     try {
-      // FAST PATH: Return cached data immediately if available
+      // Return cached data immediately if available
       if (this.dashboardCache.sos && this.isCacheListenerActive) {
         return this.processSOSRequestSummary(this.dashboardCache.sos, filter, customDate);
       }
 
-      // SLOW PATH: First time or cache invalidated - fetch everything
+      // First time or cache invalidated - fetch everything
       const snapshot = await getDocs(collection(db, 'sosRequests'));
 
       if (snapshot.empty) {
@@ -469,15 +468,15 @@ class DashboardService {
     };
   }
 
-  // CACHED: Get conductors summary with caching
+  //Get conductors summary with caching
   async getConductorsSummary() {
     try {
-      // FAST PATH: Return cached data immediately if available
+      // Return cached data immediately if available
       if (this.dashboardCache.conductors && this.isCacheListenerActive) {
         return this.processConductorsSummary(this.dashboardCache.conductors);
       }
 
-      // SLOW PATH: First time or cache invalidated - fetch everything
+      //  First time or cache invalidated - fetch everything
       const conductorsRef = collection(db, 'conductors');
       const snapshot = await getDocs(conductorsRef);
 
@@ -606,7 +605,6 @@ class DashboardService {
           pendingVerifications++;
         }
       }
-      // Users without idVerificationData are not counted at all
     });
 
     const verificationRate = totalUsers === 0 ? 0 : ((verifiedUsers / totalUsers) * 100).toFixed(1);
@@ -700,7 +698,6 @@ class DashboardService {
                     }
                   });
                 } catch (error) {
-                  // Normal - not all trips will have tickets
                   continue;
                 }
               }
@@ -780,7 +777,7 @@ class DashboardService {
   // Start real-time cache updates listener for conductors
   startConductorsCacheListener() {
     if (this.listeners.has('conductors_cache_listener')) {
-      return; // Don't create duplicate listeners
+      return; 
     }
 
     const conductorsRef = collection(db, 'conductors');
@@ -802,7 +799,7 @@ class DashboardService {
                                 changes.every(change => change.type === 'added');
 
       if (isInitialSnapshot) {
-        return; // Skip initial snapshot to prevent duplicates
+        return; 
       }
 
       for (const change of changes) {
@@ -901,7 +898,7 @@ class DashboardService {
   // Start real-time cache updates listener for users
   startUsersCacheListener() {
     if (this.listeners.has('users_cache_listener')) {
-      return; // Don't create duplicate listeners
+      return; 
     }
 
     const usersRef = collection(db, 'users');

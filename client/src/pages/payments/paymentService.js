@@ -39,7 +39,7 @@ class PaymentService {
             passengerName: data.fullName,
             route: `${data.from} → ${data.to}`,
             amount: busPrice,
-            paymentMethod: data.paymentMethod || 'GCash/Bank Transfer',
+            paymentMethod: data.paymentMethod || 'GCash',
             status: this.mapReservationStatus(data.status),
             createdAt: data.timestamp,
             busNumber: data.selectedBusIds?.[0] || 'N/A',
@@ -54,7 +54,7 @@ class PaymentService {
             fullName: data.fullName,
             isRoundTrip: data.isRoundTrip,
             selectedBusIds: data.selectedBusIds,
-            request: data.request || '', // Add request field
+            request: data.request || '', 
             // Keep original reservation data
             originalReservation: data
           };
@@ -231,7 +231,7 @@ class PaymentService {
             // Find conductor by busId in selectedBusIds array or reservationId
             const conductorsRef = collection(db, 'conductors');
 
-            // First try to find by email matching the busId pattern (e.g., "LPkahoy_4@gmail.com" for "LPkahoy_4")
+            // First try to find by email matching the busId pattern 
             let conductorQuery = query(conductorsRef, where('email', '==', `${busId}@gmail.com`));
             let conductorSnap = await getDocs(conductorQuery);
 
@@ -432,28 +432,13 @@ class PaymentService {
     };
   }
 
-  // Payment type configuration (icon components should be passed from the UI)
+  // Payment type configuration 
   getPaymentTypes(icons = {}) {
     return {
       bus_reservation: {
         icon: icons.FaBus || null,
         label: 'Bus Reservation',
         color: '#007c91'
-      },
-      general: {
-        icon: icons.FaMoneyBill || null,
-        label: 'General Payment',
-        color: '#4CAF50'
-      },
-      ticket: {
-        icon: icons.FaTicketAlt || null,
-        label: 'Ticket Purchase',
-        color: '#FF9800'
-      },
-      app_service: {
-        icon: icons.FaMobile || null,
-        label: 'App Service',
-        color: '#9C27B0'
       }
     };
   }

@@ -9,11 +9,11 @@ class RevenueDataCacheService {
     this.cleanupOnError = true;
 
     // IN-MEMORY CACHE SYSTEM
-    this.revenueCache = new Map(); // key: `${date}_${route}`, value: revenue data
-    this.lastFetchTime = new Map(); // Track fetch times per key
+    this.revenueCache = new Map();
+    this.lastFetchTime = new Map(); 
     this.isCacheListenerActive = false;
     this.cacheVersion = 1;
-    this.currentCallbacks = new Map(); // Store callbacks for cache updates
+    this.currentCallbacks = new Map();
 
     // Available dates and routes cache
     this.availableDatesCache = null;
@@ -116,7 +116,7 @@ class RevenueDataCacheService {
   // Ticket changes are handled by cache expiration (3 min)
   startRevenueDataListener() {
     if (this.isCacheListenerActive) {
-      return; // Don't create duplicate listeners
+      return; 
     }
 
     // Listen to conductor collection for changes
@@ -437,14 +437,12 @@ class RevenueDataCacheService {
                   // If any of these have documents, this date has trips
                   if (ticketsSnapshot.docs.length > 0 || preBookingsSnapshot.docs.length > 0 || preTicketsSnapshot.docs.length > 0) {
                     hasTripsWithTickets = true;
-                    break; // No need to check other trips
+                    break; 
                   }
                 } catch (tripError) {
-                  // This is normal - not all trip numbers will exist
                 }
               }
             } catch (tripsError) {
-              // No trips found for date
             }
 
             // Only add date if it has trips with tickets
@@ -477,6 +475,7 @@ class RevenueDataCacheService {
   }
 
   // Move all revenue fetching methods to cache service
+  // Fetches the conductor tickets
   async fetchConductorTripsAndPreBooking(date, selectedRoute = null) {
     try {
 
@@ -529,6 +528,7 @@ class RevenueDataCacheService {
     }
   }
 
+  // fetch pre-bookings
   async fetchPreBookingFromNewPath(date, selectedRoute = null) {
     try {
 
@@ -581,6 +581,7 @@ class RevenueDataCacheService {
     }
   }
 
+  // fetch pre-ticketing
   async fetchPreTicketing(date, selectedRoute = null) {
     try {
 
@@ -638,6 +639,7 @@ class RevenueDataCacheService {
   }
 
   // Helper method to process trips for a specific date with route filtering
+  // conductor trips only
   async processTripsForDate(conductorId, dateId, conductorTrips, preBookingTrips, filterDate = null, selectedRoute = null) {
     try {
       // Get all trip names dynamically instead of hardcoding
@@ -756,6 +758,7 @@ class RevenueDataCacheService {
   }
 
 
+  // prebookings only
     async processPreBookingsForDate(conductorId, dateId, allPreBookings, filterDate = null, selectedRoute = null) {
   try {
     // Get all trip names dynamically
@@ -764,7 +767,6 @@ class RevenueDataCacheService {
     // Process all trips in parallel
     const tripPromises = tripNames.map(async (tripName) => {
       try {
-        // Get trip info first if route filtering is enabled
         let tripDirection = null;
         let currentTripNumber = null;
         if (selectedRoute) {
@@ -772,7 +774,6 @@ class RevenueDataCacheService {
           tripDirection = tripInfo.direction;
           currentTripNumber = tripInfo.currentTrip;
 
-          // Skip this trip if it doesn't match the selected route
           if (tripDirection !== selectedRoute) {
             return [];
           }
@@ -861,10 +862,9 @@ class RevenueDataCacheService {
   }
 }
 
-
+// pretickets only
 async processPreTicketsForDate(conductorId, dateId, allPreTickets, filterDate = null, selectedRoute = null) {
   try {
-    // Get all trip names dynamically instead of hardcoding
     const tripNames = await getAllTripNames(conductorId, dateId);
 
     // Process all trips in parallel instead of sequential
@@ -934,12 +934,11 @@ async processPreTicketsForDate(conductorId, dateId, allPreTickets, filterDate = 
 
             // Process valid pre-tickets
             if (sourceData.amount || sourceData.totalFare) {
-              // BUILD DISCOUNT BREAKDOWN from qrData
               let discountBreakdown = [];
               let discountList = [];
               let totalDiscountAmount = 0;
 
-              // Method 1: Parse discountBreakdown from qrData
+              // Parse discountBreakdown from qrData
               if (sourceData.discountBreakdown && Array.isArray(sourceData.discountBreakdown)) {
                 // discountBreakdown is an array of strings like:
                 // "Passenger 1: Senior (20% off) — 12.00 PHP"
@@ -970,7 +969,7 @@ async processPreTicketsForDate(conductorId, dateId, allPreTickets, filterDate = 
                 });
               }
 
-              // Method 2: Build from fareTypes array in qrData
+              // Build from fareTypes array in qrData
               if (sourceData.fareTypes && Array.isArray(sourceData.fareTypes)) {
                 discountList = sourceData.fareTypes.map((type, index) => {
                   const passengerFare = sourceData.passengerFares && sourceData.passengerFares[index] 
@@ -1037,13 +1036,13 @@ async processPreTicketsForDate(conductorId, dateId, allPreTickets, filterDate = 
                 scannedBy: ticketData.scannedBy,
                 status: ticketData.status,
                 qrData: ticketData.qrData,
-                qrDataParsed: parsedQrData, // Include parsed version for reference
+                qrDataParsed: parsedQrData,
                 fareTypes: sourceData.fareTypes || ticketData.fareTypes,
                 placeCollection: sourceData.placeCollection || ticketData.placeCollection,
                 time: sourceData.time || ticketData.time,
                 amount: sourceData.amount || ticketData.amount,
                 passengerFares: sourceData.passengerFares || ticketData.passengerFares,
-                fare: sourceData.fare // Individual fare per passenger from qrData
+                fare: sourceData.fare 
               };
 
               tripPreTickets.push(preTicket);
@@ -1190,12 +1189,6 @@ const getTripInfo = async (conductorId, dateId, tripName) => {
   } catch (error) {
     return { direction: null, currentTrip: null };
   }
-};
-
-// Keep old function for backward compatibility
-const getTripDirection = async (conductorId, dateId, tripName) => {
-  const tripInfo = await getTripInfo(conductorId, dateId, tripName);
-  return tripInfo.direction;
 };
 
 // Prepare chart data with three categories
