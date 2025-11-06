@@ -14,11 +14,11 @@ class MonthlyRevenueDataCacheService {
     this.cleanupOnError = true;
 
     // IN-MEMORY CACHE SYSTEM
-    this.monthlyCache = new Map(); // key: `${month}_${route}_${ticketType}`, value: monthly data
-    this.lastFetchTime = new Map(); // Track fetch times per key
+    this.monthlyCache = new Map(); 
+    this.lastFetchTime = new Map(); 
     this.isCacheListenerActive = false;
     this.cacheVersion = 1;
-    this.currentCallbacks = new Map(); // Store callbacks for cache updates
+    this.currentCallbacks = new Map(); 
 
     // Available months cache
     this.availableMonthsCache = null;
@@ -118,6 +118,8 @@ class MonthlyRevenueDataCacheService {
     let preTicketingMonthlyRevenue = 0;
     const routeAggregation = {};
 
+
+    // main calculation loop
     monthlyResults.forEach((dayData, index) => {
       const day = index + 1;
       const dateString = `${selectedMonth}-${day.toString().padStart(2, '0')}`;
@@ -132,18 +134,21 @@ class MonthlyRevenueDataCacheService {
         let dayPreTicketingRevenue = 0;
 
         // Filter based on selected ticket type
+        // manual ticket by conductor
         if (!selectedTicketType || selectedTicketType === '' || selectedTicketType === 'conductor') {
           dayConductorRevenue = dayData.conductorRevenue;
           dayRevenue += dayConductorRevenue;
           dayPassengers += dayData.conductorTrips?.reduce((sum, trip) => sum + (Number(trip.quantity) || 0), 0) || 0;
         }
 
+        // prebooking tickets
         if (!selectedTicketType || selectedTicketType === '' || selectedTicketType === 'pre-book') {
           dayPreBookingRevenue = dayData.preBookingRevenue;
           dayRevenue += dayPreBookingRevenue;
           dayPassengers += dayData.preBookingTrips?.reduce((sum, trip) => sum + (Number(trip.quantity) || 0), 0) || 0;
         }
 
+        // preticketing tickets
         if (!selectedTicketType || selectedTicketType === '' || selectedTicketType === 'pre-ticket') {
           dayPreTicketingRevenue = dayData.preTicketingRevenue;
           dayRevenue += dayPreTicketingRevenue;
@@ -152,8 +157,8 @@ class MonthlyRevenueDataCacheService {
 
         // Only include day if it has revenue after filtering
         if (dayRevenue > 0) {
-          totalMonthlyRevenue += dayRevenue;
-          totalMonthlyPassengers += dayPassengers;
+          totalMonthlyRevenue += dayRevenue; // calculation of monthly revenue
+          totalMonthlyPassengers += dayPassengers; // total passengers in the month
           conductorMonthlyRevenue += dayConductorRevenue;
           preBookingMonthlyRevenue += dayPreBookingRevenue;
           preTicketingMonthlyRevenue += dayPreTicketingRevenue;
@@ -197,6 +202,7 @@ class MonthlyRevenueDataCacheService {
             }
           });
 
+          // Add to daily breakdown
           dailyBreakdown.push({
             date: dateString,
             day: day,
@@ -216,6 +222,8 @@ class MonthlyRevenueDataCacheService {
       .sort((a, b) => b.revenue - a.revenue);
 
     const averageMonthlyFare = totalMonthlyPassengers > 0 ? totalMonthlyRevenue / totalMonthlyPassengers : 0;
+
+    // calculation of Average Daily Revenue
     const averageDailyRevenue = dailyBreakdown.length > 0 ? totalMonthlyRevenue / dailyBreakdown.length : 0;
 
     // Calculate growth with real data
@@ -303,7 +311,7 @@ class MonthlyRevenueDataCacheService {
             console.error('Error in monthly cache update callback:', error);
           }
           this.updateTimeouts.delete(key);
-        }, 200); // Slightly longer debounce for monthly data
+        }, 200); 
 
         this.updateTimeouts.set(key, timeout);
       }
@@ -407,6 +415,8 @@ class MonthlyRevenueDataCacheService {
   }
 
   // Move calculateMonthlyGrowth to cache service
+  // Calculation of monthly growth based last month
+  // ((Current - Previous) / Previous) * 100
   async calculateMonthlyGrowth(selectedMonth, selectedRoute, currentMonthRevenue, selectedTicketType = '') {
     try {
       // Calculate previous month
@@ -483,7 +493,6 @@ class MonthlyRevenueDataCacheService {
       return Math.max(-50, Math.min(100, growthVsTarget)); // Cap between -50% and 100%
     }
 
-    // Fallback: assume positive growth if we have revenue
     return currentMonthRevenue > 0 ? 5 : 0;
   }
 

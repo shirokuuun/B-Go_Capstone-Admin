@@ -2,9 +2,7 @@ import { collection, addDoc, query, orderBy, limit, where, getDocs, serverTimest
 import { auth, db } from '/src/firebase/firebase.js';
 import { getCurrentAdminData } from '/src/pages/auth/authService.js';
 
-/**
- * Activity types for audit logging
- */
+// audit
 export const ACTIVITY_TYPES = {
   LOGIN: 'LOGIN',
   LOGOUT: 'LOGOUT',
@@ -37,19 +35,7 @@ export const ACTIVITY_TYPES = {
   SYSTEM_MAINTENANCE: 'SYSTEM_MAINTENANCE'
 };
 
-/**
- * Logs an activity to the audit trail
- * @param {string} activityType - Type of activity (from ACTIVITY_TYPES)
- * @param {string} description - Detailed description of the activity
- * @param {Object} metadata - Additional metadata for the activity
- * @param {string} severity - Severity level: 'info', 'warning', 'error'
- * @returns {Promise<string>} Document ID of the created audit log
- */
-/**
- * Recursively removes undefined values from an object
- * @param {Object} obj - The object to clean
- * @returns {Object} Clean object without undefined values
- */
+
 const removeUndefinedValues = (obj) => {
   if (obj === null || obj === undefined) return null;
   if (typeof obj !== 'object') return obj;
@@ -107,13 +93,7 @@ export const logActivity = async (activityType, description, metadata = {}, seve
   }
 };
 
-/**
- * Logs system errors for crash reporting
- * @param {Error} error - The error object
- * @param {string} context - Context where the error occurred
- * @param {Object} additionalData - Additional error context
- * @returns {Promise<string>} Document ID of the created error log
- */
+// logs system errors for crash reporting
 export const logSystemError = async (error, context, additionalData = {}) => {
   try {
     const errorLogData = {
@@ -147,17 +127,7 @@ export const logSystemError = async (error, context, additionalData = {}) => {
   }
 };
 
-/**
- * Fetches activity logs with optional filtering
- * @param {Object} filters - Filter options
- * @param {string} filters.activityType - Filter by activity type
- * @param {string} filters.userId - Filter by user ID
- * @param {string} filters.severity - Filter by severity level
- * @param {Date} filters.startDate - Filter from this date
- * @param {Date} filters.endDate - Filter to this date
- * @param {number} filters.limit - Limit number of results (default: 100)
- * @returns {Promise<Array>} Array of audit log documents
- */
+// fetches activity logs
 export const getActivityLogs = async (filters = {}) => {
   try {
     const constraints = [orderBy('timestamp', 'desc')];
@@ -195,14 +165,7 @@ export const getActivityLogs = async (filters = {}) => {
   }
 };
 
-/**
- * Fetches error logs for crash reporting
- * @param {Object} filters - Filter options
- * @param {Date} filters.startDate - Filter from this date
- * @param {Date} filters.endDate - Filter to this date
- * @param {number} filters.limit - Limit number of results (default: 50)
- * @returns {Promise<Array>} Array of error log documents
- */
+// fetches error logs
 export const getErrorLogs = async (filters = {}) => {
   try {
     const constraints = [orderBy('timestamp', 'desc')];
@@ -230,12 +193,7 @@ export const getErrorLogs = async (filters = {}) => {
   }
 };
 
-/**
- * Exports logs to CSV format
- * @param {Array} logs - Array of log documents
- * @param {string} filename - Name of the exported file
- * @param {string} type - Type of logs ('activity' or 'error')
- */
+// exports logs to Excel file
 export const exportLogsToCSV = (logs, filename, type = 'activity') => {
   try {
     // Import xlsx library dynamically
@@ -419,10 +377,7 @@ const exportLogsToCSVFallback = (logs, filename, type) => {
   }
 };
 
-/**
- * Get total counts for all logs in the system (no filters)
- * @returns {Promise<Object>} Total counts object
- */
+// Get total counts of logs
 export const getTotalLogCounts = async () => {
   try {
     // Get total activity logs count
@@ -453,12 +408,7 @@ export const getTotalLogCounts = async () => {
   }
 };
 
-/**
- * Get summary statistics for logs
- * @param {Date} startDate - Start date for statistics
- * @param {Date} endDate - End date for statistics
- * @returns {Promise<Object>} Statistics object
- */
+// Get log statistics within a date range
 export const getLogStatistics = async (startDate, endDate) => {
   try {
     const activityLogs = await getActivityLogs({ startDate, endDate, limit: 1000 });

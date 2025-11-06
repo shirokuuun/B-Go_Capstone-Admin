@@ -17,11 +17,7 @@ import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js
 // Collection reference
 const TRIP_SCHEDULES_COLLECTION = 'trip_sched';
 
-/**
- * Convert 24-hour time to 12-hour format with AM/PM
- * @param {string} time24 - Time in 24-hour format (HH:MM)
- * @returns {string} Time in 12-hour format with AM/PM
- */
+// convert 24-hour time to 12-hour format
 const convertTo12Hour = (time24) => {
   try {
     if (!time24 || typeof time24 !== 'string') return '';
@@ -42,11 +38,7 @@ const convertTo12Hour = (time24) => {
   }
 };
 
-/**
- * Convert 12-hour time to 24-hour format
- * @param {string} time12 - Time in 12-hour format with AM/PM
- * @returns {string} Time in 24-hour format (HH:MM)
- */
+// convert 12-hour time to 24-hour format
 const convertTo24Hour = (time12) => {
   try {
     if (!time12 || typeof time12 !== 'string') return '';
@@ -73,11 +65,7 @@ const convertTo24Hour = (time12) => {
   }
 };
 
-/**
- * Parse schedule string to array
- * @param {string|Array} schedules - Comma-separated string or array of schedules
- * @returns {Array<string>} Array of schedule times
- */
+
 const parseSchedules = (schedules) => {
   if (Array.isArray(schedules)) {
     return schedules;
@@ -90,22 +78,13 @@ const parseSchedules = (schedules) => {
   return [];
 };
 
-/**
- * Format schedules array to string for storage
- * @param {Array<string>} schedulesArray - Array of schedule times
- * @returns {string} Comma-separated string of schedules
- */
+
 const formatSchedulesForStorage = (schedulesArray) => {
   if (!Array.isArray(schedulesArray)) return '';
   return schedulesArray.join(', ');
 };
 
-/**
- * Subscribe to real-time trip schedules updates
- * @param {Function} callback - Function to handle the schedules data
- * @param {Function} errorCallback - Function to handle errors
- * @returns {Function} Unsubscribe function
- */
+// real-time subscription to trip schedules
 export const subscribeToTripSchedules = (callback, errorCallback) => {
   try {
     
@@ -116,10 +95,9 @@ export const subscribeToTripSchedules = (callback, errorCallback) => {
         querySnapshot.forEach((doc) => {
           const data = doc.data();
           schedules.push({
-            id: doc.id, // This will be the conductor ID 
-            conductorId: doc.id, // Store conductor ID explicitly
+            id: doc.id,
+            conductorId: doc.id,
             ...data,
-            // Parse schedules string to array for consistent handling
             schedulesArray: parseSchedules(data.schedules)
           });
         });
@@ -152,15 +130,7 @@ export const subscribeToTripSchedules = (callback, errorCallback) => {
   }
 };
 
-/**
- * Add a new trip schedule
- * @param {Object} scheduleData - The schedule data to add
- * @param {string} scheduleData.conductorId - Conductor ID to use as document ID
- * @param {string} scheduleData.route - Route name
- * @param {Array<string>|string} scheduleData.schedules - Array of departure times or comma-separated string
- * @param {string} scheduleData.status - Schedule status ('active' or 'inactive')
- * @returns {Promise<string>} The ID of the created document
- */
+// add a new trip schedule
 export const addTripSchedule = async (scheduleData) => {
   try {
     // Validate required fields
@@ -257,12 +227,7 @@ export const addTripSchedule = async (scheduleData) => {
   }
 };
 
-/**
- * Update an existing trip schedule
- * @param {string} scheduleId - The ID of the schedule to update
- * @param {Object} updateData - The data to update
- * @returns {Promise<void>}
- */
+// update an existing trip schedule
 export const updateTripSchedule = async (scheduleId, updateData) => {
   try {
     if (!scheduleId) {
@@ -366,11 +331,7 @@ export const updateTripSchedule = async (scheduleId, updateData) => {
   }
 };
 
-/**
- * Delete a trip schedule
- * @param {string} scheduleId - The ID of the schedule to delete
- * @returns {Promise<void>}
- */
+
 export const deleteTripSchedule = async (scheduleId) => {
   try {
     if (!scheduleId) {
@@ -406,71 +367,8 @@ export const deleteTripSchedule = async (scheduleId) => {
   }
 };
 
-/**
- * Get a single trip schedule by ID
- * @param {string} scheduleId - The ID of the schedule to fetch
- * @returns {Promise<Object|null>} The schedule data or null if not found
- */
-export const getTripScheduleById = async (scheduleId) => {
-  try {
-    if (!scheduleId) {
-      throw new Error('Schedule ID is required');
-    }
 
-    const scheduleRef = doc(db, TRIP_SCHEDULES_COLLECTION, scheduleId);
-    const docSnap = await getDoc(scheduleRef);
-
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      return {
-        id: docSnap.id,
-        ...data,
-        // Add parsed schedules array for easier handling
-        schedulesArray: parseSchedules(data.schedules)
-      };
-    } else {
-      return null;
-    }
-
-  } catch (error) {
-    console.error('Error getting trip schedule:', error);
-    throw new Error(`Failed to get trip schedule: ${error.message}`);
-  }
-};
-
-/**
- * Toggle schedule status between 'active' and 'inactive'
- * @param {string} scheduleId - The ID of the schedule to toggle
- * @param {string} currentStatus - The current status
- * @returns {Promise<void>}
- */
-export const toggleScheduleStatus = async (scheduleId, currentStatus) => {
-  try {
-    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-    await updateTripSchedule(scheduleId, { status: newStatus });
-
-  } catch (error) {
-    console.error('Error toggling schedule status:', error);
-    throw new Error(`Failed to toggle schedule status: ${error.message}`);
-  }
-};
-
-/**
- * Validate schedule time format (supports both 12-hour and 24-hour)
- * @param {string} time - Time string to validate
- * @returns {boolean} True if valid, false otherwise
- */
-export const validateTimeFormat = (time) => {
-  const time12Regex = /^(0?[1-9]|1[0-2]):[0-5][0-9]\s?(AM|PM)$/i;
-  const time24Regex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-  return time12Regex.test(time) || time24Regex.test(time);
-};
-
-/**
- * Format time for display (ensures 12-hour format)
- * @param {string} time - Time string
- * @returns {string} Formatted time string in 12-hour format
- */
+// Format display time to 12-hour format with AM/PM
 export const formatDisplayTime = (time) => {
   try {
     if (!time) return 'N/A';
@@ -494,68 +392,3 @@ export const formatDisplayTime = (time) => {
   }
 };
 
-/**
- * Sort schedules by time
- * @param {Array<string>|string} schedules - Array of time strings or comma-separated string
- * @returns {Array<string>} Sorted array of time strings
- */
-export const sortSchedulesByTime = (schedules) => {
-  const schedulesArray = parseSchedules(schedules);
-  
-  return schedulesArray.sort((a, b) => {
-    try {
-      const time24A = convertTo24Hour(a);
-      const time24B = convertTo24Hour(b);
-      return time24A.localeCompare(time24B);
-    } catch (error) {
-      console.warn('Error sorting schedules:', error);
-      return 0;
-    }
-  });
-};
-
-/**
- * Get schedules statistics
- * @param {Array<Object>} schedules - Array of schedule objects
- * @returns {Object} Statistics object
- */
-export const getSchedulesStats = (schedules) => {
-  if (!Array.isArray(schedules)) return { total: 0, active: 0, inactive: 0 };
-  
-  const stats = {
-    total: schedules.length,
-    active: schedules.filter(s => s.status === 'active').length,
-    inactive: schedules.filter(s => s.status === 'inactive').length
-  };
-  
-  return stats;
-};
-
-/**
- * Convert schedules from array format to database string format
- * @param {Array<string>} schedulesArray - Array of schedule times
- * @returns {string} Comma-separated string for database storage
- */
-export const convertSchedulesToDatabaseFormat = (schedulesArray) => {
-  if (!Array.isArray(schedulesArray)) return '';
-  
-  const formattedSchedules = schedulesArray.map(time => {
-    // Ensure all times are in 12-hour format
-    const time24Regex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-    if (time24Regex.test(time)) {
-      return convertTo12Hour(time);
-    }
-    return time;
-  });
-  
-  return formatSchedulesForStorage(formattedSchedules);
-};
-
-/**
- * Convert schedules from database string format to array
- * @param {string} schedulesString - Comma-separated string from database
- * @returns {Array<string>} Array of schedule times
- */
-export const convertSchedulesFromDatabaseFormat = (schedulesString) => {
-  return parseSchedules(schedulesString);
-};

@@ -9,11 +9,11 @@ class RemittanceDataCacheService {
     this.cleanupOnError = true;
 
     // IN-MEMORY CACHE SYSTEM
-    this.remittanceCache = new Map(); // key: date, value: remittance data
-    this.lastFetchTime = new Map(); // Track fetch times per date
+    this.remittanceCache = new Map(); 
+    this.lastFetchTime = new Map(); 
     this.isCacheListenerActive = false;
     this.cacheVersion = 1;
-    this.currentCallbacks = new Map(); // Store callbacks for cache updates
+    this.currentCallbacks = new Map(); 
 
     // Available dates cache
     this.availableDatesCache = null;
@@ -79,10 +79,11 @@ class RemittanceDataCacheService {
     const lastFetch = this.lastFetchTime.get(cacheKey);
     if (!lastFetch) return false;
     const ageMinutes = (Date.now() - lastFetch) / (1000 * 60);
-    return ageMinutes < 3; // Cache valid for 3 minutes
+    return ageMinutes < 3; 
   }
 
-  // Fetch remittance data from Firestore (original logic)
+  // Fetch remittance data from Firestore
+  // main fetching logic, collects all the data 
   async fetchRemittanceDataFromFirestore(selectedDate) {
 
     if (!selectedDate) {
@@ -114,18 +115,18 @@ class RemittanceDataCacheService {
             tripNumber: trip.tripNumber,
             date: selectedDate,
             createdAt: trip.createdAt || trip.startTime || new Date(),
-            dateTime: trip.startTime || new Date(), // Use trip startTime from dailyTrips
-            tripDirection: trip.tripDirection, // Direction from dailyTrips
-            totalRevenue: trip.totalRevenue, // Revenue from dailyTrips tickets
-            totalPassengers: trip.totalPassengers, // Passengers from dailyTrips tickets
-            ticketCount: trip.ticketCount, // Ticket count from dailyTrips
-            tickets: trip.tickets, // Tickets array from dailyTrips
-            documentType: trip.documentType, // Trip-level documentType
-            isComplete: trip.isComplete, // Status from dailyTrips
-            startTime: trip.startTime, // Time from dailyTrips
-            endTime: trip.endTime, // Time from dailyTrips
-            placeCollection: trip.placeCollection, // Place info from dailyTrips
-            tripData: trip.data, // Original dailyTrips trip data
+            dateTime: trip.startTime || new Date(),
+            tripDirection: trip.tripDirection, 
+            totalRevenue: trip.totalRevenue, 
+            totalPassengers: trip.totalPassengers, 
+            ticketCount: trip.ticketCount,
+            tickets: trip.tickets,
+            documentType: trip.documentType, 
+            isComplete: trip.isComplete, 
+            startTime: trip.startTime,
+            endTime: trip.endTime, 
+            placeCollection: trip.placeCollection, 
+            tripData: trip.data, 
             remittanceSummary: remittanceSummary
           };
 
@@ -188,38 +189,41 @@ async getTripDataFromDailyTrips(conductorId, date) {
                                   preTicketDetails.totalPassengers;
 
         // Determine trip documentType based on what tickets are present
-        const tripDocumentType = (() => {
-          if (allTickets.length === 0) return 'Regular';
+        // Only include trips that have tickets or revenue
+        if (combinedRevenue > 0 || allTickets.length > 0) {
+          const tripDocumentType = (() => {
+            if (allTickets.length === 0) return 'Regular';
 
-          const hasPreTicket = preTicketDetails.preTickets.length > 0;
-          const hasPreBooking = preBookingDetails.preBookings.length > 0;
-          const hasConductor = ticketDetails.tickets.length > 0;
+            const hasPreTicket = preTicketDetails.preTickets.length > 0;
+            const hasPreBooking = preBookingDetails.preBookings.length > 0;
+            const hasConductor = ticketDetails.tickets.length > 0;
 
-          // Priority: preTicket > preBooking > conductor
-          if (hasPreTicket) return 'preTicket';
-          if (hasPreBooking) return 'preBooking';
-          if (hasConductor) return 'conductorTicket';
-          
-          return 'Regular';
-        })();
+            // Priority: preTicket > preBooking > conductor
+            if (hasPreTicket) return 'preTicket';
+            if (hasPreBooking) return 'preBooking';
+            if (hasConductor) return 'conductorTicket';
 
-        trips.push({
-          tripNumber: key,
-          tripDirection: value.direction || 'Unknown Direction',
-          startTime: value.startTime,
-          endTime: value.endTime,
-          isComplete: value.isComplete,
-          placeCollection: value.placeCollection,
-          totalRevenue: combinedRevenue,
-          totalPassengers: combinedPassengers,
-          ticketCount: allTickets.length,
-          tickets: allTickets,
-          conductorTickets: ticketDetails.tickets,
-          preBookings: preBookingDetails.preBookings,
-          preTickets: preTicketDetails.preTickets,
-          documentType: tripDocumentType,
-          data: value
-        });
+            return 'Regular';
+          })();
+
+          trips.push({
+            tripNumber: key,
+            tripDirection: value.direction || 'Unknown Direction',
+            startTime: value.startTime,
+            endTime: value.endTime,
+            isComplete: value.isComplete,
+            placeCollection: value.placeCollection,
+            totalRevenue: combinedRevenue,
+            totalPassengers: combinedPassengers,
+            ticketCount: allTickets.length,
+            tickets: allTickets,
+            conductorTickets: ticketDetails.tickets,
+            preBookings: preBookingDetails.preBookings,
+            preTickets: preTicketDetails.preTickets,
+            documentType: tripDocumentType,
+            data: value
+          });
+        }
       }
     }
 
@@ -230,6 +234,7 @@ async getTripDataFromDailyTrips(conductorId, date) {
   }
 }
 
+// fetches the conductor tickets from dailyTrips path
 async getTicketDetailsFromDailyTrips(conductorId, date, tripNumber) {
   try {
     const ticketsPath = `conductors/${conductorId}/dailyTrips/${date}/${tripNumber}/tickets/tickets`;
@@ -297,6 +302,7 @@ async getTicketDetailsFromDailyTrips(conductorId, date, tripNumber) {
   }
 }
 
+// fetches the pre-booking tickets from new path
 async getPreBookingDetailsFromNewPath(conductorId, date, tripNumber) {
   try {
     const preBookingsPath = `conductors/${conductorId}/dailyTrips/${date}/${tripNumber}/preBookings/preBookings`;
@@ -369,6 +375,7 @@ async getPreBookingDetailsFromNewPath(conductorId, date, tripNumber) {
   }
 }
 
+// fetches the pre-ticket tickets from new path
 async getPreTicketDetailsFromNewPath(conductorId, date, tripNumber) {
   try {
     const preTicketsPath = `conductors/${conductorId}/dailyTrips/${date}/${tripNumber}/preTickets/preTickets`;
@@ -508,7 +515,7 @@ async getPreTicketDetailsFromNewPath(conductorId, date, tripNumber) {
   }
 }
 
-  //  Get remittance summary data (moved to cache service)
+  //  Get remittance summary data 
   async getRemittanceSummaryData(conductorId, date) {
     try {
       // Check if there's summary data in the remittance date document
@@ -550,9 +557,6 @@ async getPreTicketDetailsFromNewPath(conductorId, date, tripNumber) {
       changes.forEach(change => {
         const conductorId = change.doc.id;
 
-        // Invalidate cache for dates related to this conductor
-        // Since we don't know which dates are affected, we'll invalidate all for this conductor
-        // This is more efficient than invalidating everything
         this.remittanceCache.forEach((data, cacheKey) => {
           // Check if this cached data contains the affected conductor
           const hasAffectedConductor = data.some(trip => trip.conductorId === conductorId);
@@ -614,6 +618,7 @@ async getPreTicketDetailsFromNewPath(conductorId, date, tripNumber) {
   }
 
   // Get available remittance dates with caching
+  // checks first the dates that have trips with tickets
   async getAvailableRemittanceDates() {
     try {
       // Check if cache is fresh (10 minutes for dates)
@@ -670,12 +675,11 @@ async getPreTicketDetailsFromNewPath(conductorId, date, tripNumber) {
                         break; // No need to check other trips
                       }
                     } catch (tripError) {
-                      // Trip doesn't have tickets, continue checking
                     }
                   }
                 }
               } catch (tripsError) {
-                // No trips found for date
+            
               }
 
               // Only add date if it has trips with tickets
@@ -703,6 +707,7 @@ async getPreTicketDetailsFromNewPath(conductorId, date, tripNumber) {
   }
 
   // Get conductor details with caching
+  // fetches conductor name and bus number
   async getConductorDetails(conductorId) {
     try {
       // Check if cache is fresh (15 minutes for conductor details)
@@ -735,10 +740,10 @@ async getPreTicketDetailsFromNewPath(conductorId, date, tripNumber) {
 
         // Check if bus number is in the main document
         if (data.busNumber) {
-          conductorData.busNumber = data.busNumber.toString(); // Convert to string to be safe
+          conductorData.busNumber = data.busNumber.toString(); 
           this.conductorDetailsCache.set(conductorId, conductorData);
           this.conductorDetailsCacheTime.set(conductorId, Date.now());
-          return conductorData; // Return early since we found it
+          return conductorData; 
         }
 
         // Also check alternative field names just in case
@@ -951,6 +956,8 @@ export const loadRemittanceData = async (selectedDate) => {
 };
 
 // Function to calculate remittance summary
+// counts unique trips
+// used to display summary info 
 export const calculateRemittanceSummary = (remittanceData) => {
   // Count unique trips by combining conductorId, date, and tripNumber
   // Only count trips that have tickets (ticketCount > 0)
@@ -988,6 +995,7 @@ export const calculateRemittanceSummary = (remittanceData) => {
 };
 
 // Function to group remittance data by conductor
+// organize data by conductorId
 export const groupRemittanceByconductor = (remittanceData) => {
   const grouped = remittanceData.reduce((acc, trip) => {
     if (!acc[trip.conductorId]) {
@@ -1016,23 +1024,6 @@ export const groupRemittanceByconductor = (remittanceData) => {
   return grouped;
 };
 
-// Function to get remittance data by conductor for a specific date
-export const getRemittanceByDate = async (date) => {
-  try {
-    const remittanceData = await remittanceDataCache.getRemittanceData(date);
-    const summary = calculateRemittanceSummary(remittanceData);
-    const groupedData = groupRemittanceByconductor(remittanceData);
-
-    return {
-      remittanceData,
-      summary,
-      groupedData
-    };
-  } catch (error) {
-    console.error('Error getting remittance by date:', error);
-    throw error;
-  }
-};
 
 // Utility function to format currency
 export const formatCurrency = (amount) => {
@@ -1153,7 +1144,9 @@ export const removeAllRemittanceListeners = () => {
   remittanceDataCache.removeAllListeners();
 };
 
-// Helper function to parse discount breakdown from a single ticket (returns REVENUE amounts, not counts)
+// Helper function to parse discount breakdown from a single ticket 
+// create the discount breakdown object
+// single trip ticket
 export const parseTicketDiscountBreakdown = (ticket) => {
   const breakdown = {
     regular: 0,
@@ -1287,6 +1280,7 @@ export const parseTicketDiscountBreakdown = (ticket) => {
 };
 
 // Helper function to calculate discount breakdown for a trip (aggregates all tickets, returns REVENUE)
+// all tickets in a trip
 export const calculateTripDiscountBreakdown = (trip) => {
   const totalBreakdown = {
     regular: 0,

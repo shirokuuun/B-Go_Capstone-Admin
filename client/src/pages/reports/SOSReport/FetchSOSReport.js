@@ -5,7 +5,7 @@ import { db } from "/src/firebase/firebase.js";
 // Available routes cache with TTL
 let cachedRoutes = null;
 let routesCacheTime = null;
-const ROUTES_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const ROUTES_CACHE_TTL = 10 * 60 * 1000;
 
 // Real-time listener reference
 let unsubscribeListener = null;
@@ -88,7 +88,6 @@ export const fetchSOSData = (dateRange, routeFilter, emergencyTypeFilter, callba
         sosData = sosData.filter(item => item.emergencyType === emergencyTypeFilter);
       }
 
-      // Sanitize data to ensure no nested objects in strings
       const sanitizedData = sosData.map(item => {
         const sanitized = { ...item };
         
@@ -146,7 +145,7 @@ export const getAvailableRoutes = async () => {
   if (cachedRoutes && routesCacheTime) {
     const cacheAge = Date.now() - routesCacheTime;
     if (cacheAge < ROUTES_CACHE_TTL) {
-      return cachedRoutes; // Return cached routes (still fresh)
+      return cachedRoutes; 
     }
   }
 

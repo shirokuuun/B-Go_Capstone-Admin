@@ -1,10 +1,7 @@
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '/src/firebase/firebase.js';
 
-/**
- * Fetches all users for user reports with proper ID verification status
- * @returns {Promise<Array>} Array of user objects
- */
+// fetches users along with their ID verification status for reports
 export const fetchUsersForReports = async () => {
   try {
     const usersCollection = collection(db, 'users');
@@ -50,11 +47,7 @@ export const fetchUsersForReports = async () => {
   }
 };
 
-/**
- * Formats user data for display in reports
- * @param {Object} user - User object
- * @returns {Object} Formatted user data
- */
+// Formats user data for display in reports
 export const formatUserForDisplay = (user) => {
   return {
     id: user.id,
@@ -75,11 +68,7 @@ export const formatUserForDisplay = (user) => {
   };
 };
 
-/**
- * Gets user statistics for reports
- * @param {Array} users - Array of user objects
- * @returns {Object} User statistics
- */
+// Calculates user statistics for reports
 export const getUserStats = (users) => {
   const stats = {
     total: users.length,

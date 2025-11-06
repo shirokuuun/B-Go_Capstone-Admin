@@ -1,10 +1,4 @@
-// Utility functions for the B-GO Admin application
-
-/**
- * Format currency amount to Philippine Peso
- * @param {number} amount - The amount to format
- * @returns {string} Formatted currency string
- */
+// currency format
 export const formatCurrency = (amount) => {
   return new Intl.NumberFormat("en-PH", {
     style: "currency",
@@ -14,12 +8,7 @@ export const formatCurrency = (amount) => {
   }).format(amount);
 };
 
-/**
- * Format date to readable string
- * @param {Date|string} date - The date to format
- * @param {object} options - Intl.DateTimeFormat options
- * @returns {string} Formatted date string
- */
+// format date
 export const formatDate = (date, options = {}) => {
   const defaultOptions = {
     weekday: "long",
@@ -34,40 +23,24 @@ export const formatDate = (date, options = {}) => {
   }).format(new Date(date));
 };
 
-/**
- * Generate a unique session ID
- * @returns {string} Unique session ID
- */
+// session id generator
 export const generateSessionId = () => {
   return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 };
 
-/**
- * Validate email format
- * @param {string} email - Email to validate
- * @returns {boolean} True if valid email format
- */
+// validator email
 export const isValidEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 };
 
-/**
- * Validate phone number format (Philippines)
- * @param {string} phone - Phone number to validate
- * @returns {boolean} True if valid phone format
- */
+// validator phone number (Philippines)
 export const isValidPhone = (phone) => {
   const phoneRegex = /^(\+63|0)[0-9]{10}$/;
   return phoneRegex.test(phone.replace(/\s/g, ""));
 };
 
-/**
- * Debounce function to limit function calls
- * @param {Function} func - Function to debounce
- * @param {number} wait - Wait time in milliseconds
- * @returns {Function} Debounced function
- */
+// debounce function
 export const debounce = (func, wait) => {
   let timeout;
   return function executedFunction(...args) {
@@ -80,11 +53,7 @@ export const debounce = (func, wait) => {
   };
 };
 
-/**
- * Copy text to clipboard
- * @param {string} text - Text to copy
- * @returns {Promise<boolean>} True if successful
- */
+// copy to clipboard
 export const copyToClipboard = async (text) => {
   try {
     await navigator.clipboard.writeText(text);
@@ -106,11 +75,7 @@ export const copyToClipboard = async (text) => {
   }
 };
 
-/**
- * Get payment method display name
- * @param {string} method - Payment method code
- * @returns {string} Display name for payment method
- */
+// Get payment method display name
 export const getPaymentMethodName = (method) => {
   const methods = {
     card: "Credit/Debit Card",
@@ -122,11 +87,7 @@ export const getPaymentMethodName = (method) => {
   return methods[method] || method;
 };
 
-/**
- * Get payment status display name and color
- * @param {string} status - Payment status
- * @returns {object} Object with display name and color
- */
+// Get payment status info
 export const getPaymentStatusInfo = (status) => {
   const statusMap = {
     pending: { name: "Pending", color: "#ffc107" },
@@ -138,11 +99,7 @@ export const getPaymentStatusInfo = (status) => {
   return statusMap[status] || { name: status, color: "#6c757d" };
 };
 
-/**
- * Calculate time difference in human readable format
- * @param {Date|string} date - Date to compare
- * @returns {string} Human readable time difference
- */
+// get time ago
 export const getTimeAgo = (date) => {
   const now = new Date();
   const past = new Date(date);

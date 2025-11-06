@@ -23,7 +23,7 @@ export const getAvailableTimeRanges = async () => {
   ];
 };
 
-// Get available routes from the database (Uses same logic as Daily Revenue)
+// Get available routes from the database 
 export const getAvailableRoutes = async () => {
   try {
     const conductorsRef = collection(db, 'conductors');
@@ -86,7 +86,7 @@ export const getAvailableRoutes = async () => {
   }
 };
 
-// Get main analytics data overview using DailyRevenue functions
+// Get main analytics data overview 
 export const getTicketAnalyticsData = async (timeRange, route, ticketType = '') => {
   try {
     // Convert timeRange to date range
@@ -113,7 +113,6 @@ export const getTicketAnalyticsData = async (timeRange, route, ticketType = '') 
         startDate.setDate(now.getDate() - 30);
     }
 
-    // Use DailyRevenue functions to get comprehensive data
     // For range queries, we need to aggregate data from multiple dates
     let allConductorTrips = [];
     let allPreBookingTrips = [];
@@ -346,8 +345,6 @@ export const getDemandPatternsData = async (timeRange, route, ticketType = '') =
       }
     });
 
-    const totalTickets = Object.values(datePatterns).reduce((sum, data) => sum + data.tickets, 0);
-
     const seasonalTrends = Object.entries(datePatterns)
       .map(([day, data]) => ({
         period: day,
@@ -407,9 +404,6 @@ export const getDemandPatternsData = async (timeRange, route, ticketType = '') =
   }
 };
 
-// Continue with rest of the functions...
-// (I'll include the remaining functions without changes to keep the file complete)
-
 // Route performance analysis using direction field from database
 export const getRoutePerformanceData = async (timeRange, route, ticketType = '') => {
   try {
@@ -463,7 +457,7 @@ export const getRoutePerformanceData = async (timeRange, route, ticketType = '')
     
 
     // totalTripsCount - The TOTAL number of trips across ALL routes
-    // numberOfTrips - The number of trips for a SPECIFIC route (calculated below in the map)
+    // numberOfTrips - The number of trips for a SPECIFIC route 
     // Calculate total trips across all routes for percentage calculation
     const allTrips = [...rawData.conductorTrips, ...rawData.preBookingTrips, ...rawData.preTicketing];
     const allUniqueTrips = new Set();
@@ -479,7 +473,8 @@ export const getRoutePerformanceData = async (timeRange, route, ticketType = '')
     const routePerformance = routeRevenueData.map((routeData, index) => {
       const averageFare = routeData.passengers > 0 ? routeData.revenue / routeData.passengers : 0;
 
-      // Calculate trip distribution - count actual trips for this route
+      // Calculation for trip distribution
+      //Trip Distribution = (Number of Trips for This Route ÷ Total Trips Across All Routes) × 100
       const routeTrips = allTrips.filter(trip => trip.tripDirection === routeData.route);
 
       // Group trips by unique trip identifier to count actual trips (not individual tickets)
@@ -494,18 +489,21 @@ export const getRoutePerformanceData = async (timeRange, route, ticketType = '')
       });
 
       const numberOfTrips = uniqueTrips.size > 0 ? uniqueTrips.size : routeTrips.length;
+
+      // Average load calculation
       const averagePassengersPerTrip = numberOfTrips > 0 ? routeData.passengers / numberOfTrips : routeData.passengers;
 
       // Calculate trip distribution percentage (what % of all trips use this route)
       const tripDistributionPercentage = totalTripsCount > 0
         ? Math.round((numberOfTrips / totalTripsCount) * 100)
         : 0;
-      
-      // Calculate actual revenue per km using ticket distance data
+
+      // Calculation of revenue/km
+      // Revenue/km = Total Revenue for Route ÷ Average Distance (in km)
       const calculateActualDistance = () => {
         const allTrips = [...rawData.conductorTrips, ...rawData.preBookingTrips, ...rawData.preTicketing];
         const routeTrips = allTrips.filter(trip => trip.tripDirection === routeData.route);
-        
+
         // Use totalKm from tickets if available
         const tripsWithDistance = routeTrips.filter(trip => trip.totalKm && trip.totalKm > 0);
         if (tripsWithDistance.length > 0) {
@@ -523,27 +521,29 @@ export const getRoutePerformanceData = async (timeRange, route, ticketType = '')
           }, 0);
           return totalDistance / tripsWithKmData.length;
         }
-        
-        // No fallback - return 0 if no actual distance data found
+
+
         return 0;
       };
-      
+
       const actualDistance = calculateActualDistance();
+      // calculate revenue per km
+      //Revenue/km = Total Revenue for Route ÷ Average Distance (in km)
       const revenuePerKm = routeData.revenue > 0 && actualDistance > 0
         ? Math.round((routeData.revenue / actualDistance) * 100) / 100
         : 0;
 
       return {
-        routeName: routeData.route, // This is now the direction field from database
-        tripCount: numberOfTrips, // Actual number of trips for this route
-        tripDistributionPercentage, // Percentage of total trips
+        routeName: routeData.route, 
+        tripCount: numberOfTrips,
+        tripDistributionPercentage, 
         revenuePerKm,
         averageFare: Math.round(averageFare * 100) / 100,
-        averagePassengers: averagePassengersPerTrip > 0 ? Math.round(averagePassengersPerTrip) : routeData.passengers // Average passengers per trip
+        averagePassengers: averagePassengersPerTrip > 0 ? Math.round(averagePassengersPerTrip) : routeData.passengers //averagePassengersPerTrip = routeData.passengers ÷ numberOfTrips
       };
     });
 
-    return routePerformance.slice(0, 10); // Return top 10 routes
+    return routePerformance.slice(0, 10); 
     
   } catch (error) {
     console.error('Error fetching route performance:', error);
@@ -551,7 +551,7 @@ export const getRoutePerformanceData = async (timeRange, route, ticketType = '')
   }
 };
 
-// Ticket type performance data using DailyRevenue functions
+// Ticket type performance data 
 export const getTicketTypeData = async (timeRange, route, ticketType = '') => {
   try {
     // Get current period data
@@ -564,9 +564,6 @@ export const getTicketTypeData = async (timeRange, route, ticketType = '') => {
       { conductorRevenue, preBookingRevenue, preTicketingRevenue },
       previousPeriodData
     );
-
-    // Use DailyRevenue's preparePieChartData for ticket type breakdown
-    const pieChartData = preparePieChartData(conductorRevenue, preBookingRevenue, preTicketingRevenue);
     
     // Helper function to determine margin level based on business performance
     const getMarginLevel = (marketShare, volume, growth, averagePrice) => {
@@ -604,6 +601,7 @@ export const getTicketTypeData = async (timeRange, route, ticketType = '') => {
     };
 
     // Convert to ticket analytics format
+    // calculation depending on the ticket type
     const ticketTypesData = [
       {
         type: 'Regular/Conductor',
@@ -798,10 +796,11 @@ const getPreviousPeriodData = async (timeRange, route, ticketType = '') => {
 };
 
 // Helper function to calculate growth rates
+// for the ticket type performance data
 const calculateGrowthRates = (currentData, previousData) => {
   const calculateGrowth = (current, previous) => {
-    if (previous === 0) return current > 0 ? 100 : 0; // If no previous data, 100% growth if current > 0
-    return Math.round(((current - previous) / previous) * 100) / 100; // Calculate percentage and round to 2 decimal places
+    if (previous === 0) return current > 0 ? 100 : 0; 
+    return Math.round(((current - previous) / previous) * 100) / 100; 
   };
 
   return {
@@ -894,7 +893,8 @@ const convertToCSV = (data) => {
   return csv;
 };
 
-// Helper function to parse discount breakdown from ticket (similar to Remittance.js)
+// Helper function to parse discount breakdown from ticket 
+// used on the getDiscountRevenueData function
 const parseTicketDiscountBreakdown = (ticket) => {
   const breakdown = {
     regular: 0,
@@ -957,6 +957,7 @@ const parseTicketDiscountBreakdown = (ticket) => {
 };
 
 // Get discount revenue breakdown (Regular, Student, PWD, Senior)
+// main function to get discount revenue data
 export const getDiscountRevenueData = async (timeRange, route, ticketType = '') => {
   try {
     // Get analytics data to access raw trip data
@@ -1047,35 +1048,4 @@ export const getDiscountRevenueData = async (timeRange, route, ticketType = '') 
     console.error('=== ERROR in getDiscountRevenueData ===', error);
     return [];
   }
-};
-
-// Performance metrics calculation
-export const calculatePerformanceMetrics = (data) => {
-  if (!data || !Array.isArray(data) || data.length === 0) {
-    return {
-      average: 0,
-      total: 0,
-      maximum: 0,
-      minimum: 0,
-      standardDeviation: 0
-    };
-  }
-  
-  const values = data.map(item => item.value || 0);
-  const total = values.reduce((sum, val) => sum + val, 0);
-  const average = total / values.length;
-  const maximum = Math.max(...values);
-  const minimum = Math.min(...values);
-  
-  // Calculate standard deviation
-  const variance = values.reduce((sum, val) => sum + Math.pow(val - average, 2), 0) / values.length;
-  const standardDeviation = Math.sqrt(variance);
-  
-  return {
-    average: parseFloat(average.toFixed(2)),
-    total: parseFloat(total.toFixed(2)),
-    maximum,
-    minimum,
-    standardDeviation: parseFloat(standardDeviation.toFixed(2))
-  };
 };

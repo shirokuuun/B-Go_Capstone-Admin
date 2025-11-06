@@ -54,13 +54,7 @@ class BackupService {
     this.backupFolder = 'system-backups';
   }
 
-  /**
-   * Create a backup of selected collections
-   * @param {Array} selectedCollections - Array of collection keys to backup
-   * @param {string} backupName - Optional custom backup name
-   * @param {Function} progressCallback - Optional progress callback function
-   * @returns {Promise<Object>} Backup result with download URL
-   */
+// Create a new backup
   async createBackup(selectedCollections, backupName = null, progressCallback = null) {
     try {
       const timestamp = new Date();
@@ -69,9 +63,9 @@ class BackupService {
       
       // Initialize progress tracking with predefined percentages
       const totalCollections = selectedCollections.length;
-      const collectionProgress = 80; // 80% for collection processing
-      const uploadProgress = 90;     // 90% for upload
-      const finalProgress = 100;     // 100% for completion
+      const collectionProgress = 80; 
+      const uploadProgress = 90;     
+      const finalProgress = 100;     
       
       const updateProgress = async (message, percentage) => {
         if (progressCallback) {
@@ -223,10 +217,7 @@ class BackupService {
     }
   }
 
-  /**
-   * Backup complete conductor data including all subcollections
-   * @returns {Promise<Object>} Complete conductor data structure
-   */
+
   async backupCompleteCondutorData() {
     try {
       const conductorsRef = collection(db, 'conductors');
@@ -311,7 +302,7 @@ class BackupService {
                   }
                 }
               } catch (tripError) {
-                // Trip doesn't exist, continue
+
               }
             }
           }
@@ -404,10 +395,7 @@ class BackupService {
     }
   }
 
-  /**
-   * Backup complete user data including all subcollections
-   * @returns {Promise<Object>} Complete user data structure
-   */
+  // Backup complete user data including all subcollections
   async backupCompleteUserData() {
     try {
       const usersRef = collection(db, 'users');
@@ -488,10 +476,7 @@ class BackupService {
     }
   }
 
-  /**
-   * List all available backups
-   * @returns {Promise<Array>} List of backup metadata
-   */
+ // list of backups
   async listBackups() {
     try {
       const backupsRef = collection(db, 'systemBackups');
@@ -515,10 +500,7 @@ class BackupService {
     }
   }
 
-  /**
-   * Delete expired backups (called automatically)
-   * @returns {Promise<Object>} Cleanup result
-   */
+  // Cleanup expired backups after 30 days
   async cleanupExpiredBackups() {
     try {
       
@@ -562,10 +544,7 @@ class BackupService {
     }
   }
 
-  /**
-   * Get backup statistics
-   * @returns {Promise<Object>} Backup statistics
-   */
+
   async getBackupStatistics() {
     try {
       const listResult = await this.listBackups();
@@ -586,11 +565,7 @@ class BackupService {
     }
   }
 
-  /**
-   * Download a backup file
-   * @param {string} fileName - The backup file name
-   * @returns {Promise<void>}
-   */
+
   async downloadBackup(fileName) {
     try {
       // Get the backup metadata from Firestore
@@ -634,11 +609,7 @@ class BackupService {
     }
   }
 
-  /**
-   * Delete a backup file
-   * @param {string} backupId - The backup ID
-   * @returns {Promise<Object>} Delete result
-   */
+
   async deleteBackup(backupId) {
     try {
       // Find the backup document by ID
@@ -679,9 +650,7 @@ class BackupService {
     }
   }
 
-  /**
-   * Schedule automatic cleanup (call this periodically)
-   */
+  // schedule of expired backups cleanup
   scheduleCleanup() {
     // Run cleanup every 24 hours
     setInterval(() => {
@@ -689,14 +658,7 @@ class BackupService {
     }, 24 * 60 * 60 * 1000);
   }
 
-  /**
-   * Restore data from a backup file
-   * @param {Object} backupFile - The backup file metadata
-   * @param {Object} options - Restore options
-   * @param {string} options.mode - Restore mode: 'missing_only', 'overwrite'
-   * @param {Function} options.progressCallback - Progress callback function
-   * @returns {Promise<Object>} Restore result
-   */
+  //Restore data from a backup file
   async restoreFromBackup(backupFile, options = {}) {
     const { mode = 'missing_only', progressCallback } = options;
     
@@ -791,11 +753,7 @@ class BackupService {
     }
   }
 
-  /**
-   * Get backup data from file or uploaded JSON
-   * @param {Object} backupFile - Backup file metadata or uploaded file data
-   * @returns {Promise<Object>} Backup data
-   */
+  // get the backup data (JSON)
   async getBackupData(backupFile) {
     try {
       // If backupFile has uploadedData, use it directly
@@ -842,11 +800,7 @@ class BackupService {
     }
   }
 
-  /**
-   * Parse uploaded backup file
-   * @param {File} file - The uploaded backup file
-   * @returns {Promise<Object>} Parsed backup data
-   */
+
   async parseUploadedBackup(file) {
     try {
       const text = await file.text();
@@ -863,11 +817,7 @@ class BackupService {
     }
   }
 
-  /**
-   * Analyze backup data to get document counts
-   * @param {Object} backupData - The backup data
-   * @returns {Object} Analysis results
-   */
+
   analyzeBackupData(backupData) {
     let totalDocuments = 0;
     let totalConductors = 0;
@@ -885,12 +835,7 @@ class BackupService {
     return { totalDocuments, totalConductors, totalSubcollections };
   }
 
-  /**
-   * Restore only missing documents
-   * @param {Object} backupData - The backup data
-   * @param {Object} progress - Progress object
-   * @param {Function} progressCallback - Progress callback
-   */
+  // missing only restore mode
   async restoreMissingOnly(backupData, progress, progressCallback) {
     // Process each collection in the backup
     for (const collectionKey of backupData.metadata.collections) {
@@ -964,11 +909,7 @@ class BackupService {
     }
   }
 
-  /**
-   * Convert timestamp objects to Firebase Timestamp instances
-   * @param {*} data - Data to convert
-   * @returns {*} Data with converted timestamps
-   */
+
   convertTimestamps(data) {
     if (!data || typeof data !== 'object') return data;
 
@@ -989,12 +930,7 @@ class BackupService {
     return converted;
   }
 
-  /**
-   * Deep restore for conductor data with nested subcollections
-   * @param {Object} conductorBackupData - The conductor backup data
-   * @param {Object} progress - Progress object
-   * @param {Function} progressCallback - Progress callback
-   */
+  // deeep restoration for conductor data with subcollections
   async restoreMissingConductorData(conductorBackupData, progress, progressCallback) {
     // Extract conductors from backup data structure
     const conductors = conductorBackupData.documents || conductorBackupData;
@@ -1069,12 +1005,7 @@ class BackupService {
     }
   }
 
-  /**
-   * Deep restore for user data with subcollections
-   * @param {Object} userBackupData - The user backup data
-   * @param {Object} progress - Progress object
-   * @param {Function} progressCallback - Progress callback
-   */
+  // restore missing user data with subcollections
   async restoreMissingUserData(userBackupData, progress, progressCallback) {
     // Extract users from backup data structure
     const users = userBackupData.documents || userBackupData;
@@ -1138,14 +1069,7 @@ class BackupService {
     }
   }
 
-  /**
-   * Restore missing documents in user subcollections (preBookings, preTickets)
-   * @param {string} userId - User ID
-   * @param {string} subcollectionName - Subcollection name
-   * @param {Object} subcollectionData - Subcollection backup data
-   * @param {Object} progress - Progress object
-   * @param {Function} progressCallback - Progress callback
-   */
+  // restore missing documents in flat user subcollections
   async restoreMissingUserSubcollection(userId, subcollectionName, subcollectionData, progress, progressCallback) {
     for (const [docId, docData] of Object.entries(subcollectionData)) {
       try {
@@ -1167,13 +1091,7 @@ class BackupService {
     }
   }
 
-  /**
-   * Restore missing dailyTrips with nested trip structure
-   * @param {string} conductorId - Conductor ID
-   * @param {Object} dailyTripsData - Daily trips backup data
-   * @param {Object} progress - Progress object
-   * @param {Function} progressCallback - Progress callback
-   */
+ // restore missing daily trips with nested subcollections
   async restoreMissingDailyTrips(conductorId, dailyTripsData, progress, progressCallback) {
     for (const [dateId, dateData] of Object.entries(dailyTripsData)) {
       progress.currentConductor = `Checking date: ${dateId} for conductor ${conductorId}`;
@@ -1244,16 +1162,7 @@ class BackupService {
     }
   }
 
-  /**
-   * Restore missing trip documents (tickets/preBookings/preTickets)
-   * @param {string} conductorId - Conductor ID
-   * @param {string} dateId - Date ID
-   * @param {string} tripName - Trip name (e.g., trip1)
-   * @param {string} collectionName - Collection name
-   * @param {string} subcollectionName - Subcollection name
-   * @param {Array} documents - Documents to restore
-   * @param {Object} progress - Progress object
-   */
+// restore missing documents in trip subcollections
   async restoreMissingTripDocuments(conductorId, dateId, tripName, collectionName, subcollectionName, documents, progress) {
     for (const docItem of documents) {
       try {
@@ -1316,13 +1225,7 @@ class BackupService {
     }
   }
 
-  /**
-   * Restore missing remittance data with nested tickets subcollection
-   * @param {string} conductorId - Conductor ID
-   * @param {Object} remittanceData - Remittance backup data
-   * @param {Object} progress - Progress object
-   * @param {Function} progressCallback - Progress callback
-   */
+  // restore missing remittance data with nested tickets
   async restoreMissingRemittanceData(conductorId, remittanceData, progress, progressCallback) {
     for (const [dateId, dateInfo] of Object.entries(remittanceData)) {
       progress.currentConductor = `Restoring remittance ${dateId} for conductor ${conductorId}`;
@@ -1369,12 +1272,7 @@ class BackupService {
   }
 
 
-  /**
-   * Restore with overwrite strategy
-   * @param {Object} backupData - The backup data
-   * @param {Object} progress - Progress object
-   * @param {Function} progressCallback - Progress callback
-   */
+ // overwrite restore mode
   async restoreOverwrite(backupData, progress, progressCallback) {
     const { collection: firestoreCollection, doc, setDoc } = await import('firebase/firestore');
     
