@@ -1385,6 +1385,10 @@ export const deleteTicket = async (conductorId, ticketId) => {
       // Delete from prebooking path
       const preBookingRef = doc(db, 'conductors', conductorId, 'dailyTrips', dateId, tripId, 'preBookings', 'preBookings', ticketId);
       await deleteDoc(preBookingRef);
+    } else if (ticket.documentType === 'preTicket' || ticket.ticketType === 'preTicket' || ticket.source === 'preTickets') {
+      // Delete from pre-tickets path
+      const preTicketRef = doc(db, 'conductors', conductorId, 'dailyTrips', dateId, tripId, 'preTickets', 'preTickets', ticketId);
+      await deleteDoc(preTicketRef);
     } else {
       // Delete from regular tickets path
       const ticketRef = doc(db, 'conductors', conductorId, 'dailyTrips', dateId, tripId, 'tickets', 'tickets', ticketId);
@@ -1463,7 +1467,7 @@ const isTripEmpty = async (conductorId, dateId, tripName) => {
     // Check tickets subcollection
     const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
     const ticketsSnapshot = await getDocs(ticketsRef);
-    
+
     if (ticketsSnapshot.docs.length > 0) {
       return false; // Has tickets
     }
@@ -1471,9 +1475,17 @@ const isTripEmpty = async (conductorId, dateId, tripName) => {
     // Check prebookings subcollection
     const preBookingsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'preBookings', 'preBookings');
     const preBookingsSnapshot = await getDocs(preBookingsRef);
-    
+
     if (preBookingsSnapshot.docs.length > 0) {
       return false; // Has prebookings
+    }
+
+    // Check pre-tickets subcollection
+    const preTicketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'preTickets', 'preTickets');
+    const preTicketsSnapshot = await getDocs(preTicketsRef);
+
+    if (preTicketsSnapshot.docs.length > 0) {
+      return false; // Has pre-tickets
     }
 
     return true; // Trip is empty
@@ -1495,9 +1507,9 @@ const deleteEmptyTrip = async (conductorId, dateId, tripName) => {
     // Delete tickets subcollection documents (if any remain)
     const ticketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets');
     const ticketsSnapshot = await getDocs(ticketsRef);
-    
+
     const deletePromises = [];
-    
+
     ticketsSnapshot.docs.forEach(doc => {
       deletePromises.push(deleteDoc(doc.ref));
     });
@@ -1505,8 +1517,16 @@ const deleteEmptyTrip = async (conductorId, dateId, tripName) => {
     // Delete prebookings subcollection documents (if any remain)
     const preBookingsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'preBookings', 'preBookings');
     const preBookingsSnapshot = await getDocs(preBookingsRef);
-    
+
     preBookingsSnapshot.docs.forEach(doc => {
+      deletePromises.push(deleteDoc(doc.ref));
+    });
+
+    // Delete pre-tickets subcollection documents (if any remain)
+    const preTicketsRef = collection(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'preTickets', 'preTickets');
+    const preTicketsSnapshot = await getDocs(preTicketsRef);
+
+    preTicketsSnapshot.docs.forEach(doc => {
       deletePromises.push(deleteDoc(doc.ref));
     });
 
@@ -1525,6 +1545,14 @@ const deleteEmptyTrip = async (conductorId, dateId, tripName) => {
     try {
       const preBookingsCollectionRef = doc(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'preBookings');
       await deleteDoc(preBookingsCollectionRef);
+    } catch (e) {
+      // May not exist, that's ok
+    }
+
+    // Delete pre-tickets collection document
+    try {
+      const preTicketsCollectionRef = doc(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'preTickets');
+      await deleteDoc(preTicketsCollectionRef);
     } catch (e) {
       // May not exist, that's ok
     }
