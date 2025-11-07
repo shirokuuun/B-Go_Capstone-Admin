@@ -1158,20 +1158,25 @@ export const getPreTicketById = async (conductorId, ticketId) => {
       
       for (const tripName of tripNames) {
         try {
-          // Search in both regular tickets and prebookings paths
-          const [ticketSnapshot, preBookingSnapshot] = await Promise.all([
+          // Search in all three ticket paths: regular tickets, prebookings, and pre-tickets
+          const [ticketSnapshot, preBookingSnapshot, preTicketSnapshot] = await Promise.all([
             getDoc(doc(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'tickets', 'tickets', ticketId)),
-            getDoc(doc(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'preBookings', 'preBookings', ticketId))
+            getDoc(doc(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'preBookings', 'preBookings', ticketId)),
+            getDoc(doc(db, 'conductors', conductorId, 'dailyTrips', dateId, tripName, 'preTickets', 'preTickets', ticketId))
           ]);
 
           let ticketData = null;
-          let isPreBooking = false;
+          let ticketSource = null;
 
           if (ticketSnapshot.exists()) {
             ticketData = ticketSnapshot.data();
+            ticketSource = 'regular';
           } else if (preBookingSnapshot.exists()) {
             ticketData = preBookingSnapshot.data();
-            isPreBooking = true;
+            ticketSource = 'preBookings';
+          } else if (preTicketSnapshot.exists()) {
+            ticketData = preTicketSnapshot.data();
+            ticketSource = 'preTickets';
           }
 
           if (ticketData) {
@@ -1181,31 +1186,57 @@ export const getPreTicketById = async (conductorId, ticketId) => {
             // Get trip direction
             const tripDirection = await getTripDirection(conductorId, dateId, tripName);
 
+            // Parse qrData for pre-tickets if needed
+            let parsedQrData = null;
+            if (ticketSource === 'preTickets' && ticketData.qrData) {
+              try {
+                if (typeof ticketData.qrData === 'string') {
+                  parsedQrData = JSON.parse(ticketData.qrData);
+                } else if (typeof ticketData.qrData === 'object') {
+                  parsedQrData = ticketData.qrData;
+                }
+              } catch (parseError) {
+                console.warn(`Failed to parse qrData for ticket ${ticketId}:`, parseError);
+              }
+            }
+
+            const sourceData = parsedQrData || ticketData;
+
             return {
               id: ticketId,
               conductorId: conductorId,
               conductor: conductorSnapshot.exists() ? conductorSnapshot.data() : { name: 'Unknown Conductor', email: 'N/A' },
               tripId: tripName,
               date: dateId,
-              amount: ticketData.totalFare || 0,
+              amount: ticketSource === 'preTickets' ? (sourceData.amount || sourceData.totalFare || 0) : (ticketData.totalFare || 0),
               quantity: ticketData.quantity || 0,
               from: ticketData.from || '',
               to: ticketData.to || '',
-              fromKm: isPreBooking ? (ticketData.fromKm || 0) : (ticketData.startKm || 0),
-              toKm: isPreBooking ? (ticketData.toKm || 0) : (ticketData.endKm || 0),
+              fromKm: ticketSource === 'preBookings' ? (ticketData.fromKm || 0) :
+                      ticketSource === 'preTickets' ? (sourceData.fromKm || ticketData.startKm || ticketData.fromKm || 0) :
+                      (ticketData.startKm || 0),
+              toKm: ticketSource === 'preBookings' ? (ticketData.toKm || 0) :
+                    ticketSource === 'preTickets' ? (sourceData.toKm || ticketData.endKm || ticketData.toKm || 0) :
+                    (ticketData.endKm || 0),
               route: `${ticketData.from} → ${ticketData.to}`,
               direction: tripDirection || `${ticketData.from} → ${ticketData.to}`,
-              timestamp: ticketData.timestamp,
-              discountBreakdown: ticketData.discountBreakdown || [],
+              timestamp: ticketSource === 'preTickets' ? ticketData.scannedAt : ticketData.timestamp,
+              discountBreakdown: ticketSource === 'preTickets' ? (sourceData.discountBreakdown || ticketData.discountBreakdown || []) : (ticketData.discountBreakdown || []),
               status: ticketData.active ? 'active' : 'inactive',
-              ticketType: isPreBooking ? 'preBooking' : (ticketData.ticketType || ticketData.documentType),
-              documentType: isPreBooking ? 'preBooking' : (ticketData.documentType || ticketData.ticketType),
-              scannedAt: ticketData.timestamp,
-              time: ticketData.timestamp ? new Date(ticketData.timestamp.seconds * 1000).toLocaleTimeString() : '',
-              dateFormatted: ticketData.timestamp ? new Date(ticketData.timestamp.seconds * 1000).toLocaleDateString() : dateId,
-              source: isPreBooking ? 'preBookings' : 'tickets',
+              ticketType: ticketSource === 'preBookings' ? 'preBooking' :
+                          ticketSource === 'preTickets' ? 'preTicket' :
+                          (ticketData.ticketType || ticketData.documentType),
+              documentType: ticketSource === 'preBookings' ? 'preBooking' :
+                            ticketSource === 'preTickets' ? 'preTicket' :
+                            (ticketData.documentType || ticketData.ticketType),
+              scannedAt: ticketSource === 'preTickets' ? ticketData.scannedAt : ticketData.timestamp,
+              time: (ticketSource === 'preTickets' ? ticketData.scannedAt : ticketData.timestamp) ?
+                    new Date(((ticketSource === 'preTickets' ? ticketData.scannedAt : ticketData.timestamp).seconds || 0) * 1000).toLocaleTimeString() : '',
+              dateFormatted: (ticketSource === 'preTickets' ? ticketData.scannedAt : ticketData.timestamp) ?
+                             new Date(((ticketSource === 'preTickets' ? ticketData.scannedAt : ticketData.timestamp).seconds || 0) * 1000).toLocaleDateString() : dateId,
+              source: ticketSource,
               // Additional prebooking specific fields if it's a prebooking
-              ...(isPreBooking && {
+              ...(ticketSource === 'preBookings' && {
                 busNumber: ticketData.busNumber,
                 conductorName: ticketData.conductorName,
                 paymentMethod: ticketData.paymentMethod,
@@ -1213,6 +1244,14 @@ export const getPreTicketById = async (conductorId, ticketId) => {
                 preBookingId: ticketData.preBookingId,
                 createdAt: ticketData.createdAt,
                 paidAt: ticketData.paidAt
+              }),
+              // Additional pre-ticket specific fields if it's a pre-ticket
+              ...(ticketSource === 'preTickets' && {
+                qrData: ticketData.qrData,
+                qrDataParsed: parsedQrData,
+                scannedBy: ticketData.scannedBy,
+                fareTypes: sourceData.fareTypes || ticketData.fareTypes,
+                passengerFares: sourceData.passengerFares || ticketData.passengerFares || []
               })
             };
           }
