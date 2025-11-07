@@ -908,7 +908,11 @@ const ConductorDetails = ({ conductor }) => {
               </div>
               <div className="detail-item">
                 <span className="label">Speed:</span>
-                <span className="value">{conductor.currentLocation.speed || 0} km/h</span>
+                <span className="value">
+                  {conductor.currentLocation.speed
+                    ? (conductor.currentLocation.speed * 3.6).toFixed(2)
+                    : 0} km/h
+                </span>
               </div>
               <div className="detail-item">
                 <span className="label">Heading:</span>
