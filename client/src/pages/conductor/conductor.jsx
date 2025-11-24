@@ -486,7 +486,9 @@ const AddConductorModal = ({ onClose, onSuccess }) => {
     name: '',
     route: '',
     password: '',
-    plateNumber: ''
+    plateNumber: '',
+    registrationNumber: '', 
+    driverName: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -505,6 +507,13 @@ const AddConductorModal = ({ onClose, onSuccess }) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    // validation for registration number
+    if (!/^\d{9}$/.test(formData.registrationNumber)) {
+      setError('Bus Registration Number must be exactly 9 digits.');
+      setLoading(false);
+      return;
+    }
 
     try {
       // Use the conductorService.createConductor method which includes activity logging
@@ -539,9 +548,22 @@ const AddConductorModal = ({ onClose, onSuccess }) => {
                 {error}
               </div>
             )}
+
+            <div className="form-group">
+              <label htmlFor="driverName">Driver's Name</label>
+              <input
+                type="text"
+                id="driverName"
+                name="driverName"
+                value={formData.driverName}
+                onChange={handleChange}
+                placeholder="Enter driver's full name"
+                required
+              />
+            </div>
             
             <div className="form-group">
-              <label htmlFor="name">Full Name</label>
+              <label htmlFor="name">Conductor Name</label>
               <input
                 type="text"
                 id="name"
@@ -606,6 +628,33 @@ const AddConductorModal = ({ onClose, onSuccess }) => {
             </div>
 
             <div className="form-group">
+              <label htmlFor="registrationNumber">Bus Registration Number</label>
+              <input
+                type="text" 
+                id="registrationNumber"
+                name="registrationNumber"
+                value={formData.registrationNumber}
+                onChange={(e) => {
+                  // Only allow numeric input and max 9 chars
+                  const re = /^[0-9\b]+$/;
+                  if (e.target.value === '' || re.test(e.target.value)) {
+                    if (e.target.value.length <= 9) {
+                      handleChange(e);
+                    }
+                  }
+                }}
+                placeholder="Enter 9-digit registration number"
+                required
+                maxLength="9"
+                pattern="\d{9}"
+                title="Please enter exactly 9 digits"
+              />
+              <small style={{ color: '#718096', fontSize: '0.8rem' }}>
+                {formData.registrationNumber.length}/9 digits
+              </small>
+            </div>
+
+            <div className="form-group">
               <label htmlFor="password">Password</label>
               <div className="conductor-password-input-container">
                 <input
@@ -666,7 +715,9 @@ const EditConductorModal = ({ conductor, onClose, onSuccess }) => {
     email: conductor?.email || '',
     name: conductor?.name || '',
     route: conductor?.route || '',
-    plateNumber: conductor?.plateNumber || ''
+    plateNumber: conductor?.plateNumber || '',
+    registrationNumber: conductor?.registrationNumber || '', 
+    driverName: conductor?.driverName || ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -684,12 +735,20 @@ const EditConductorModal = ({ conductor, onClose, onSuccess }) => {
     setLoading(true);
     setError('');
 
+    if (!/^\d{9}$/.test(formData.registrationNumber)) {
+      setError('Bus Registration Number must be exactly 9 digits.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const updateData = {
         busNumber: parseInt(formData.busNumber),
         name: formData.name,
         route: formData.route,
-        plateNumber: formData.plateNumber
+        plateNumber: formData.plateNumber,
+        registrationNumber: formData.registrationNumber, 
+        driverName: formData.driverName
       };
 
       const result = await conductorService.updateConductor(conductor.id, updateData);
@@ -729,7 +788,20 @@ const EditConductorModal = ({ conductor, onClose, onSuccess }) => {
             )}
 
             <div className="form-group">
-              <label htmlFor="edit-name">Full Name</label>
+              <label htmlFor="edit-driverName">Driver's Name</label>
+              <input
+                type="text"
+                id="edit-driverName"
+                name="driverName"
+                value={formData.driverName}
+                onChange={handleChange}
+                placeholder="Enter driver's name"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="edit-name">Conductor Name</label>
               <input
                 type="text"
                 id="edit-name"
@@ -792,6 +864,32 @@ const EditConductorModal = ({ conductor, onClose, onSuccess }) => {
                 placeholder="Enter plate number (e.g., ABC-1234)"
                 required
               />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="edit-registrationNumber">Bus Registration Number</label>
+              <input
+                type="text"
+                id="edit-registrationNumber"
+                name="registrationNumber"
+                value={formData.registrationNumber}
+                onChange={(e) => {
+                  // Only allow numeric input and max 9 chars
+                  const re = /^[0-9\b]+$/;
+                  if (e.target.value === '' || re.test(e.target.value)) {
+                    if (e.target.value.length <= 9) {
+                      handleChange(e);
+                    }
+                  }
+                }}
+                placeholder="Enter 9-digit registration number"
+                required
+                maxLength="9"
+                pattern="\d{9}"
+              />
+              <small style={{ color: '#718096', fontSize: '0.8rem' }}>
+                {formData.registrationNumber.length}/9 digits
+              </small>
             </div>
 
             <div className="form-actions">
@@ -867,7 +965,11 @@ const ConductorDetails = ({ conductor }) => {
         <div className="detail-section">
           <h3>Basic Information</h3>
           <div className="detail-item">
-            <span className="label">Name:</span>
+            <span className="label">Driver:</span>
+            <span className="value">{conductor.driverName || 'N/A'}</span>
+          </div>
+          <div className="detail-item">
+            <span className="label">Conductor:</span>
             <span className="value">{conductor.name || 'N/A'}</span>
           </div>
           <div className="detail-item">
@@ -885,6 +987,10 @@ const ConductorDetails = ({ conductor }) => {
           <div className="detail-item">
             <span className="label">Plate Number:</span>
             <span className="value">{conductor.plateNumber || 'N/A'}</span>
+          </div>
+          <div className="detail-item">
+            <span className="label">Registration No:</span>
+            <span className="value">{conductor.registrationNumber || 'N/A'}</span>
           </div>
           <div className="detail-item">
             <span className="label">Last Seen:</span>

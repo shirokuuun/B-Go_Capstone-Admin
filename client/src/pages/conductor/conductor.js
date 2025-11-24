@@ -1372,6 +1372,8 @@ class ConductorService {
         name: conductorData.name, 
         route: conductorData.route, 
         plateNumber: conductorData.plateNumber,
+        registrationNumber: conductorData.registrationNumber,
+        driverName: conductorData.driverName,
         isOnline: false,
         status: "active",
         createdAt: deletedData.createdAt || serverTimestamp(),
@@ -1429,10 +1431,10 @@ class ConductorService {
   // Create new conductor
   async createConductor(formData) {
     try {
-      const { busNumber, email, name, route, password, plateNumber } = formData;
+      const { busNumber, email, name, route, password, plateNumber, registrationNumber, driverName } = formData;
       
       // Validate required fields
-      if (!busNumber || !email || !name || !route || !password || !plateNumber) {
+      if (!busNumber || !email || !name || !route || !password || !plateNumber || !registrationNumber || !driverName) {
         throw new Error('All fields are required');
       }
 
@@ -1519,6 +1521,8 @@ class ConductorService {
         name: name,
         route: route,
         plateNumber: plateNumber,
+        registrationNumber: registrationNumber,
+        driverName: driverName,
         isOnline: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -1740,6 +1744,12 @@ class ConductorService {
       errors.push('Bus number is required');
     } else if (isNaN(formData.busNumber) || parseInt(formData.busNumber) <= 0) {
       errors.push('Please enter a valid bus number');
+    }
+
+    if (!formData.registrationNumber) {
+      errors.push('Registration Number is required');
+    } else if (!/^\d{9}$/.test(formData.registrationNumber)) {
+      errors.push('Registration Number must be exactly 9 digits');
     }
     
     if (!formData.route || formData.route.trim().length < 3) {
