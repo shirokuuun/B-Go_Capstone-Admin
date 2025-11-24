@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
 import { IoMdArrowDropdownCircle } from "react-icons/io";
 import { FaMoneyCheck } from "react-icons/fa6"
-import { FaRegCalendarCheck } from "react-icons/fa";
+import { FaRegCalendarCheck, FaTicketAlt } from "react-icons/fa";
 import { BsCalendar3 } from "react-icons/bs";
 import { LuBus } from "react-icons/lu";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, BarChart, Bar, ResponsiveContainer } from 'recharts';
@@ -25,6 +25,7 @@ import {
   loadAvailableMonths 
 } from './MonthlyRevenue.js';
 import './DailyRevenue.css';
+import ReservationsReport from './Reservations.jsx';
 import RemittanceReport from './Remittance.jsx';
 import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 
@@ -611,6 +612,8 @@ const Revenue = () => {
         return renderMonthlyRevenue();
       case 'daily-trips':
         return renderDailyTripsRemittance();
+      case 'reservations': 
+        return <ReservationsReport />;
       default:
         return renderDefaultView();
     }
@@ -1186,6 +1189,13 @@ const Revenue = () => {
               onClick={() => selectMenuItem('daily-trips')}
             >
               <span className="revenue-menu-icon"><LuBus size={20} /></span>Daily Trips Remittance
+            </div>
+
+            <div 
+              className={`revenue-submenu-item ${currentView === 'reservations' ? 'revenue-submenu-selected' : ''}`}
+              onClick={() => selectMenuItem('reservations')}
+            >
+              <span className="revenue-menu-icon"><FaTicketAlt size={20} /></span>Reservations
             </div>
           </div>
         </div>

@@ -66,7 +66,7 @@ const Nav = ({ collapsed, setCollapsed }) => {
       {/* Scrollable nav container */}
       <div className="nav-scroll">
         <NavIcon title="Dashboard" Icon={MdDashboard} to="/admin" collapsed={collapsed} />
-        <NavIcon title="Conductor" Icon={IoTicket} to="/admin/conductor" collapsed={collapsed} />
+        <NavIcon title="Conductor & Bus" Icon={IoTicket} to="/admin/conductor" collapsed={collapsed} />
         <NavIcon title="ID Verification" Icon={MdDomainVerification} to="/admin/verification" collapsed={collapsed} />
         <NavIcon title="Trip Schedules" Icon={GrSchedules} to="/admin/schedules" collapsed={collapsed} />
         <NavIcon title="User Management" Icon={FaRegUser} to="/admin/user" collapsed={collapsed} />

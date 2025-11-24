@@ -7,9 +7,11 @@ import {
   deleteTicket,
   subscribeToConductorsWithTickets,
   subscribeToTicketsByConductor,
-  invalidateAllTicketCache
+  invalidateAllTicketCache,
+  updateSystemFare,
+  getSystemFare
 } from './ticketing.js';
-import { IoMdPeople } from "react-icons/io";
+import { IoMdPeople, IoMdAdd } from "react-icons/io";
 import './ticketing.css';
 import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt } from 'react-icons/fa';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -47,6 +49,9 @@ const Ticketing = () => {
 
   // State for managing ticket subscriptions
   const [ticketUnsubscribe, setTicketUnsubscribe] = useState(null);
+
+  // for fare modal
+  const [showFareModal, setShowFareModal] = useState(false);
 
   // Set up authentication listener
   useEffect(() => {
@@ -807,11 +812,25 @@ const Ticketing = () => {
         <div className="ticketing-header-pattern"></div>
         
         <div className="ticketing-header-content">
+          {/* --- CHANGE STARTS HERE --- */}
           <div className="ticketing-page-header">
             <h1>Ticketing Management</h1>
+            
+            {/* Button moved INSIDE this div */}
+            {userData && userData.role === 'superadmin' && (
+              <button 
+                className="ticketing-set-fare-btn"
+                onClick={() => setShowFareModal(true)}
+              >
+                <IoMdAdd size={20} />
+                Set Fare
+              </button>
+            )}
           </div>
+          {/* --- CHANGE ENDS HERE --- */}
 
           <div className="ticketing-stats-container">
+            {/* ... existing stats cards ... */}
             <div className="ticketing-stat-card ticketing-total">
               <div className="ticketing-stat-icon">
                 <FaUsers className="ticketing-stat-icon-fa" />
@@ -821,7 +840,8 @@ const Ticketing = () => {
                 <div className="ticketing-stat-label">Total Conductor Tickets</div>
               </div>
             </div>
-
+            
+            {/* ... keep the rest of your stats cards here ... */}
             <div className="ticketing-stat-card ticketing-online">
               <div className="ticketing-stat-icon">
                 <FaCheckCircle className="ticketing-stat-icon-fa" />
@@ -879,6 +899,94 @@ const Ticketing = () => {
 
         <div className="ticketing-tab-content">
           {renderOverview()}
+        </div>
+      </div>
+      {showFareModal && (
+        <SetFareModal 
+          onClose={() => setShowFareModal(false)} 
+          onSuccess={() => {
+            // Optional: Reload data if needed
+          }} 
+        />
+      )}
+    </div>
+  );
+};
+
+const SetFareModal = ({ onClose, onSuccess }) => {
+  const [amount, setAmount] = useState('');
+  const [currentFare, setCurrentFare] = useState(null); // State for current fare
+  const [loading, setLoading] = useState(false);
+
+  // Fetch current fare when modal opens
+  useEffect(() => {
+    const fetchCurrentFare = async () => {
+      const fare = await getSystemFare();
+      setCurrentFare(fare);
+    };
+    fetchCurrentFare();
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!amount || amount <= 0) {
+      alert("Please enter a valid fare amount");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await updateSystemFare(amount);
+      alert("Fare updated successfully!");
+      onSuccess();
+      onClose();
+    } catch (error) {
+      alert("Failed to update fare: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="tf-modal-overlay" onClick={onClose}>
+      <div className="tf-modal-content" onClick={e => e.stopPropagation()}>
+        <div className="tf-modal-header">
+          <h2>Set Bus Fare</h2>
+          <button className="tf-close-btn" onClick={onClose}>×</button>
+        </div>
+        <div className="tf-modal-body">
+          
+          {/* --- NEW DISPLAY SECTION --- */}
+          <div className="tf-current-fare-box">
+            <span className="tf-label">Current Base Fare:</span>
+            <span className="tf-value">
+              {currentFare !== null ? `₱${parseFloat(currentFare).toFixed(2)}` : 'Loading...'}
+            </span>
+          </div>
+          {/* --------------------------- */}
+
+          <form onSubmit={handleSubmit}>
+            <div className="tf-form-group">
+              <label>New Fare Amount (₱)</label>
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="Enter new amount"
+                min="0"
+                step="0.01"
+                required
+              />
+            </div>
+            <div className="tf-form-actions">
+              <button type="button" className="ticketing-btn ticketing-btn-secondary" onClick={onClose}>
+                Cancel
+              </button>
+              <button type="submit" className="ticketing-btn ticketing-btn-primary" disabled={loading}>
+                {loading ? 'Saving...' : 'Save Fare'}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>

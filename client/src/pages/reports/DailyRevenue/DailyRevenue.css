@@ -2188,3 +2188,255 @@ html, body {
     font-size: 9px;
   }
 }
+/*
+reservation
+*/
+
+.revenue-card-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+
+/* Forces a strict 3-column grid layout for reservations summary cards */
+.revenue-reservations-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* 3 Equal Columns */
+  gap: 20px;
+  margin-bottom: 0;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+/* Responsive: Switch to 2 columns on medium screens */
+@media (max-width: 1024px) {
+  .revenue-reservations-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Responsive: Switch to 1 column on mobile screens */
+@media (max-width: 600px) {
+  .revenue-reservations-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 1. TABLE SETUP: Force 100% width, remove large min-width */
+.daily-revenue-table {
+  table-layout: fixed !important; /* Respects the % widths below */
+  width: 100% !important;
+  min-width: auto !important;     /* REMOVED the large px value to stop scrolling */
+  border-collapse: collapse;
+}
+
+/* 2. Header Styling */
+.daily-revenue-table th {
+  white-space: normal !important; /* Allow headers to wrap if needed */
+  overflow: hidden;
+  padding: 12px 8px !important;
+  vertical-align: middle !important;
+  font-size: 11px !important;     /* Slightly smaller font to fit headers */
+}
+
+/* --- COLUMN STYLES (Using Percentages totaling ~100%) --- */
+
+/* Customer Name: 16% - Enough space, wraps text */
+.res-col-name {
+  width: 16% !important;
+  white-space: normal !important;
+  word-wrap: break-word;
+  vertical-align: middle !important;
+  font-weight: 600;
+  padding-left: 15px !important;
+}
+
+/* Route: 24% - Largest column for long addresses */
+.res-col-route {
+  width: 24% !important;
+  white-space: normal !important;
+  word-wrap: break-word;
+  vertical-align: middle !important;
+  line-height: 1.3 !important;
+}
+
+/* Date: 11% */
+.res-col-date {
+  width: 11% !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+/* Time: 8% */
+.res-col-time {
+  width: 8% !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+/* Assigned Bus: 11% */
+.res-col-bus {
+  width: 11% !important;
+  text-align: center !important;
+  white-space: normal !important;
+  word-wrap: break-word;
+  vertical-align: middle !important;
+}
+
+/* Type: 10% */
+.res-col-type {
+  width: 10% !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+/* Status: 10% */
+.res-col-status {
+  width: 10% !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+/* Amount: 10% */
+.res-col-amount {
+  width: 10% !important;
+  text-align: right !important;
+  padding-right: 15px !important;
+  vertical-align: middle !important;
+  font-weight: 700;
+}
+
+/* Only scroll on very small mobile screens */
+@media (max-width: 768px) {
+  .daily-revenue-table {
+    min-width: 900px !important; /* Only force scroll on mobile */
+  }
+  .revenue-table-container {
+    overflow-x: auto !important;
+  }
+}
+
+.res-sort-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 15px;
+  flex-wrap: wrap;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin-bottom: 25px;
+  width: 100%;
+}
+
+.res-sort-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.res-sort-label {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.res-sort-select {
+  padding: 0 12px;
+  border: 2px solid #e1e8ed;
+  border-radius: 8px;
+  font-size: 14px;
+  min-width: 150px;
+  height: 42px; /* Fixed height for alignment */
+  outline: none;
+  background-color: white;
+  transition: border-color 0.2s;
+}
+
+.res-sort-select:focus {
+  border-color: #007c91;
+}
+
+.res-sort-clear-btn {
+  padding: 0 16px;
+  background-color: white;
+  color: #333;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  height: 42px;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.res-sort-clear-btn:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.res-sort-stats-pill {
+  padding: 0 16px;
+  background-color: #f8f9fa;
+  color: #1f2937;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.res-sort-export-btn {
+  padding: 0 16px;
+  background-color: #17a2b8;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  gap: 8px;
+  transition: background 0.2s;
+}
+
+.res-sort-export-btn:hover {
+  background-color: #138496;
+}
+
+.res-sort-push-right {
+  margin-left: auto;
+}
+
+/* Mobile Adjustments for Sort Bar */
+@media (max-width: 768px) {
+  .res-sort-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .res-sort-group {
+    width: 100%;
+  }
+
+  .res-sort-select, 
+  .res-sort-clear-btn, 
+  .res-sort-stats-pill, 
+  .res-sort-export-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .res-sort-push-right {
+    margin-left: 0;
+  }
+}

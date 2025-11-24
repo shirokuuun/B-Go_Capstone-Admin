@@ -34,7 +34,7 @@ const Layout = () => {
       case "/admin/reservation":
         return "Bus Reservation";
       case "/admin/conductor":
-        return "Conductor";
+        return "Conductor & Bus";
       case "/admin/verification":
         return "ID Verification";
       case "/admin/schedules":

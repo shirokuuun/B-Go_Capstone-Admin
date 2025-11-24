@@ -1,4 +1,4 @@
-import { getFirestore, collection, getDocs, doc, getDoc, query, orderBy, limit as limitQuery, updateDoc, deleteDoc, serverTimestamp, onSnapshot, writeBatch } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, doc,setDoc, getDoc, query, orderBy, limit as limitQuery, updateDoc, deleteDoc, serverTimestamp, onSnapshot, writeBatch } from 'firebase/firestore';
 import { auth } from '/src/firebase/firebase.js';
 import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 
@@ -2036,6 +2036,51 @@ export const loadTicketDataProgressive = async (conductorId = null, limit = 50, 
   } catch (error) {
     console.error('Error in progressive ticket loading:', error);
     throw error;
+  }
+};
+
+export const updateSystemFare = async (amount) => {
+  try {
+    // We use a specific ID 'base_fare' so we always update the same document
+    // instead of creating new ones every time.
+    const fareRef = doc(db, 'fare', 'base_fare');
+    
+    const fareData = {
+      amount: parseFloat(amount),
+      updatedAt: serverTimestamp(),
+      updatedBy: auth.currentUser ? auth.currentUser.uid : 'system'
+    };
+
+    await setDoc(fareRef, fareData);
+
+    await logActivity(
+      ACTIVITY_TYPES.SYSTEM_UPDATE,
+      `Base fare updated to ₱${amount}`,
+      {
+        newAmount: amount,
+        updatedAt: new Date().toISOString()
+      }
+    );
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating fare:', error);
+    throw error;
+  }
+};
+
+export const getSystemFare = async () => {
+  try {
+    const fareRef = doc(db, 'fare', 'base_fare');
+    const fareSnap = await getDoc(fareRef);
+
+    if (fareSnap.exists()) {
+      return fareSnap.data().amount;
+    }
+    return 0; // Default if not set
+  } catch (error) {
+    console.error('Error getting system fare:', error);
+    return 0;
   }
 };
 

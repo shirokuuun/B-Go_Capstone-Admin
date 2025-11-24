@@ -46,6 +46,9 @@
 
 /* Page Header - Updated to match conductor */
 .ticketing-page-header {
+  display: flex; /* Added flex */
+  justify-content: space-between; /* Pushes items to edges */
+  align-items: center; /* Vertically centers them */
   margin-bottom: 2rem;
   position: relative;
   z-index: 10;
@@ -1141,5 +1144,176 @@
   .ticketing-btn {
     padding: 10px 14px;
     font-size: 14px;
+  }
+}
+
+/* --- Set Fare Button Styles --- */
+.ticketing-set-fare-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: white;
+  color: #007c91; /* Teal text to match theme */
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+}
+
+.ticketing-set-fare-btn:hover {
+  background-color: #f0fdfa;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* --- Unique Fare Modal Styles (tf- prefix) --- */
+.tf-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000; /* High z-index to sit on top */
+  backdrop-filter: blur(2px);
+}
+
+.tf-modal-content {
+  background: white;
+  width: 90%;
+  max-width: 500px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  animation: tfSlideIn 0.3s ease;
+  border: 1px solid #e5e7eb;
+}
+
+@keyframes tfSlideIn {
+  from { transform: translateY(-20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.tf-modal-header {
+  background-color: #007c91; /* Teal header */
+  color: white;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tf-modal-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: white;
+}
+
+.tf-close-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.tf-close-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.tf-modal-body {
+  padding: 2rem;
+}
+
+.tf-form-group {
+  margin-bottom: 1.5rem;
+}
+
+.tf-form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.95rem;
+}
+
+.tf-form-group input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  color: #1f2937;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.tf-form-group input:focus {
+  outline: none;
+  border-color: #007c91;
+  box-shadow: 0 0 0 3px rgba(0, 124, 145, 0.1);
+}
+
+.tf-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 2rem;
+  border-top: 1px solid #f3f4f6;
+  padding-top: 1.5rem;
+}
+
+/* Style for the Current Fare Display inside the Modal */
+.tf-current-fare-box {
+  background-color: #e0f7fa; /* Light teal background */
+  border: 1px solid #b2ebf2;
+  color: #006064;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tf-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.tf-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #007c91;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .ticketing-set-fare-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .ticketing-page-header {
+    flex-direction: column;
+    align-items: flex-start !important;
   }
 }

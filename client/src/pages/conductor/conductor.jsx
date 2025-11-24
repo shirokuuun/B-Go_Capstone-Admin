@@ -197,7 +197,7 @@ const Conductor = () => {
             {/* Title Section */}
             <div className="conductor-title-section">
               <div className="conductor-title-text">
-                <h1 className="conductor-main-title">Conductor Management</h1>
+                <h1 className="conductor-main-title">Conductor & Bus Management</h1>
               </div>
             </div>
 
@@ -866,6 +866,10 @@ const ConductorDetails = ({ conductor }) => {
       <div className="details-grid">
         <div className="detail-section">
           <h3>Basic Information</h3>
+          <div className="detail-item">
+            <span className="label">Name:</span>
+            <span className="value">{conductor.name || 'N/A'}</span>
+          </div>
           <div className="detail-item">
             <span className="label">Email:</span>
             <span className="value">{conductor.email || 'N/A'}</span>
