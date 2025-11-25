@@ -2244,68 +2244,80 @@ reservation
 /* --- COLUMN STYLES (Using Percentages totaling ~100%) --- */
 
 /* Customer Name: 16% - Enough space, wraps text */
-.res-col-name {
-  width: 16% !important;
-  white-space: normal !important;
-  word-wrap: break-word;
+.res-col-timestamp {
+  width: 12% !important;
+  font-size: 11px !important;
+  color: #666;
   vertical-align: middle !important;
+  line-height: 1.2;
+}
+
+.res-col-name {
+  width: 13% !important;
   font-weight: 600;
-  padding-left: 15px !important;
+  padding-left: 10px !important;
+  white-space: normal !important;
+  vertical-align: middle !important;
 }
 
 /* Route: 24% - Largest column for long addresses */
 .res-col-route {
-  width: 24% !important;
+  width: 18% !important;
+  font-size: 10px !important; /* Slightly smaller for long routes */
   white-space: normal !important;
-  word-wrap: break-word;
   vertical-align: middle !important;
-  line-height: 1.3 !important;
 }
 
 /* Date: 11% */
 .res-col-date {
-  width: 11% !important;
+  width: 9% !important;
   text-align: center !important;
   vertical-align: middle !important;
 }
 
 /* Time: 8% */
 .res-col-time {
-  width: 8% !important;
+  width: 7% !important;
   text-align: center !important;
   vertical-align: middle !important;
 }
 
 /* Assigned Bus: 11% */
 .res-col-bus {
-  width: 11% !important;
+  width: 9% !important;
   text-align: center !important;
-  white-space: normal !important;
-  word-wrap: break-word;
   vertical-align: middle !important;
 }
 
 /* Type: 10% */
 .res-col-type {
-  width: 10% !important;
+  width: 9% !important;
   text-align: center !important;
   vertical-align: middle !important;
 }
 
 /* Status: 10% */
 .res-col-status {
-  width: 10% !important;
+  width: 11% !important;
   text-align: center !important;
   vertical-align: middle !important;
 }
 
 /* Amount: 10% */
 .res-col-amount {
-  width: 10% !important;
+  width: 12% !important;
   text-align: right !important;
   padding-right: 15px !important;
   vertical-align: middle !important;
   font-weight: 700;
+}
+
+.res-cancelled-subtext {
+  font-size: 10px;
+  color: #dc3545; /* Red color */
+  margin-top: 4px;
+  font-style: italic;
+  font-weight: 500;
 }
 
 /* Only scroll on very small mobile screens */
@@ -2438,5 +2450,55 @@ reservation
   
   .res-sort-push-right {
     margin-left: 0;
+  }
+}
+
+
+/* The Container - Matches .res-sort-select height and border */
+.res-qs-container {
+  display: flex;
+  height: 42px; /* Critical: Matches your input field height */
+  background-color: white;
+  border: 2px solid #e1e8ed;
+  border-radius: 8px;
+  overflow: hidden;
+  min-width: 180px; /* Ensures buttons don't get too squashed */
+}
+
+/* The Individual Buttons */
+.res-qs-btn {
+  flex: 1; /* Makes all 3 buttons equal width */
+  border: none;
+  background: white;
+  color: #555;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  height: 100%;
+  padding: 0 5px;
+  transition: all 0.2s ease;
+  border-right: 1px solid #e1e8ed; /* Divider line */
+}
+
+/* Remove border from the last button so it looks clean */
+.res-qs-btn:last-child {
+  border-right: none;
+}
+
+/* Hover Effect */
+.res-qs-btn:hover {
+  background-color: #e0f2f1; /* Very light teal */
+  color: #007c91; /* Your brand teal */
+}
+
+/* Active/Focus Effect (Optional) */
+.res-qs-btn:active {
+  background-color: #b2dfdb;
+}
+
+/* Mobile Responsiveness for these buttons */
+@media (max-width: 768px) {
+  .res-qs-container {
+    width: 100%;
   }
 }

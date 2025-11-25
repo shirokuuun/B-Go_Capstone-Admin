@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import conductorService from '/src/pages/conductor/conductor.js';
 import './conductor.css';
 import { IoMdAdd } from "react-icons/io";
+import { LuBus } from "react-icons/lu";
 import { FaUsers, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaTrash, FaEdit, FaCheck, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '/src/firebase/firebase.js';
@@ -488,11 +489,13 @@ const AddConductorModal = ({ onClose, onSuccess }) => {
     password: '',
     plateNumber: '',
     registrationNumber: '', 
-    driverName: ''
+    driverName: '',
+    busImageFile: null
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -501,6 +504,22 @@ const AddConductorModal = ({ onClose, onSuccess }) => {
       [name]: value
     }));
   };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFormData(prev => ({ ...prev, busImageFile: file }));
+      // Create preview URL
+      const objectUrl = URL.createObjectURL(file);
+      setImagePreview(objectUrl);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+    };
+  }, [imagePreview]);
 
 
   const handleSubmit = async (e) => {
@@ -678,6 +697,43 @@ const AddConductorModal = ({ onClose, onSuccess }) => {
               </div>
             </div>
 
+            <div className="form-group">
+          <label>Bus Photo</label>
+          <div className="image-upload-container">
+            <div className="image-preview-box">
+              {imagePreview ? (
+                <img src={imagePreview} alt="Bus Preview" className="preview-img" />
+              ) : (
+                <div className="placeholder-icon"><LuBus size={40} /></div>
+              )}
+            </div>
+            <div className="file-input-wrapper">
+              <input 
+                type="file" 
+                id="busImage" 
+                accept="image/*"
+                onChange={handleImageChange}
+                className="hidden-file-input"
+              />
+              <label htmlFor="busImage" className="upload-btn">
+                Choose Photo
+              </label>
+              {imagePreview && (
+                <button 
+                  type="button" 
+                  className="remove-image-btn"
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, busImageFile: null }));
+                    setImagePreview(null);
+                  }}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+       </div>
+
             <div className="form-actions">
               <button
                 type="button"
@@ -721,6 +777,9 @@ const EditConductorModal = ({ conductor, onClose, onSuccess }) => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [busImageFile, setBusImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(conductor?.busImageUrl || null);
+  const [isImageRemoved, setIsImageRemoved] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -728,6 +787,21 @@ const EditConductorModal = ({ conductor, onClose, onSuccess }) => {
       ...prev,
       [name]: value
     }));
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setBusImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+      setIsImageRemoved(false); // We have a new image
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setBusImageFile(null);
+    setImagePreview(null);
+    setIsImageRemoved(true);
   };
 
   const handleSubmit = async (e) => {
@@ -751,7 +825,12 @@ const EditConductorModal = ({ conductor, onClose, onSuccess }) => {
         driverName: formData.driverName
       };
 
-      const result = await conductorService.updateConductor(conductor.id, updateData);
+      const result = await conductorService.updateConductor(
+        conductor.id, 
+        updateData, 
+        busImageFile, 
+        isImageRemoved
+      );
 
       if (result.success) {
         console.log('Conductor updated successfully');
@@ -892,6 +971,40 @@ const EditConductorModal = ({ conductor, onClose, onSuccess }) => {
               </small>
             </div>
 
+            <div className="form-group">
+          <label>Bus Photo</label>
+          <div className="image-upload-container">
+            <div className="image-preview-box">
+              {imagePreview ? (
+                <img src={imagePreview} alt="Bus Preview" className="preview-img" />
+              ) : (
+                <div className="placeholder-text">No Image</div>
+              )}
+            </div>
+            <div className="file-input-wrapper">
+              <input 
+                type="file" 
+                id="editBusImage" 
+                accept="image/*"
+                onChange={handleImageChange}
+                className="hidden-file-input"
+              />
+              <label htmlFor="editBusImage" className="upload-btn">
+                {imagePreview ? 'Change Photo' : 'Upload Photo'}
+              </label>
+              {imagePreview && (
+                <button 
+                  type="button" 
+                  className="remove-image-btn"
+                  onClick={handleRemoveImage}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+       </div>
+
             <div className="form-actions">
               <button
                 type="button"
@@ -923,8 +1036,15 @@ const EditConductorModal = ({ conductor, onClose, onSuccess }) => {
   );
 };
 
-// ENHANCED: Real-time Conductor Details Component
+
 const ConductorDetails = ({ conductor }) => {
+  // 1. We use showModal here
+  const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    setShowModal(false);
+  }, [conductor.id]);
+
   const handleMarkAsCompleted = async () => {
     if (!window.confirm('Mark this reservation as completed? This will make the bus available for new reservations.')) {
       return;
@@ -933,20 +1053,50 @@ const ConductorDetails = ({ conductor }) => {
     try {
       const result = await conductorService.markReservationAsCompleted(conductor.id);
       if (result.success) {
-        alert('✅ Reservation marked as completed successfully!');
+        alert('Reservation marked as completed successfully!');
       } else {
-        alert(`❌ Error: ${result.error}`);
+        alert(`Error: ${result.error}`);
       }
     } catch (error) {
       console.error('Error marking reservation as completed:', error);
-      alert(`❌ Error: ${error.message}`);
+      alert(`Error: ${error.message}`);
     }
   };
 
   return (
     <div className="conductor-details-content">
+      
+      {/* 2. THE MODAL OVERLAY (This was missing or misplaced in your code) */}
+      {showModal && (
+        <div className="full-screen-modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="full-screen-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="full-screen-close-btn" onClick={() => setShowModal(false)}>
+              ✕
+            </button>
+            <img 
+              src={conductor.busImageUrl} 
+              alt={`Bus ${conductor.busNumber}`} 
+              className="full-screen-image"
+            />
+          </div>
+        </div>
+      )}
+
       <div className="details-header">
         <h2>{conductor.name}</h2>
+        
+        {/* 3. THE BUTTON (Fixed to use setShowModal) */}
+        {conductor.busImageUrl && (
+          <div className="header-image-control">
+            <button 
+              className="view-photo-btn"
+              onClick={() => setShowModal(true)} // Fixed: uses setShowModal
+            >
+              <LuBus className="btn-icon" /> View Bus Photo
+            </button>
+          </div>
+        )}
+
         <div 
           className="status-badge"
           style={{ 
@@ -954,7 +1104,6 @@ const ConductorDetails = ({ conductor }) => {
           }}
         >
           {conductorService.getStatusText(conductor.isOnline, conductor.lastSeen)}
-          {/* Real-time live indicator */}
           {conductor.isOnline && (
             <span className="live-pulse">●</span>
           )}
@@ -1078,7 +1227,6 @@ const ConductorDetails = ({ conductor }) => {
             </span>
           </div>
 
-          {/* Show reservation details if bus is reserved or confirmed */}
           {(conductor.busAvailabilityStatus === 'confirmed' || conductor.busAvailabilityStatus === 'reserved') && conductor.reservationDetails && (
             <>
               <div className="detail-item">
@@ -1185,6 +1333,5 @@ const ConductorDetails = ({ conductor }) => {
     </div>
   );
 };
-
 
 export default Conductor;

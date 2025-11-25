@@ -1459,3 +1459,294 @@ body.modal-open {
   color: #007A8F !important;
   box-shadow: none !important;
 }
+
+.image-upload-container {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 10px;
+  border: 1px dashed #e0e6ed;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.image-preview-box {
+  width: 100px;
+  height: 80px;
+  background: #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.placeholder-icon, .placeholder-text {
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.file-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.upload-btn {
+  display: inline-block;
+  padding: 8px 12px;
+  background: #e2e8f0;
+  color: #4a5568;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.upload-btn:hover {
+  background: #cbd5e0;
+}
+
+.remove-image-btn {
+  padding: 6px 12px;
+  background: transparent;
+  color: #e53e3e;
+  border: 1px solid #e53e3e;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.remove-image-btn:hover {
+  background: #fff5f5;
+}
+
+.conductor-bus-image-container {
+  width: 100%;
+  height: 200px;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.conductor-bus-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Responsive fix for modal inputs */
+@media (max-width: 640px) {
+  .image-upload-container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .image-preview-box {
+    width: 100%;
+    height: 150px;
+  }
+  
+  .file-input-wrapper {
+    width: 100%;
+    flex-direction: row;
+  }
+  
+  .upload-btn, .remove-image-btn {
+    flex: 1;
+  }
+}
+
+.header-image-control {
+  margin-right: auto; /* Pushes other items to the right if in flex row */
+  display: flex;
+  align-items: center;
+}
+
+.view-photo-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: transparent;
+  color: #007c91;
+  border: 1px solid #007c91;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  margin-right: auto; /* Push to left */
+}
+
+.view-photo-btn:hover {
+  background-color: #007c91;
+  color: white;
+}
+
+.view-photo-btn .btn-icon {
+  font-size: 1.1rem;
+}
+
+.header-image-wrapper {
+  position: relative;
+  width: 140px;
+  height: 100px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.header-bus-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.header-image-wrapper:hover .header-bus-image {
+  transform: scale(1.05);
+  opacity: 0.9;
+}
+
+/* "Click to hide" overlay text */
+.hide-hint {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-size: 0.7rem;
+  text-align: center;
+  padding: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.header-image-wrapper:hover .hide-hint {
+  opacity: 1;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Adjust Responsive layout to keep button aligned */
+@media (max-width: 640px) {
+  .header-image-wrapper {
+    width: 100%;
+    height: 160px;
+    margin-bottom: 15px;
+  }
+  
+  .view-photo-btn {
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+}
+
+.full-screen-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8); /* Dark semi-transparent background */
+  z-index: 9999; /* Ensure it is on top of EVERYTHING */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  backdrop-filter: blur(4px); /* Optional: blurs the background slightly */
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* The white box containing the image */
+.full-screen-modal-content {
+  background: white;
+  padding: 12px;
+  border-radius: 12px;
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: scaleUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* The Close (X) Button */
+.full-screen-close-btn {
+  position: absolute;
+  top: -15px;
+  right: -15px;
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  background: white;
+  border: none;
+  color: #333;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+  transition: transform 0.2s;
+  z-index: 10;
+}
+
+.full-screen-close-btn:hover {
+  transform: scale(1.1);
+  background-color: #f3f4f6;
+  color: #ef4444; /* Turn red on hover */
+}
+
+/* The Image itself */
+.full-screen-image {
+  max-width: 100%;
+  max-height: 85vh; /* Prevents image from being taller than screen */
+  border-radius: 6px;
+  object-fit: contain;
+  display: block;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}

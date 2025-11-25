@@ -18,7 +18,10 @@ import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js
 import './DailyRevenue.css';
 
 const RemittanceReport = () => {
-  const [selectedDate, setSelectedDate] = useState('');
+  // --- NEW: DATE RANGE STATES (Replaces selectedDate) ---
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
   const [selectedTripDirection, setSelectedTripDirection] = useState('');
   const [selectedConductor, setSelectedConductor] = useState('');
   const [loading, setLoading] = useState(true); // Start with loading true
@@ -34,10 +37,43 @@ const RemittanceReport = () => {
     totalPassengers: 0,
     totalTickets: 0,
     averageFare: 0
-  }); // Initialize with empty summary instead of null
+  }); 
   const [groupedData, setGroupedData] = useState({});
   const [validationResults, setValidationResults] = useState({ isValid: true, errors: [], warnings: [] });
   const [showValidation, setShowValidation] = useState(false);
+
+  // --- NEW: HELPER FOR DATE PRESETS ---
+  const applyDatePreset = (range) => {
+    const end = new Date();
+    const start = new Date();
+    
+    if (range === 'all') {
+      setStartDate('');
+      setEndDate('');
+      return;
+    }
+
+    if (range === 'year') {
+      start.setFullYear(end.getFullYear() - 1);
+    } else {
+      start.setDate(end.getDate() - range);
+    }
+    
+    setStartDate(start.toISOString().split('T')[0]);
+    setEndDate(end.toISOString().split('T')[0]);
+  };
+
+  // --- NEW: FILTER LOGIC ---
+  const getFilteredDates = () => {
+    let datesToFetch = availableDates;
+    if (startDate) {
+      datesToFetch = datesToFetch.filter(date => date >= startDate);
+    }
+    if (endDate) {
+      datesToFetch = datesToFetch.filter(date => date <= endDate);
+    }
+    return datesToFetch;
+  };
 
   // Load available dates on component mount
   useEffect(() => {
@@ -46,24 +82,30 @@ const RemittanceReport = () => {
         const dates = await getAvailableRemittanceDates();
         setAvailableDates(dates);
         
-        // Load remittance data for all dates on initial load
-        handleLoadRemittanceDataWithDates(dates, selectedDate);
+        // Initial load: if dates exist, load ALL of them (since start/end are initially empty)
+        if (dates.length > 0) {
+           handleLoadRemittanceDataWithDates(dates);
+        } else {
+           setLoading(false); // No dates to load, stop loading spinner
+        }
       } catch (error) {
         console.error('Error loading available dates:', error);
+        setLoading(false);
       }
     };
     
     loadDates();
   }, []);
 
-  // Load remittance data when date changes (skip initial load)
+  // Trigger data load when Date Filters change
+  // Note: We wait until availableDates is populated
   useEffect(() => {
     if (availableDates.length > 0) {
       handleLoadRemittanceData();
     }
-  }, [selectedDate]);
+  }, [startDate, endDate]); 
 
-  // Apply filters when filter values or data changes
+  // Apply filters when filter values (Direction/Conductor) or data changes
   useEffect(() => {
     applyFilters();
   }, [remittanceData, selectedTripDirection, selectedConductor]);
@@ -115,16 +157,13 @@ const RemittanceReport = () => {
   };
 
   // Function to load remittance data with provided dates array
-  const handleLoadRemittanceDataWithDates = async (dates, selectedDateValue) => {
+  const handleLoadRemittanceDataWithDates = async (dates) => {
     setLoading(true);
     try {
+      let data = [];
       
-      let data;
-      if (selectedDateValue) {
-        // Load data for specific date
-        data = await loadRemittanceData(selectedDateValue);
-      } else {
-        // Load data for all available dates
+      // If we have dates to fetch
+      if (dates.length > 0) {
         const allData = [];
         for (const date of dates) {
           const dateData = await loadRemittanceData(date);
@@ -175,9 +214,10 @@ const RemittanceReport = () => {
     }
   };
 
-  // Function to load remittance data
+  // Function to load remittance data (wrapper)
   const handleLoadRemittanceData = async () => {
-    return handleLoadRemittanceDataWithDates(availableDates, selectedDate);
+    const datesToFetch = getFilteredDates();
+    return handleLoadRemittanceDataWithDates(datesToFetch);
   };
 
   const handleExportToExcel = async () => {
@@ -188,11 +228,16 @@ const RemittanceReport = () => {
       // Filter to only show trips with tickets
       const tripsWithTickets = filteredRemittanceData.filter(trip => trip.ticketCount > 0);
 
+      // Determine date string for summary
+      let dateRangeStr = 'All Dates';
+      if(startDate && endDate) dateRangeStr = `${startDate} to ${endDate}`;
+      else if (startDate) dateRangeStr = `From ${startDate}`;
+
       // Create summary data
       const summaryData = [
         ['B-Go Bus Transportation - Daily Trips Remittance Report'],
         [''],
-        ['Report Date:', selectedDate ? formatDate(selectedDate) : 'All Dates'],
+        ['Report Date:', dateRangeStr],
         ['Trip Direction:', selectedTripDirection || 'All Directions'],
         ['Conductor:', selectedConductor || 'All Conductors'],
         ['Generated:', new Date().toLocaleString()],
@@ -647,8 +692,8 @@ const RemittanceReport = () => {
       }
 
       // Generate filename
-      const dateStr = selectedDate ? formatDate(selectedDate) : 'All_Dates';
-      const filename = `Remittance_Report_${dateStr.replace(/\//g, '-')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const safeFilename = dateRangeStr.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const filename = `Remittance_Report_${safeFilename}_${new Date().toISOString().split('T')[0]}.xlsx`;
 
       // Save the file
       XLSX.writeFile(workbook, filename);
@@ -661,7 +706,7 @@ const RemittanceReport = () => {
           {
             filename,
             reportType: 'Daily Trips Remittance',
-            dateFilter: selectedDate || 'All Dates',
+            dateFilter: dateRangeStr,
             tripDirectionFilter: selectedTripDirection || 'All Directions',
             conductorFilter: selectedConductor || 'All Conductors',
             totalTrips: summary?.totalTrips || 0,
@@ -692,10 +737,6 @@ const RemittanceReport = () => {
     }
   };
 
-  const handleDateChange = (e) => {
-    setSelectedDate(e.target.value);
-  };
-
   const handleTripDirectionChange = (e) => {
     setSelectedTripDirection(e.target.value);
   };
@@ -711,14 +752,11 @@ const RemittanceReport = () => {
   const handleRefresh = async () => {
     setLoading(true);
     try {
-      // Force cache refresh by invalidating cache first
-      if (selectedDate) {
-        await forceRefreshRemittanceCache(selectedDate);
-      } else {
-        // Refresh all dates
-        for (const date of availableDates) {
-          await forceRefreshRemittanceCache(date);
-        }
+      // Force cache refresh based on date range
+      const datesToRefresh = getFilteredDates();
+      
+      for (const date of datesToRefresh) {
+        await forceRefreshRemittanceCache(date);
       }
 
       // Reload data
@@ -751,7 +789,7 @@ const RemittanceReport = () => {
           <p>Daily Trips Remittance Report</p>
         </div>
         <div className="revenue-report-info">
-          <p><strong>Report Date:</strong> {selectedDate ? formatDate(selectedDate) : 'All Dates'}</p>
+          <p><strong>Report Date:</strong> {startDate && endDate ? `${formatDate(startDate)} to ${formatDate(endDate)}` : startDate ? `From ${formatDate(startDate)}` : 'All Dates'}</p>
           {selectedTripDirection && <p><strong>Trip Direction:</strong> {selectedTripDirection}</p>}
           {selectedConductor && <p><strong>Conductor:</strong> {selectedConductor}</p>}
           <p><strong>Generated:</strong> {new Date().toLocaleString()}</p>
@@ -759,24 +797,44 @@ const RemittanceReport = () => {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* --- NEW FILTER BAR --- */}
       <div className="revenue-filters">
+        
+        {/* 1. From Date */}
         <div className="revenue-filter-group">
-          <label className="revenue-filter-label">Select Date</label>
-          <select
-            value={selectedDate}
-            onChange={handleDateChange}
-            className="revenue-filter-select"
-          >
-            <option value="">All Dates</option>
-            {availableDates.map((date) => (
-              <option key={date} value={date}>
-                {formatDate(date)}
-              </option>
-            ))}
-          </select>
+          <label className="revenue-filter-label">From</label>
+          <input 
+            type="date" 
+            className="revenue-filter-select" 
+            value={startDate} 
+            onChange={(e) => setStartDate(e.target.value)} 
+            style={{ paddingRight: '0' }}
+          />
         </div>
 
+        {/* 2. To Date */}
+        <div className="revenue-filter-group">
+          <label className="revenue-filter-label">To</label>
+          <input 
+            type="date" 
+            className="revenue-filter-select" 
+            value={endDate} 
+            onChange={(e) => setEndDate(e.target.value)} 
+            style={{ paddingRight: '0' }}
+          />
+        </div>
+
+        {/* 3. Quick Select */}
+        <div className="revenue-filter-group">
+          <label className="revenue-filter-label">Quick Select</label>
+          <div className="res-qs-container">
+            <button className="res-qs-btn" onClick={() => applyDatePreset(7)}>7 Days</button>
+            <button className="res-qs-btn" onClick={() => applyDatePreset(30)}>30 Days</button>
+            <button className="res-qs-btn" onClick={() => applyDatePreset('year')}>1 Year</button>
+          </div>
+        </div>
+
+        {/* 4. Trip Direction */}
         <div className="revenue-filter-group">
           <label className="revenue-filter-label">Trip Direction</label>
           <select
@@ -793,6 +851,7 @@ const RemittanceReport = () => {
           </select>
         </div>
 
+        {/* 5. Conductor */}
         <div className="revenue-filter-group">
           <label className="revenue-filter-label">Conductor</label>
           <select
@@ -809,13 +868,14 @@ const RemittanceReport = () => {
           </select>
         </div>
 
-        {/* Clear Filters Button */}
+        {/* 6. Clear Filters */}
         <div className="revenue-filter-group">
           <label className="revenue-filter-label">&nbsp;</label>
           <button
             onClick={() => {
-              setSelectedDate('');
-              setSelectedRoute('');
+              setStartDate('');
+              setEndDate('');
+              setSelectedTripDirection('');
               setSelectedConductor('');
             }}
             className="revenue-filter-btn"
@@ -825,7 +885,7 @@ const RemittanceReport = () => {
           </button>
         </div>
         
-        {/* Results Count */}
+        {/* 7. Results Count */}
         <div className="revenue-filter-group">
           <label className="revenue-filter-label">&nbsp;</label>
           <div className="revenue-results-count" style={{ 
@@ -835,7 +895,10 @@ const RemittanceReport = () => {
             border: '2px solid #e1e8ed',
             fontSize: '14px',
             color: '#2c3e50',
-            fontWeight: '600'
+            fontWeight: '600',
+            height: '42px',
+            display: 'flex',
+            alignItems: 'center'
           }}>
             {(() => {
               if (loading) {
@@ -997,7 +1060,7 @@ const RemittanceReport = () => {
               <div className="revenue-empty-state">
                 <h3>No remittance data found</h3>
                 <p>
-                  {selectedDate ? 
+                  {startDate || endDate ? 
                     `No remittance data available for the selected filters.` :
                     'No remittance data available. Please check if there are any available dates or try refreshing.'
                   }

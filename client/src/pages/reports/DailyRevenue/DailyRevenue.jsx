@@ -33,7 +33,11 @@ import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js
 const Revenue = () => {
   const [currentView, setCurrentView] = useState('');
   const [isMenuExpanded, setIsMenuExpanded] = useState(true);
-  const [selectedDate, setSelectedDate] = useState('');
+  
+  // --- CHANGED: DATE RANGE STATES (Replaces single selectedDate) ---
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
   const [selectedTicketType, setSelectedTicketType] = useState('');
   const [selectedRoute, setSelectedRoute] = useState('');
   const [loading, setLoading] = useState(false);
@@ -52,28 +56,62 @@ const Revenue = () => {
   // Daily Revenue Data - Start with null to show loading
   const [revenueData, setRevenueData] = useState(null);
 
+  // --- NEW: HELPER FOR DATE PRESETS (From Reservations Page) ---
+  const applyDatePreset = (range) => {
+    const end = new Date();
+    const start = new Date();
+    
+    if (range === 'all') {
+      setStartDate('');
+      setEndDate('');
+      return;
+    }
+
+    if (range === 'year') {
+      start.setFullYear(end.getFullYear() - 1);
+    } else {
+      start.setDate(end.getDate() - range);
+    }
+    
+    setStartDate(start.toISOString().split('T')[0]);
+    setEndDate(end.toISOString().split('T')[0]);
+  };
+
+  // --- NEW: FILTER LOGIC ---
+  const getFilteredDates = () => {
+    let datesToFetch = availableDates;
+    if (startDate) {
+      datesToFetch = datesToFetch.filter(date => date >= startDate);
+    }
+    if (endDate) {
+      datesToFetch = datesToFetch.filter(date => date <= endDate);
+    }
+    return datesToFetch;
+  };
+
   // Function to load revenue data with provided dates array
-  const handleLoadRevenueDataWithDates = async (dates, selectedDateValue) => {
+  const handleLoadRevenueDataWithDates = async (dates) => {
     setLoading(true);
     try {
       let data;
-      if (selectedDateValue) {
-        // Load data for specific date
-        data = await loadRevenueData(selectedDateValue, selectedRoute);
-      } else {
-        // Load data for all available dates
-        const allData = {
-          conductorTrips: [],
-          preBookingTrips: [],
-          preTicketing: [],
-          totalRevenue: 0,
-          totalPassengers: 0,
-          averageFare: 0,
-          conductorRevenue: 0,
-          preBookingRevenue: 0,
-          preTicketingRevenue: 0
-        };
-        
+      
+      // If we have a specific single date, we could optimize, but since we have ranges now,
+      // we default to aggregating data for all dates in the filtered range.
+      
+      const allData = {
+        conductorTrips: [],
+        preBookingTrips: [],
+        preTicketing: [],
+        totalRevenue: 0,
+        totalPassengers: 0,
+        averageFare: 0,
+        conductorRevenue: 0,
+        preBookingRevenue: 0,
+        preTicketingRevenue: 0
+      };
+      
+      // If no dates match filter, we just use the empty data structure
+      if (dates.length > 0) {
         for (const date of dates) {
           const dateData = await loadRevenueData(date, selectedRoute);
           allData.conductorTrips.push(...(dateData.conductorTrips || []));
@@ -88,9 +126,9 @@ const Revenue = () => {
         
         // Recalculate average fare
         allData.averageFare = allData.totalPassengers > 0 ? allData.totalRevenue / allData.totalPassengers : 0;
-        
-        data = allData;
       }
+      
+      data = allData;
       
       // Apply ticket type filtering
       const filteredData = applyTicketTypeFilter(data, selectedTicketType);
@@ -118,21 +156,18 @@ const Revenue = () => {
 
   // Load revenue data for summary cards (always load) and detailed view
   const handleLoadRevenueData = async () => {
-    return handleLoadRevenueDataWithDates(availableDates, selectedDate);
+    const datesToFetch = getFilteredDates();
+    return handleLoadRevenueDataWithDates(datesToFetch);
   };
 
   // Force refresh - clears cache and reloads data
   const handleRefresh = async () => {
     setLoading(true);
     try {
-      // Force cache refresh by invalidating cache first
-      if (selectedDate) {
-        await forceRefreshRevenueCache(selectedDate, selectedRoute);
-      } else {
-        // Refresh all dates
-        for (const date of availableDates) {
-          await forceRefreshRevenueCache(date, selectedRoute);
-        }
+      const datesToRefresh = getFilteredDates();
+      // Refresh cache for dates in range
+      for (const date of datesToRefresh) {
+        await forceRefreshRevenueCache(date, selectedRoute);
       }
 
       // Reload data
@@ -220,8 +255,9 @@ const Revenue = () => {
       setAvailableDates(dates);
       
       // Only load data if daily-revenue view is active
+      // Initial load: if we have dates, load them all (since start/end date are empty initially)
       if (dates.length > 0 && currentView === 'daily-revenue') {
-        await handleLoadRevenueDataWithDates(dates, selectedDate);
+        await handleLoadRevenueDataWithDates(dates);
       }
     } catch (error) {
       console.error('Error loading available dates:', error);
@@ -249,11 +285,13 @@ const Revenue = () => {
     }
   }, [currentView]);
 
+  // Trigger data load when filters change
+  // UPDATED: Dependencies now include start/end date instead of selectedDate
   useEffect(() => {
     if (availableDates.length > 0 && currentView === 'daily-revenue') {
       handleLoadRevenueData();
     }
-  }, [selectedDate, selectedTicketType, selectedRoute, currentView]);
+  }, [startDate, endDate, selectedTicketType, selectedRoute, currentView]);
 
 
   const toggleMenu = () => {
@@ -318,28 +356,33 @@ const Revenue = () => {
       const uniqueTrips = new Set();
       revenueData.conductorTrips?.forEach(trip => {
         if (trip.conductorId && trip.tripId) {
-          const tripDate = trip.date || trip.createdAt || selectedDate || 'unknown-date';
+          const tripDate = trip.date || trip.createdAt || 'unknown-date';
           uniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripId}`);
         }
       });
       revenueData.preBookingTrips?.forEach(trip => {
         if (trip.conductorId && trip.tripId) {
-          const tripDate = trip.date || trip.createdAt || selectedDate || 'unknown-date';
+          const tripDate = trip.date || trip.createdAt || 'unknown-date';
           uniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripId}`);
         }
       });
       revenueData.preTicketing?.forEach(trip => {
         if (trip.conductorId && trip.tripId) {
-          const tripDate = trip.date || trip.createdAt || selectedDate || 'unknown-date';
+          const tripDate = trip.date || trip.createdAt || 'unknown-date';
           uniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripId}`);
         }
       });
+
+      // Determine date string for summary
+      let dateRangeStr = 'All Dates';
+      if(startDate && endDate) dateRangeStr = `${startDate} to ${endDate}`;
+      else if (startDate) dateRangeStr = `From ${startDate}`;
 
       // Create summary data
       const summaryData = [
         ['B-Go Bus Transportation - Daily Revenue Report'],
         [''],
-        ['Report Date:', selectedDate ? formatDate(selectedDate) : 'All Dates'],
+        ['Report Date:', dateRangeStr],
         ['Route Filter:', selectedRoute || 'All Routes'],
         ['Ticket Type Filter:', selectedTicketType || 'All Types'],
         ['Generated:', new Date().toLocaleString()],
@@ -560,13 +603,13 @@ const Revenue = () => {
       }
 
       // Generate filename
-      const dateStr = selectedDate ? formatDate(selectedDate) : 'All_Dates';
-      const filename = `Daily_Revenue_Report_${dateStr.replace(/\s+/g, '_').replace(/,/g, '')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const safeFilename = dateRangeStr.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const filename = `Daily_Revenue_Report_${safeFilename}_${new Date().toISOString().split('T')[0]}.xlsx`;
 
       // Save the file
       XLSX.writeFile(workbook, filename);
 
-      // Log the export activity (don't let logging errors break the export)
+      // Log the export activity
       try {
         await logActivity(
           ACTIVITY_TYPES.DATA_EXPORT,
@@ -574,7 +617,7 @@ const Revenue = () => {
           {
             filename,
             reportType: 'Daily Revenue',
-            dateFilter: selectedDate || 'All Dates',
+            dateFilter: dateRangeStr,
             routeFilter: selectedRoute || 'All Routes',
             ticketTypeFilter: selectedTicketType || 'All Types',
             totalRevenue: revenueData.totalRevenue,
@@ -677,6 +720,97 @@ const Revenue = () => {
     return (
       <div className="revenue-daily-container">
 
+        {/* --- NEW: SORT/FILTER BAR (REPLACED OLD FILTERS) --- */}
+        <div className="res-sort-container">
+
+          {/* 1. Date: FROM */}
+          <div className="res-sort-group">
+            <label className="res-sort-label">From</label>
+            <input 
+              type="date" 
+              className="res-sort-select" 
+              value={startDate} 
+              onChange={(e) => setStartDate(e.target.value)} 
+              style={{ paddingRight: '0' }}
+            />
+          </div>
+
+          {/* 2. Date: TO */}
+          <div className="res-sort-group">
+            <label className="res-sort-label">To</label>
+            <input 
+              type="date" 
+              className="res-sort-select" 
+              value={endDate} 
+              onChange={(e) => setEndDate(e.target.value)} 
+              style={{ paddingRight: '0' }}
+            />
+          </div>
+          
+          {/* 3. Quick Presets */}
+          <div className="res-sort-group">
+            <label className="res-sort-label">Quick Select</label>
+            <div className="res-qs-container">
+              <button className="res-qs-btn" onClick={() => applyDatePreset(7)}>7 Days</button>
+              <button className="res-qs-btn" onClick={() => applyDatePreset(30)}>30 Days</button>
+              <button className="res-qs-btn" onClick={() => applyDatePreset('year')}>1 Year</button>
+            </div>
+          </div>  
+          
+          {/* 4. Trip Direction */}
+          <div className="res-sort-group">
+            <label className="res-sort-label">Trip Direction</label>
+            <select className="res-sort-select" value={selectedRoute} onChange={(e) => setSelectedRoute(e.target.value)}>
+              <option value="">All Trip Directions</option>
+              {availableRoutes.map((route) => (
+                <option key={route} value={route}>
+                  {route}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 5. Ticket Type */}
+          <div className="res-sort-group">
+            <label className="res-sort-label">Type</label>
+            <select className="res-sort-select" value={selectedTicketType} onChange={(e) => setSelectedTicketType(e.target.value)}>
+              <option value="">All Tickets</option>
+              <option value="pre-ticket">Pre Ticket</option>
+              <option value="pre-book">Pre Book</option>
+              <option value="conductor">Conductor Ticket</option>
+            </select>
+          </div>
+
+          {/* 6. Clear Filters Button */}
+          <div className="res-sort-group">
+             <label className="res-sort-label">&nbsp;</label>
+             <button className="res-sort-clear-btn" onClick={() => { setStartDate(''); setEndDate(''); setSelectedRoute(''); setSelectedTicketType(''); }}>
+               Clear Filters
+             </button>
+          </div>
+
+          {/* 7. Stats Pill */}
+          <div className="res-sort-group">
+            <label className="res-sort-label">&nbsp;</label>
+            <div className="res-sort-stats-pill">
+              {(() => {
+                if (loading || revenueData === null) {
+                  return 'Loading...';
+                }
+                if (revenueData) {
+                  const totalTrips = (revenueData.conductorTrips?.length || 0) +
+                                   (revenueData.preBookingTrips?.length || 0) +
+                                   (revenueData.preTicketing?.length || 0);
+                  const totalPassengers = revenueData.totalPassengers || 0;
+                  return `${totalTrips} tickets • ${totalPassengers} pax`;
+                }
+                return 'No data';
+              })()}
+            </div>
+          </div>
+
+        </div>
+
         {/* Summary Cards */}
         <div className="revenue-daily-summary-card-container">
           <div className="revenue-daily-header-pattern"></div>
@@ -697,7 +831,7 @@ const Revenue = () => {
                   // Add trips from conductor trips
                   revenueData.conductorTrips?.forEach(trip => {
                     if (trip.conductorId && trip.tripId) {
-                      const tripDate = trip.date || trip.createdAt || selectedDate || 'unknown-date';
+                      const tripDate = trip.date || trip.createdAt || 'unknown-date';
                       uniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripId}`);
                     }
                   });
@@ -705,7 +839,7 @@ const Revenue = () => {
                   // Add trips from pre-booking trips
                   revenueData.preBookingTrips?.forEach(trip => {
                     if (trip.conductorId && trip.tripId) {
-                      const tripDate = trip.date || trip.createdAt || selectedDate || 'unknown-date';
+                      const tripDate = trip.date || trip.createdAt || 'unknown-date';
                       uniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripId}`);
                     }
                   });
@@ -713,7 +847,7 @@ const Revenue = () => {
                   // Add trips from pre-ticketing
                   revenueData.preTicketing?.forEach(trip => {
                     if (trip.conductorId && trip.tripId) {
-                      const tripDate = trip.date || trip.createdAt || selectedDate || 'unknown-date';
+                      const tripDate = trip.date || trip.createdAt || 'unknown-date';
                       uniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripId}`);
                     }
                   });
@@ -1165,7 +1299,6 @@ const Revenue = () => {
         <div className="revenue-menu-item">
           <div 
             className={`revenue-menu-header ${isMenuExpanded ? 'revenue-menu-active' : ''}`}
-
             onClick={toggleMenu}
           >
             <span><span className="revenue-menu-icon"><FaMoneyCheck size={20}/></span>Revenue</span>
@@ -1200,97 +1333,6 @@ const Revenue = () => {
           </div>
         </div>
       </div>
-
-    {/* Filters - Only show for daily revenue view */}
-    {currentView === 'daily-revenue' && (
-      <div className="revenue-filters">
-        <div className="revenue-filter-group">
-          <label className="revenue-filter-label">Available Dates</label>
-          <select
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="revenue-filter-select"
-          >
-            <option value="">All Dates</option>
-            {availableDates.map((date) => (
-              <option key={date} value={date}>
-                {new Date(date).toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}
-              </option>
-            ))}
-          </select>
-        </div>
-        
-        <div className="revenue-filter-group">
-          <label className="revenue-filter-label">Trip Direction</label>
-          <select 
-            value={selectedRoute}
-            onChange={(e) => setSelectedRoute(e.target.value)}
-            className="revenue-filter-select"
-          >
-            <option value="">All Trip Directions</option>
-            {availableRoutes.map((route) => (
-              <option key={route} value={route}>
-                {route}
-              </option>
-            ))}
-          </select>
-        </div>
-        
-        <div className="revenue-filter-group">
-          <label className="revenue-filter-label">Ticket Type</label>
-          <select 
-            value={selectedTicketType}
-            onChange={(e) => setSelectedTicketType(e.target.value)}
-            className="revenue-filter-select"
-          >
-            <option value="">All Tickets</option>
-            <option value="pre-ticket">Pre Ticket</option>
-            <option value="pre-book">Pre Book</option>
-            <option value="conductor">Conductor Ticket</option>
-          </select>
-        </div>
-
-        {/* Clear Filters Button */}
-        <div className="revenue-filter-group">
-          <label className="revenue-filter-label">&nbsp;</label>
-          <button
-            onClick={() => {
-              setSelectedDate('');
-              setSelectedRoute('');
-              setSelectedTicketType('');
-            }}
-            className="revenue-filter-btn"
-          >
-            Clear Filters
-          </button>
-        </div>
-        
-        {/* Results Count - Show ticket/trip counts based on current data */}
-        <div className="revenue-filter-group">
-          <label className="revenue-filter-label">&nbsp;</label>
-          <div className="revenue-results-count">
-            {(() => {
-              if (loading || revenueData === null) {
-                return 'Loading...';
-              }
-              if (revenueData) {
-                const totalTrips = (revenueData.conductorTrips?.length || 0) +
-                                 (revenueData.preBookingTrips?.length || 0) +
-                                 (revenueData.preTicketing?.length || 0);
-                const totalPassengers = revenueData.totalPassengers || 0;
-                return `${totalTrips} tickets • ${totalPassengers} passengers`;
-              }
-              return 'No data';
-            })()}
-          </div>
-        </div>
-      </div>
-    )}
 
       {/* Content Area */}
       <div className="revenue-content-area">

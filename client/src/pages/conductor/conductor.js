@@ -11,7 +11,14 @@ import {
   where,
   deleteDoc
 } from 'firebase/firestore';
+import { 
+  ref, 
+  uploadBytes, 
+  getDownloadURL, 
+  deleteObject 
+} from 'firebase/storage';
 import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, deleteUser } from 'firebase/auth';
+import { storage } from '/src/firebase/firebase';
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
@@ -1514,6 +1521,15 @@ class ConductorService {
         displayName: name
       });
 
+      let busImageData = { url: null, path: null };
+      if (formData.busImageFile) {
+        try {
+          busImageData = await this.uploadBusImage(formData.busImageFile, documentId);
+        } catch (uploadError) {
+          console.error('Image upload failed, continuing with creation:', uploadError);
+        }
+      }
+
       // Create conductor document in Firestore using separate app
       const conductorData = {
         busNumber: parseInt(busNumber),
@@ -1523,6 +1539,8 @@ class ConductorService {
         plateNumber: plateNumber,
         registrationNumber: registrationNumber,
         driverName: driverName,
+        busImageUrl: busImageData?.url || null,
+        busImagePath: busImageData?.path || null,
         isOnline: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -1633,36 +1651,64 @@ class ConductorService {
   }
 
   // Update conductor information
-  async updateConductor(documentId, updateData) {
+  async updateConductor(documentId, updateData, imageFile = null, isImageRemoved = false) {
     try {
       const conductorRef = doc(db, 'conductors', documentId);
 
       // Check if conductor exists and get current data for logging
       const conductorDoc = await getDoc(conductorRef);
+      
       if (!conductorDoc.exists()) {
         throw new Error('Conductor not found');
       }
 
       const currentData = conductorDoc.data();
 
-      const updatedData = {
-        ...updateData,
-        updatedAt: serverTimestamp()
-      };
+      // 1. Initialize the object with the text data passed in
+      let finalUpdateData = { ...updateData };
 
-      // If plateNumber is being updated, recalculate coding day
-      if (updateData.plateNumber) {
-        updatedData.codingDay = this.getCodingDayFromPlate(updateData.plateNumber);
-        // App will handle updating availability status
+      // 2. IMAGE HANDLING LOGIC
+      // Case A: User selected a NEW file
+      if (imageFile) {
+        // Delete old image from storage if it exists
+        if (currentData.busImagePath) {
+          await this.deleteBusImage(currentData.busImagePath);
+        }
+        // Upload new image
+        const newImageData = await this.uploadBusImage(imageFile, documentId);
+        
+        // Add image data to the update object
+        finalUpdateData.busImageUrl = newImageData.url;
+        finalUpdateData.busImagePath = newImageData.path;
+      } 
+      // Case B: User clicked "Remove Photo" (and didn't select a new one)
+      else if (isImageRemoved && currentData.busImagePath) {
+        await this.deleteBusImage(currentData.busImagePath);
+        
+        // Clear image fields in the update object
+        finalUpdateData.busImageUrl = null;
+        finalUpdateData.busImagePath = null;
       }
 
-      await updateDoc(conductorRef, updatedData);
+      // 3. AUTOMATED FIELD UPDATES
+      finalUpdateData.updatedAt = serverTimestamp();
 
-      // Log the activity with details of what was changed
+      // If plateNumber is being updated, recalculate coding day
+      if (finalUpdateData.plateNumber) {
+        finalUpdateData.codingDay = this.getCodingDayFromPlate(finalUpdateData.plateNumber);
+      }
+
+      // 4. PERFORM UPDATE
+      await updateDoc(conductorRef, finalUpdateData);
+
+      // 5. LOGGING
       const changedFields = [];
-      Object.keys(updateData).forEach(key => {
-        if (currentData[key] !== updateData[key]) {
-          changedFields.push(`${key}: "${currentData[key]}" → "${updateData[key]}"`);
+      Object.keys(finalUpdateData).forEach(key => {
+        // Skip comparing timestamps as objects
+        if (key === 'updatedAt') return; 
+        
+        if (currentData[key] !== finalUpdateData[key]) {
+          changedFields.push(`${key}: "${currentData[key] || 'null'}" → "${finalUpdateData[key] || 'null'}"`);
         }
       });
 
@@ -1674,7 +1720,7 @@ class ConductorService {
           conductorName: currentData.name,
           plateNumber: currentData.plateNumber,
           changes: changedFields,
-          updatedFields: Object.keys(updateData),
+          updatedFields: Object.keys(finalUpdateData),
           timestamp: new Date().toISOString()
         }
       );
@@ -1832,6 +1878,10 @@ class ConductorService {
       const randomId = Math.random().toString(36).substring(2, 8);
       const deletedEmail = `deleted_${timestamp}_${randomId}@deleted.invalid`;
 
+      if (conductorData.busImagePath) {
+     await this.deleteBusImage(conductorData.busImagePath);
+  }
+
       // Implement pseudo-delete by modifying the conductor document
       const deletedConductorData = {
         ...conductorData,
@@ -1850,7 +1900,9 @@ class ConductorService {
         deletedByEmail: auth.currentUser?.email || 'unknown',
         
         // Keep all other data intact
-        isOnline: false
+        isOnline: false,
+        busImageUrl: null, // Clear image reference
+        busImagePath: null,
       };
 
       // Update the document instead of deleting it
@@ -1927,6 +1979,46 @@ class ConductorService {
         error: error.message,
         conductors: []
       };
+    }
+  }
+
+  // --- IMAGE HANDLING METHODS ---
+
+  // Upload an image to Firebase Storage
+  async uploadBusImage(file, conductorId) {
+    try {
+      if (!file) return null;
+
+      // Create a reference: bus_images/{conductorId}/{timestamp}_{filename}
+      const timestamp = Date.now();
+      const fileExtension = file.name.split('.').pop();
+      const storagePath = `bus_images/${conductorId}/${timestamp}_bus.${fileExtension}`;
+      const storageRef = ref(storage, storagePath);
+
+      // Upload
+      await uploadBytes(storageRef, file);
+
+      // Get URL
+      const downloadURL = await getDownloadURL(storageRef);
+
+      return {
+        url: downloadURL,
+        path: storagePath
+      };
+    } catch (error) {
+      console.error('Error uploading bus image:', error);
+      throw new Error('Failed to upload bus image');
+    }
+  }
+
+  // Delete an image from Firebase Storage
+  async deleteBusImage(storagePath) {
+    try {
+      if (!storagePath) return;
+      const storageRef = ref(storage, storagePath);
+      await deleteObject(storageRef);
+    } catch (error) {
+      console.warn('Error deleting bus image (might already be gone):', error);
     }
   }
 

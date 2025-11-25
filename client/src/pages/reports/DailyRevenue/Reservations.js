@@ -2,18 +2,30 @@ import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '/src/firebase/firebase.js';
 
 // Helper to format timestamp
-const formatDate = (timestamp) => {
+const formatDateTime = (timestamp) => {
   if (!timestamp) return 'N/A';
   // Handle Firestore Timestamp
-  if (timestamp.seconds) {
-    return new Date(timestamp.seconds * 1000).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  }
-  // Handle standard Date object or string
-  return new Date(timestamp).toLocaleDateString('en-US');
+  const dateObj = timestamp.seconds ? new Date(timestamp.seconds * 1000) : new Date(timestamp);
+  
+  return dateObj.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: true
+  });
+};
+
+const formatDate = (timestamp) => {
+  if (!timestamp) return 'N/A';
+  const dateObj = timestamp.seconds ? new Date(timestamp.seconds * 1000) : new Date(timestamp);
+  
+  return dateObj.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
 };
 
 // Helper to format currency
@@ -62,6 +74,13 @@ export const loadReservationsData = async () => {
         stats[data.status]++;
       }
 
+      const createdDateObj = data.timestamp && data.timestamp.seconds 
+        ? new Date(data.timestamp.seconds * 1000) 
+        : new Date(data.timestamp);
+
+      const offset = createdDateObj.getTimezoneOffset() * 60000;
+      const localISODate = new Date(createdDateObj.getTime() - offset).toISOString().split('T')[0];
+
       reservations.push({
         id: doc.id,
         fullName: data.fullName || 'N/A',
@@ -73,7 +92,10 @@ export const loadReservationsData = async () => {
         busId: data.selectedBusIds && data.selectedBusIds.length > 0 ? data.selectedBusIds.join(', ') : 'Pending Assignment',
         type: data.isRoundTrip ? 'Round Trip' : 'One Way',
         revenue: revenue,
-        timestamp: data.timestamp // Keep raw for sorting if needed later
+        dateFiled: formatDateTime(data.timestamp),
+        cancelledBy: data.cancelledBy || null,
+        timestamp: data.timestamp,
+        filedDateISO: localISODate
       });
     });
 
