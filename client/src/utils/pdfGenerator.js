@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable'; // 1. Import autoTable as a default import
+import autoTable from 'jspdf-autotable';
 
 const formatCurrency = (amount) => {
   return parseFloat(amount).toFixed(2);
@@ -29,7 +29,7 @@ export const generateLandscapePDF = ({
 
   let finalY = 30;
 
-  // Summary
+  // Summary logic (unchanged)...
   if (summary.length > 0) {
     doc.setFontSize(12);
     doc.setTextColor(0);
@@ -63,7 +63,6 @@ export const generateLandscapePDF = ({
         finalY += 6;
     }
 
-    // 2. CHANGE HERE: Use autoTable(doc, options) instead of doc.autoTable(options)
     autoTable(doc, {
       startY: finalY,
       head: [table.head],
@@ -95,8 +94,14 @@ export const generateLandscapePDF = ({
       }
     });
 
-    // 3. CHANGE HERE: Access finalY from the last table drawn
-    finalY = doc.lastAutoTable.finalY + 15;
+    // --- FIX IS HERE ---
+    // Check if lastAutoTable exists before accessing it
+    if (doc.lastAutoTable) {
+        finalY = doc.lastAutoTable.finalY + 15;
+    } else {
+        // Fallback if table didn't draw or property is missing
+        finalY += 20; 
+    }
   });
 
   doc.save(fileName);
