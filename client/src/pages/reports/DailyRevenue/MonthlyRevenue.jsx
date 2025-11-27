@@ -3,6 +3,9 @@ import * as XLSX from 'xlsx';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, BarChart, Bar, ResponsiveContainer } from 'recharts';
 import { preparePieChartData } from './DailyRevenue.js';
 import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
+import './discount.css';
+import { FaPrint } from "react-icons/fa6";
+import { generateLandscapePDF } from '/src/utils/pdfGenerator.js';
 import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js'; 
 import {
   formatMonthForDisplay,
@@ -39,6 +42,102 @@ const MonthlyRevenue = ({
 
     // Show percentage with 1 decimal place
     return `${(percent * 100).toFixed(1)}%`;
+  };
+
+  const handlePrintPDF = () => {
+    // 1. Prepare Summary Cards Data
+    const summaryData = [
+        { label: "Total Revenue", value: `PHP ${monthlyData.totalMonthlyRevenue?.toLocaleString(undefined, {minimumFractionDigits: 2})}` },
+        { label: "Total Passengers", value: monthlyData.totalMonthlyPassengers },
+        { label: "Avg Daily Rev", value: `PHP ${monthlyData.averageDailyRevenue?.toLocaleString(undefined, {minimumFractionDigits: 2})}` },
+        { label: "Growth", value: formatGrowthDisplay(monthlyData.monthlyGrowth) }
+    ];
+
+    // 2. Prepare Daily Breakdown Table
+    const dailyData = [...(monthlyData.dailyBreakdown || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    // Calculate Totals for Daily Table
+    const dailyTotals = dailyData.reduce((acc, day) => ({
+        rev: acc.rev + day.totalRevenue,
+        pax: acc.pax + day.totalPassengers,
+        cond: acc.cond + day.conductorRevenue,
+        preB: acc.preB + day.preBookingRevenue,
+        preT: acc.preT + day.preTicketingRevenue
+    }), { rev: 0, pax: 0, cond: 0, preB: 0, preT: 0 });
+
+    const dailyRows = dailyData.map(day => [
+        formatDateForBreakdown(day.date),
+        day.totalPassengers,
+        day.conductorRevenue.toFixed(2),
+        day.preBookingRevenue.toFixed(2),
+        day.preTicketingRevenue.toFixed(2),
+        day.averageFare.toFixed(2),
+        day.totalRevenue.toFixed(2)
+    ]);
+
+    // Add Total Row to Daily Table
+    dailyRows.push([
+        { content: 'TOTAL:', styles: { fontStyle: 'bold', halign: 'right', fillColor: [240, 240, 240] } },
+        { content: dailyTotals.pax.toString(), styles: { fontStyle: 'bold', halign: 'center', fillColor: [240, 240, 240] } },
+        { content: dailyTotals.cond.toFixed(2), styles: { fontStyle: 'bold', halign: 'right', fillColor: [240, 240, 240] } },
+        { content: dailyTotals.preB.toFixed(2), styles: { fontStyle: 'bold', halign: 'right', fillColor: [240, 240, 240] } },
+        { content: dailyTotals.preT.toFixed(2), styles: { fontStyle: 'bold', halign: 'right', fillColor: [240, 240, 240] } },
+        { content: '-', styles: { halign: 'center', fillColor: [240, 240, 240] } }, // Avg fare total doesn't make sense
+        { content: dailyTotals.rev.toFixed(2), styles: { fontStyle: 'bold', textColor: [0, 124, 145], halign: 'right', fillColor: [240, 240, 240] } }
+    ]);
+
+    // 3. Prepare Top Routes Table
+    const topRoutes = getTopRoutes(monthlyData.routeMonthlyData, 10);
+    const routeRows = topRoutes.map(r => [
+        r.route.replace(/→/g, '->'), // Fix Arrow symbol
+        r.passengers,
+        r.revenue.toFixed(2)
+    ]);
+
+    // 4. Prepare Source Breakdown Table (Small summary table)
+    const sourceRows = [
+        ["Conductor Tickets", `PHP ${monthlyData.conductorMonthlyRevenue?.toLocaleString(undefined, {minimumFractionDigits: 2})}`],
+        ["Pre-Booking", `PHP ${monthlyData.preBookingMonthlyRevenue?.toLocaleString(undefined, {minimumFractionDigits: 2})}`],
+        ["Pre-Ticketing", `PHP ${monthlyData.preTicketingMonthlyRevenue?.toLocaleString(undefined, {minimumFractionDigits: 2})}`]
+    ];
+
+    // Generate PDF
+    generateLandscapePDF({
+        title: "Monthly Revenue Report",
+        subtitle: `Month: ${formatMonthForDisplay(selectedMonth)} | Route: ${selectedRoute || 'All'} | Type: ${selectedTicketType || 'All'}`,
+        fileName: `Monthly_Revenue_${selectedMonth}.pdf`,
+        summary: summaryData,
+        tables: [
+            {
+                title: "Daily Revenue Breakdown",
+                head: ["Date", "Pax", "Conductor", "Pre-Book", "Pre-Tix", "Avg Fare", "Total Rev"],
+                body: dailyRows,
+                columnStyles: {
+                    1: { halign: 'center' },
+                    2: { halign: 'right' },
+                    3: { halign: 'right' },
+                    4: { halign: 'right' },
+                    5: { halign: 'right' },
+                    6: { halign: 'right', fontStyle: 'bold', textColor: [0, 124, 145] }
+                }
+            },
+            {
+                title: "Revenue by Source",
+                head: ["Source", "Amount"],
+                body: sourceRows,
+                columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } }
+            },
+            {
+                title: "Top Performing Routes",
+                head: ["Route", "Passengers", "Revenue"],
+                body: routeRows,
+                columnStyles: { 
+                    1: { halign: 'center' },
+                    2: { halign: 'right', textColor: [0, 124, 145] } 
+                }
+            }
+        ]
+    });
   };
 
   // Excel export function
@@ -338,6 +437,20 @@ const MonthlyRevenue = ({
         >
           {monthlyLoading ? 'Loading...' : 'Refresh'}
         </button>
+
+        {/* NEW PDF BUTTON (Replaced Excel) */}
+        <div className="discount-action-bar" style={{width: 'auto', marginBottom: 0}}>
+            <button 
+                className="discount-btn-download discount-btn-pdf" 
+                onClick={handlePrintPDF} 
+                disabled={monthlyLoading || !hasData}
+            >
+                <FaPrint size={16} /> 
+                <span>Print to PDF</span>
+            </button>
+        </div>
+
+        {/* COMMENTED OUT EXCEL 
         <button
           onClick={handleExportToExcel}
           className="revenue-export-btn"
@@ -345,6 +458,7 @@ const MonthlyRevenue = ({
         >
           <PiMicrosoftExcelLogoFill size={20} /> Export to Excel
         </button>
+        */}
       </div>
 
       {/* Monthly Revenue Breakdown Summary for Print */}

@@ -1,0 +1,365 @@
+/* =========================
+   DISCOUNT PAGE CONTAINER
+   ========================= */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+.discount-main-container {
+  padding: 20px;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  background-color: #f8f9fa;
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* =========================
+   FILTER / SORT BAR
+   ========================= */
+
+.discount-sort-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 15px;
+  flex-wrap: wrap;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin-bottom: 25px;
+  width: 100%;
+}
+
+.discount-sort-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.discount-sort-label {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.discount-sort-select {
+  padding: 0 12px;
+  border: 2px solid #e1e8ed;
+  border-radius: 8px;
+  font-size: 14px;
+  min-width: 150px;
+  height: 42px;
+  outline: none;
+  background-color: white;
+  transition: border-color 0.2s;
+}
+
+.discount-sort-select:focus {
+  border-color: #007c91;
+}
+
+/* Quick Select Buttons */
+.discount-qs-container {
+  display: flex;
+  height: 42px;
+  background-color: white;
+  border: 2px solid #e1e8ed;
+  border-radius: 8px;
+  overflow: hidden;
+  min-width: 180px;
+}
+
+.discount-qs-btn {
+  flex: 1;
+  border: none;
+  background: white;
+  color: #555;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  height: 100%;
+  padding: 0 5px;
+  transition: all 0.2s ease;
+  border-right: 1px solid #e1e8ed;
+}
+
+.discount-qs-btn:last-child {
+  border-right: none;
+}
+
+.discount-qs-btn:hover {
+  background-color: #e0f2f1;
+  color: #007c91;
+}
+
+/* Clear Button */
+.discount-clear-btn {
+  padding: 0 16px;
+  background-color: white;
+  color: #333;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  height: 42px;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.discount-clear-btn:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+/* =========================
+   SUMMARY CARDS (Teal Dot Pattern)
+   ========================= */
+
+.discount-summary-wrapper {
+  background-color: #007c91; /* Main Teal Color */
+  border-radius: 12px;
+  padding: 25px;
+  margin-bottom: 20px; /* Reduced margin to fit button better */
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 124, 145, 0.15);
+}
+
+.discount-header-pattern {
+  position: absolute;
+  inset: 0;
+  /* Dotted Pattern */
+  background-image: radial-gradient(rgba(255, 255, 255, 0.2) 1.5px, transparent 1.5px);
+  background-size: 25px 25px; 
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.discount-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+.discount-summary-card {
+  background: rgba(255, 255, 255, 0.15);
+    border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  transition: all 0.2s ease-in-out;
+  min-height: 110px;
+}
+
+.discount-summary-card:hover {
+  border-color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.discount-card-title {
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 0 0 8px 0;
+  opacity: 0.9;
+}
+
+.discount-card-value {
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1;
+}
+
+.discount-card-subtext {
+  display: none; 
+}
+
+
+/* =========================
+   ACTION BUTTONS
+   ========================= */
+
+.discount-action-bar {
+  display: flex;
+  justify-content: flex-end; /* Align right */
+  gap: 10px;
+  margin-bottom: 30px;
+  width: 100%;
+}
+
+.discount-btn-download {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px; /* Space for Icon */
+  
+  background-color: #17a2b8; /* Teal */
+  color: white;
+  
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.discount-btn-download:hover {
+  background-color: #138496;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.discount-btn-download:active {
+  transform: translateY(0);
+}
+
+/* Red for PDF */
+.discount-btn-pdf {
+  background-color: #dc3545; 
+}
+.discount-btn-pdf:hover {
+  background-color: #bb2d3b;
+}
+
+
+/* =========================
+   TABLE STYLES
+   ========================= */
+
+.discount-table-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  overflow-x: auto;
+  padding: 0;
+  width: 100%;
+  margin-bottom: 30px;
+}
+
+.discount-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+/* Main Headers */
+.discount-data-table thead tr:first-child th {
+  background-color: #f8f9fa;
+  color: #495057;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  padding: 12px 8px;
+  border: 1px solid #dee2e6;
+  text-align: center;
+  vertical-align: middle;
+  letter-spacing: 0.5px;
+}
+
+/* Nested Headers (Second Row) */
+.discount-data-table thead tr:nth-child(2) th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  padding: 8px 6px;
+  border: 1px solid #dee2e6;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+
+.discount-data-table td {
+  padding: 10px 8px;
+  border: 1px solid #e9ecef;
+  color: #495057;
+  font-size: 11px;
+  vertical-align: middle;
+  text-align: center;
+}
+
+.discount-data-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* Text Helpers */
+.discount-text-center { text-align: center !important; }
+.discount-text-right { text-align: right !important; padding-right: 15px; }
+.discount-text-left { text-align: left !important; }
+.discount-text-muted { color: #adb5bd !important; font-weight: 400 !important; }
+.discount-text-bold { color: #212529 !important; font-weight: 600 !important; }
+
+/* Column Specifics */
+.discount-text-date { color: #17a2b8; font-weight: 500; font-style: italic; }
+.discount-text-id { font-weight: 600; color: #2c3e50; text-transform: uppercase; }
+.discount-text-route { color: #2c3e50; font-weight: 500; font-size: 11px; }
+.discount-text-direction { color: #6c757d; font-style: italic; font-size: 10px; margin-top: 2px; }
+.discount-text-bus { font-size: 9px; color: #999; font-weight: normal; display: block; margin-top: 2px; }
+
+/* Discount Category Headers Colors */
+.header-senior { color: #fd7e14; }
+.header-pwd { color: #007bff; }
+.header-student { color: #6f42c1; }
+
+/* Loading/Empty State */
+.discount-empty-row td {
+  padding: 40px;
+  text-align: center;
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.discount-section-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 15px;
+  padding-left: 10px;
+  border-left: 4px solid #007c91;
+}
+
+.discount-type-tag {
+  font-size: 11px;
+  font-weight: 600;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: #495057;
+  text-transform: uppercase;
+  display: inline-block;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .discount-sort-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .discount-sort-group, .discount-sort-select, .discount-qs-container, .discount-clear-btn {
+    width: 100%;
+  }
+  .discount-data-table {
+    min-width: 800px;
+  }
+  .discount-card-value {
+    font-size: 22px;
+  }
+}

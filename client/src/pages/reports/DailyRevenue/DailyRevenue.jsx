@@ -2,10 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
 import { IoMdArrowDropdownCircle } from "react-icons/io";
-import { FaMoneyCheck } from "react-icons/fa6"
-import { FaRegCalendarCheck, FaTicketAlt } from "react-icons/fa";
+import { FaMoneyCheck, FaPrint } from "react-icons/fa6"
+import { FaRegCalendarCheck, FaTicketAlt, FaPercent } from "react-icons/fa";
 import { BsCalendar3 } from "react-icons/bs";
 import { LuBus } from "react-icons/lu";
+import { generateLandscapePDF } from '/src/utils/pdfGenerator.js';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, BarChart, Bar, ResponsiveContainer } from 'recharts';
 import {
   loadRevenueData,
@@ -27,6 +28,7 @@ import {
 import './DailyRevenue.css';
 import ReservationsReport from './Reservations.jsx';
 import RemittanceReport from './Remittance.jsx';
+import DiscountPage from './discount.jsx';
 import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 
 
@@ -346,6 +348,135 @@ const Revenue = () => {
     }
   };
 
+  const handlePrintPDF = () => {
+    if (!revenueData) return;
+
+    // 1. Calculate Unique Trips (Same logic as Excel)
+    const uniqueTrips = new Set();
+    const countUnique = (list) => {
+        list?.forEach(trip => {
+            if (trip.conductorId && trip.tripId) {
+                const tripDate = trip.date || trip.createdAt || 'unknown-date';
+                uniqueTrips.add(`${trip.conductorId}_${tripDate}_${trip.tripId}`);
+            }
+        });
+    };
+    countUnique(revenueData.conductorTrips);
+    countUnique(revenueData.preBookingTrips);
+    countUnique(revenueData.preTicketing);
+
+    // 2. Prepare Summary Data
+    const totalTickets = (revenueData.conductorTrips?.length || 0) + 
+                         (revenueData.preBookingTrips?.length || 0) + 
+                         (revenueData.preTicketing?.length || 0);
+
+    const summaryData = [
+        { label: "Total Revenue", value: `PHP ${revenueData.totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}` },
+        { label: "Total Trips", value: uniqueTrips.size },
+        { label: "Total Passengers", value: revenueData.totalPassengers },
+        { label: "Total Tickets", value: totalTickets },
+        { label: "Avg. Fare", value: `PHP ${revenueData.averageFare.toLocaleString(undefined, {minimumFractionDigits: 2})}` }
+    ];
+
+    // 3. Helper to Build Table Bodies with Totals
+    const buildTableSection = (trips, titlePrefix) => {
+        if (!trips || trips.length === 0) return null;
+
+        // Calculate Totals
+        const totals = trips.reduce((acc, trip) => {
+            const breakdown = parseTicketDiscountBreakdown(trip);
+            return {
+                pax: acc.pax + (trip.quantity || 0),
+                reg: acc.reg + breakdown.regular,
+                pwd: acc.pwd + breakdown.pwd,
+                sen: acc.sen + breakdown.senior,
+                std: acc.std + breakdown.student,
+                fare: acc.fare + trip.totalFare
+            };
+        }, { pax: 0, reg: 0, pwd: 0, sen: 0, std: 0, fare: 0 });
+
+        // Map Rows
+        const rows = trips.map(trip => {
+            const breakdown = parseTicketDiscountBreakdown(trip);
+            const tripNum = trip.tripId ? trip.tripId.replace(/trip/i, '') : '';
+            const dateTime = formatDateTime(trip.date, trip.timestamp);
+
+            return [
+                tripNum ? `TRIP${tripNum}` : 'N/A',
+                dateTime,
+                `${trip.from} -> ${trip.to}`, // Arrow fix
+                trip.tripDirection || 'N/A',
+                trip.quantity,
+                breakdown.regular.toFixed(2),
+                breakdown.pwd.toFixed(2),
+                breakdown.senior.toFixed(2),
+                breakdown.student.toFixed(2),
+                trip.totalFare.toFixed(2)
+            ];
+        });
+
+        // Add Total Row
+        rows.push([
+            { content: 'TOTAL:', colSpan: 4, styles: { fontStyle: 'bold', halign: 'right', fillColor: [240, 240, 240] } },
+            { content: totals.pax.toString(), styles: { fontStyle: 'bold', halign: 'center', fillColor: [240, 240, 240] } },
+            { content: totals.reg.toFixed(2), styles: { fontStyle: 'bold', halign: 'right', fillColor: [240, 240, 240] } },
+            { content: totals.pwd.toFixed(2), styles: { fontStyle: 'bold', halign: 'right', fillColor: [240, 240, 240] } },
+            { content: totals.sen.toFixed(2), styles: { fontStyle: 'bold', halign: 'right', fillColor: [240, 240, 240] } },
+            { content: totals.std.toFixed(2), styles: { fontStyle: 'bold', halign: 'right', fillColor: [240, 240, 240] } },
+            { content: totals.fare.toFixed(2), styles: { fontStyle: 'bold', textColor: [0, 124, 145], halign: 'right', fillColor: [240, 240, 240] } }
+        ]);
+
+        return {
+            title: `${titlePrefix} - Detailed Breakdown`,
+            head: ["Trip ID", "Date & Time", "Route", "Direction", "Pax", "Reg", "PWD", "Sen", "Std", "Fare"],
+            body: rows,
+            columnStyles: {
+                4: { halign: 'center' },
+                5: { halign: 'right' },
+                6: { halign: 'right' },
+                7: { halign: 'right' },
+                8: { halign: 'right' },
+                9: { halign: 'right', fontStyle: 'bold', textColor: [0, 124, 145] }
+            }
+        };
+    };
+
+    // 4. Construct Tables Array
+    const tables = [];
+    
+    // Revenue Source Summary Table
+    const sourceData = [
+        ["Conductor Tickets", `PHP ${revenueData.conductorRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}`],
+        ["Pre-Booking", `PHP ${revenueData.preBookingRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}`],
+        ["Pre-Ticketing", `PHP ${revenueData.preTicketingRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}`]
+    ];
+    tables.push({
+        title: "Revenue by Source",
+        head: ["Source", "Amount"],
+        body: sourceData,
+        columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } }
+    });
+
+    // Add detailed tables if data exists
+    const conductorTable = buildTableSection(revenueData.conductorTrips, "Conductor Trips");
+    if (conductorTable) tables.push(conductorTable);
+
+    const preBookingTable = buildTableSection(revenueData.preBookingTrips, "Pre-Booking");
+    if (preBookingTable) tables.push(preBookingTable);
+
+    const preTicketingTable = buildTableSection(revenueData.preTicketing, "Pre-Ticketing");
+    if (preTicketingTable) tables.push(preTicketingTable);
+
+    // 5. Generate PDF
+    generateLandscapePDF({
+        title: "Daily Revenue Report",
+        subtitle: `Period: ${startDate || 'All'} to ${endDate || 'Present'} | Route: ${selectedRoute || 'All'} | Type: ${selectedTicketType || 'All'}`,
+        fileName: `Daily_Revenue_${new Date().toISOString().split('T')[0]}.pdf`,
+        summary: summaryData,
+        tables: tables
+    });
+  };
+
   // Excel export function
   const handleExportToExcel = async () => {
     try {
@@ -657,6 +788,8 @@ const Revenue = () => {
         return renderDailyTripsRemittance();
       case 'reservations': 
         return <ReservationsReport />;
+      case 'discounts': 
+        return <DiscountPage />;
       default:
         return renderDefaultView();
     }
@@ -672,7 +805,7 @@ const Revenue = () => {
         <div className="revenue-quick-stats">
           <div className="revenue-stat-item">
             <span className="revenue-stat-label">Available Reports</span>
-            <span className="revenue-stat-value">3</span>
+            <span className="revenue-stat-value">5</span>
           </div>
           <div className="revenue-stat-item">
             <span className="revenue-stat-label">Last Updated</span>
@@ -885,7 +1018,7 @@ const Revenue = () => {
           </div>
         </div>
 
-        {/* Controls - Only show for daily revenue */}
+{/* Controls - Only show for daily revenue */}
         <div className="revenue-daily-controls">
           <button
             onClick={handleRefresh}
@@ -894,6 +1027,20 @@ const Revenue = () => {
           >
             {loading ? 'Loading...' : 'Refresh'}
           </button>
+
+          {/* NEW PDF BUTTON */}
+          <div className="discount-action-bar" style={{width: 'auto', marginBottom: 0}}>
+            <button 
+                className="discount-btn-download discount-btn-pdf" 
+                onClick={handlePrintPDF} 
+                disabled={loading || revenueData.totalRevenue === 0}
+            >
+                <FaPrint size={16} /> 
+                <span>Print to PDF</span>
+            </button>
+          </div>
+
+          {/* EXCEL BUTTON COMMENTED OUT
           <button
             onClick={handleExportToExcel}
             className="revenue-export-btn"
@@ -901,10 +1048,8 @@ const Revenue = () => {
           >
             <PiMicrosoftExcelLogoFill size={20} /> Export to Excel
           </button>
+          */}
         </div>
-
-
-
 
         {/* Charts Section */}
         <div className="revenue-charts-section">
@@ -1329,6 +1474,13 @@ const Revenue = () => {
               onClick={() => selectMenuItem('reservations')}
             >
               <span className="revenue-menu-icon"><FaTicketAlt size={20} /></span>Reservations
+            </div>
+
+            <div 
+              className={`revenue-submenu-item ${currentView === 'discounts' ? 'revenue-submenu-selected' : ''}`}
+              onClick={() => selectMenuItem('discounts')}
+            >
+              <span className="revenue-menu-icon"><FaPercent size={20} /></span>Discounts
             </div>
           </div>
         </div>

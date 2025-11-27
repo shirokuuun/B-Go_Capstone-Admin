@@ -1,8 +1,11 @@
 // src/pages/reports/DailyRevenue/ReservationsReport.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
+import { FaPrint } from "react-icons/fa6";
+import { generateLandscapePDF } from '/src/utils/pdfGenerator.js';
 import { loadReservationsData } from './Reservations.js';
 import * as XLSX from 'xlsx';
+import './discount.css';
 import './DailyRevenue.css';
 
 const ReservationsReport = () => {
@@ -153,6 +156,49 @@ const ReservationsReport = () => {
     XLSX.writeFile(wb, `Reservations_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
+  const handlePrintPDF = () => {
+    // 1. Prepare Summary Data
+    const summaryData = [
+        { label: "Total Reservations", value: computedStats.total },
+        { label: "Confirmed", value: computedStats.confirmed },
+        { label: "Completed", value: computedStats.completed },
+        { label: "Pending", value: computedStats.pending },
+        { label: "Cancelled", value: computedStats.cancelled },
+        { label: "Total Revenue", value: `PHP ${currentViewTotalRevenue.toLocaleString()}` }
+    ];
+
+    // 2. Prepare Table Body
+    const tableBody = filteredReservations.map(res => [
+        res.dateFiled,
+        res.fullName,
+        res.route.replace(/→/g, '->'), // Fix arrow symbol for PDF
+        res.departureDate,
+        res.departureTime,
+        res.busId,
+        res.type,
+        res.status.toUpperCase(),
+        res.revenue.toLocaleString(undefined, {minimumFractionDigits: 2})
+    ]);
+
+    // 3. Generate PDF
+    generateLandscapePDF({
+        title: "Reservations Report",
+        subtitle: `Period: ${startDate || 'All'} to ${endDate || 'Present'} | Status: ${statusFilter}`,
+        fileName: `Reservations_Report_${new Date().toISOString().split('T')[0]}.pdf`,
+        summary: summaryData,
+        tables: [
+            {
+                title: "Reservation List",
+                head: ["Date Filed", "Customer", "Route", "Dep. Date", "Time", "Bus", "Type", "Status", "Amount"],
+                body: tableBody,
+                columnStyles: {
+                    8: { halign: 'right', fontStyle: 'bold', textColor: [23, 162, 184] } // Teal for revenue
+                }
+            }
+        ]
+    });
+  };
+
   const getStatusClass = (status) => {
     switch(status) {
       case 'confirmed': return 'status-confirmed';
@@ -292,14 +338,23 @@ const ReservationsReport = () => {
         </div>
       </div>
 
-      {/* Export Button */}
-        <div className="res-sort-group res-sort-push-right">
-          <button className="res-sort-export-btn" onClick={handleExport}>
-            <PiMicrosoftExcelLogoFill size={20} /> Export to Excel
-          </button>
-        </div>
+      {/* Using the CSS classes from discount.css */}
+      <div className="discount-action-bar" style={{marginBottom: '20px'}}>
+        
+        {/* COMMENTED OUT EXCEL EXPORT
+        <button className="res-sort-export-btn" onClick={handleExport}>
+          <PiMicrosoftExcelLogoFill size={20} /> Export to Excel
+        </button>
+        */}
 
-      {/* --- DATA TABLE --- */}
+        {/* NEW PDF PRINT BUTTON */}
+        <button className="discount-btn-download discount-btn-pdf" onClick={handlePrintPDF}>
+           <FaPrint size={16} /> 
+           <span>Print to PDF</span>
+        </button>
+      </div>
+
+
       {/* --- DATA TABLE --- */}
       <div className="revenue-section-container">
         <h4 className="revenue-section-title" style={{color: '#007c91'}}>

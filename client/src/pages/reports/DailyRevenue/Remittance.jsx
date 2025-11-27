@@ -14,8 +14,11 @@ import {
   forceRefreshRemittanceCache
 } from './Remittance.js';
 import { PiMicrosoftExcelLogoFill } from "react-icons/pi";
+import { FaPrint } from "react-icons/fa6";
+import { generateLandscapePDF } from '/src/utils/pdfGenerator.js';
 import { logActivity, ACTIVITY_TYPES } from '/src/pages/settings/auditService.js';
 import './DailyRevenue.css';
+import './discount.css';
 
 const RemittanceReport = () => {
   // --- NEW: DATE RANGE STATES (Replaces selectedDate) ---
@@ -218,6 +221,159 @@ const RemittanceReport = () => {
   const handleLoadRemittanceData = async () => {
     const datesToFetch = getFilteredDates();
     return handleLoadRemittanceDataWithDates(datesToFetch);
+  };
+
+// --- UPDATED PDF PRINT HANDLER (WITH TOTALS) ---
+  const handlePrintPDF = () => {
+    // 1. Prepare Summary Data (Top Cards)
+    const summaryData = [
+        { label: "Total Revenue", value: `PHP ${summary.totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}` },
+        { label: "Total Trips", value: summary.totalTrips },
+        { label: "Total Passengers", value: summary.totalPassengers },
+        { label: "Total Tickets", value: summary.totalTickets },
+        { label: "Avg. Fare", value: `PHP ${summary.averageFare.toLocaleString(undefined, {minimumFractionDigits: 2})}` }
+    ];
+
+    // --- MAIN TABLE SETUP ---
+    
+    // Filter data first
+    const mainTrips = filteredRemittanceData.filter(trip => trip.ticketCount > 0);
+
+    // Calculate Main Table Totals
+    const mainTotals = mainTrips.reduce((acc, trip) => {
+        const breakdown = calculateTripDiscountBreakdown(trip);
+        return {
+            tickets: acc.tickets + (trip.ticketCount || 0),
+            reg: acc.reg + breakdown.regular,
+            pwd: acc.pwd + breakdown.pwd,
+            sen: acc.sen + breakdown.senior,
+            std: acc.std + breakdown.student,
+            rev: acc.rev + trip.totalRevenue
+        };
+    }, { tickets: 0, reg: 0, pwd: 0, sen: 0, std: 0, rev: 0 });
+
+    // Map Body Rows
+    const mainTableBody = mainTrips.map(trip => {
+        const breakdown = calculateTripDiscountBreakdown(trip);
+        const dateStr = trip.date ? formatDate(trip.date) : 'N/A';
+        const timeStr = trip.startTime ? formatTime(trip.startTime) : 'N/A';
+
+        return [
+            trip.conductorId,
+            conductorData[trip.conductorId]?.busNumber || 'N/A',
+            trip.tripNumber,
+            `${dateStr} ${timeStr}`,
+            trip.tripDirection.replace(/→/g, '->'),
+            trip.ticketCount,
+            breakdown.regular.toFixed(2),
+            breakdown.pwd.toFixed(2),
+            breakdown.senior.toFixed(2),
+            breakdown.student.toFixed(2),
+            trip.totalRevenue.toFixed(2)
+        ];
+    });
+
+    // PUSH TOTAL ROW TO MAIN TABLE
+    mainTableBody.push([
+        // colSpan 5 covers: Conductor, Bus, Trip#, Date, Direction
+        { content: `TOTAL (${mainTrips.length} TRIPS):`, colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: [240, 240, 240] } }, 
+        { content: mainTotals.tickets.toString(), styles: { halign: 'center', fontStyle: 'bold', fillColor: [240, 240, 240] } },
+        { content: mainTotals.reg.toFixed(2), styles: { halign: 'right', fontStyle: 'bold', fillColor: [240, 240, 240] } },
+        { content: mainTotals.pwd.toFixed(2), styles: { halign: 'right', fontStyle: 'bold', fillColor: [240, 240, 240] } },
+        { content: mainTotals.sen.toFixed(2), styles: { halign: 'right', fontStyle: 'bold', fillColor: [240, 240, 240] } },
+        { content: mainTotals.std.toFixed(2), styles: { halign: 'right', fontStyle: 'bold', fillColor: [240, 240, 240] } },
+        { content: mainTotals.rev.toFixed(2), styles: { halign: 'right', fontStyle: 'bold', textColor: [0, 124, 145], fillColor: [240, 240, 240] } }
+    ]);
+
+    const mainTable = {
+        title: "Daily Trips Remittance Summary",
+        head: ["Conductor", "Bus", "Trip #", "Date & Time", "Direction", "Tix", "Reg", "PWD", "Sen", "Std", "Revenue"],
+        body: mainTableBody,
+        columnStyles: {
+            5: { halign: 'center' }, // Tickets
+            6: { halign: 'right' }, // Reg
+            7: { halign: 'right' }, // PWD
+            8: { halign: 'right' }, // Sen
+            9: { halign: 'right' }, // Std
+            10: { halign: 'right', fontStyle: 'bold', textColor: [0, 124, 145] } // Revenue (Teal)
+        }
+    };
+
+    // --- CONDUCTOR BREAKDOWN TABLES SETUP ---
+    
+    const conductorTables = Object.entries(groupedData)
+        .filter(([conductorId, trips]) => trips.some(trip => trip.conductorId && trip.ticketCount > 0))
+        .map(([conductorId, trips]) => {
+            const tripsWithTickets = trips.filter(trip => trip.conductorId && trip.ticketCount > 0);
+            const busNum = conductorData[conductorId]?.busNumber || 'N/A';
+
+            // Calculate Conductor Totals
+            const condTotals = tripsWithTickets.reduce((acc, trip) => {
+                const breakdown = calculateTripDiscountBreakdown(trip);
+                return {
+                    passengers: acc.passengers + (trip.totalPassengers || 0),
+                    reg: acc.reg + breakdown.regular,
+                    pwd: acc.pwd + breakdown.pwd,
+                    sen: acc.sen + breakdown.senior,
+                    std: acc.std + breakdown.student,
+                    rev: acc.rev + trip.totalRevenue
+                };
+            }, { passengers: 0, reg: 0, pwd: 0, sen: 0, std: 0, rev: 0 });
+
+            // Create Rows
+            const rows = tripsWithTickets.map(trip => {
+                const breakdown = calculateTripDiscountBreakdown(trip);
+                const dateStr = trip.date ? formatDate(trip.date) : 'N/A';
+                const timeStr = trip.startTime ? formatTime(trip.startTime) : 'N/A';
+
+                return [
+                    trip.tripNumber,
+                    `${dateStr} ${timeStr}`,
+                    trip.tripDirection.replace(/→/g, '->'),
+                    trip.totalPassengers || 0,
+                    breakdown.regular.toFixed(2),
+                    breakdown.pwd.toFixed(2),
+                    breakdown.senior.toFixed(2),
+                    breakdown.student.toFixed(2),
+                    trip.totalRevenue.toFixed(2)
+                ];
+            });
+
+            // PUSH TOTAL ROW TO CONDUCTOR TABLE
+            rows.push([
+                { content: 'TOTAL:', colSpan: 3, styles: { fontStyle: 'bold', halign: 'right', fillColor: [240, 240, 240] } },
+                { content: condTotals.passengers.toString(), styles: { fontStyle: 'bold', halign: 'center', fillColor: [240, 240, 240] } },
+                { content: condTotals.reg.toFixed(2), styles: { fontStyle: 'bold', halign: 'right', fillColor: [240, 240, 240] } },
+                { content: condTotals.pwd.toFixed(2), styles: { fontStyle: 'bold', halign: 'right', fillColor: [240, 240, 240] } },
+                { content: condTotals.sen.toFixed(2), styles: { fontStyle: 'bold', halign: 'right', fillColor: [240, 240, 240] } },
+                { content: condTotals.std.toFixed(2), styles: { fontStyle: 'bold', halign: 'right', fillColor: [240, 240, 240] } },
+                { content: condTotals.rev.toFixed(2), styles: { fontStyle: 'bold', textColor: [0, 124, 145], halign: 'right', fillColor: [240, 240, 240] } }
+            ]);
+
+            return {
+                title: `Conductor: ${conductorId} - Bus #${busNum}`,
+                head: ["Trip #", "Date & Time", "Direction", "Pax", "Reg", "PWD", "Sen", "Std", "Revenue"],
+                body: rows,
+                columnStyles: {
+                    0: { halign: 'center' },
+                    3: { halign: 'center' },
+                    4: { halign: 'right' },
+                    5: { halign: 'right' },
+                    6: { halign: 'right' },
+                    7: { halign: 'right' },
+                    8: { halign: 'right', fontStyle: 'bold', textColor: [0, 124, 145] }
+                }
+            };
+        });
+
+    // 4. Generate PDF
+    generateLandscapePDF({
+        title: "Daily Remittance Report",
+        subtitle: `Period: ${startDate || 'All'} to ${endDate || 'Present'} | Direction: ${selectedTripDirection || 'All'} | Conductor: ${selectedConductor || 'All'}`,
+        fileName: `Remittance_Report_${new Date().toISOString().split('T')[0]}.pdf`,
+        summary: summaryData,
+        tables: [mainTable, ...conductorTables] 
+    });
   };
 
   const handleExportToExcel = async () => {
@@ -941,8 +1097,7 @@ const RemittanceReport = () => {
             </div>
           </div>
 
-          {/* Controls */}
-          <div className="revenue-daily-controls">
+         <div className="revenue-daily-controls">
             <button
               onClick={handleRefresh}
               disabled={loading}
@@ -950,13 +1105,23 @@ const RemittanceReport = () => {
             >
               {loading ? 'Loading...' : 'Refresh'}
             </button>
-            <button
+
+            {/* NEW PDF BUTTON (Replaced Excel) */}
+            <div className="discount-action-bar" style={{width: 'auto', marginBottom: 0}}>
+              <button className="discount-btn-download discount-btn-pdf" onClick={handlePrintPDF} disabled={loading || filteredRemittanceData.length === 0}>
+                <FaPrint size={16} /> 
+                <span>Print to PDF</span>
+              </button>
+            </div>
+
+            {/* <button
               onClick={handleExportToExcel}
               className="revenue-export-btn"
               disabled={loading || filteredRemittanceData.length === 0}
             >
               <PiMicrosoftExcelLogoFill size={20} /> Export to Excel
             </button>
+            */}
           </div>
 
 
